@@ -98,6 +98,63 @@ fn locate_backend_executable(app_handle: &AppHandle) -> Option<PathBuf> {
     None
 }
 
+fn locate_dev_backend() -> Option<(PathBuf, PathBuf)> {
+    let python_candidates = [
+        PathBuf::from("backend/.venv/Scripts/python.exe"),
+        PathBuf::from("../backend/.venv/Scripts/python.exe"),
+        PathBuf::from(".venv/Scripts/python.exe"),
+        PathBuf::from("../.venv/Scripts/python.exe"),
+        PathBuf::from("backend/.venv/bin/python"),
+        PathBuf::from("../backend/.venv/bin/python"),
+        PathBuf::from(".venv/bin/python"),
+        PathBuf::from("../.venv/bin/python"),
+    ];
+
+    let runner_candidates = [
+        PathBuf::from("backend/run_server.py"),
+        PathBuf::from("../backend/run_server.py"),
+    ];
+
+    let selected_python = python_candidates.iter().find(|p| p.exists())?.clone();
+    let selected_runner = runner_candidates.iter().find(|p| p.exists())?.clone();
+
+    Some((selected_python, selected_runner))
+}
+
+fn log_dev_backend_failure() {
+    let cwd = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "UNKNOWN".to_string());
+    eprintln!("[Tauri Supervisor] CRITICAL: Backend executable not found.");
+    eprintln!("[Tauri Supervisor] Diagnostic Telemetry:");
+    eprintln!("  Current Working Directory: {}", cwd);
+    eprintln!("  Checked Python Candidates:");
+    let python_candidates = [
+        "backend/.venv/Scripts/python.exe",
+        "../backend/.venv/Scripts/python.exe",
+        ".venv/Scripts/python.exe",
+        "../.venv/Scripts/python.exe",
+        "backend/.venv/bin/python",
+        "../backend/.venv/bin/python",
+        ".venv/bin/python",
+        "../.venv/bin/python",
+    ];
+    for py in &python_candidates {
+        let exists = Path::new(py).exists();
+        eprintln!("    - {} (exists: {})", py, exists);
+    }
+    eprintln!("  Checked Runner Candidates:");
+    let runner_candidates = [
+        "backend/run_server.py",
+        "../backend/run_server.py",
+    ];
+    for runner in &runner_candidates {
+        let exists = Path::new(runner).exists();
+        eprintln!("    - {} (exists: {})", runner, exists);
+    }
+    eprintln!("  Failure Reason: No viable Python environment or runner script found in search paths.");
+}
+
 fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
     if is_backend_healthy() {
         println!("[Tauri Supervisor] Local backend is already online on port {}", BACKEND_PORT);
@@ -111,11 +168,61 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
         Ok(guard) => Some(guard),
         Err(err) => {
             eprintln!("[Tauri Supervisor] CRITICAL: Failed to create Windows Job Object: {}", err);
-            // On Windows, Job Object failure is logged explicitly
             None
         }
     };
 
+    // In development mode, prefer live dev Python backend
+    #[cfg(debug_assertions)]
+    if let Some((venv_python, run_script)) = locate_dev_backend() {
+        let abs_python = venv_python.canonicalize().unwrap_or(venv_python.clone());
+        let abs_runner = run_script.canonicalize().unwrap_or(run_script.clone());
+        let backend_dir = abs_runner.parent().unwrap_or(Path::new("."));
+
+        println!(
+            "[Tauri Supervisor] Spawning backend via dev venv: {:?} with runner: {:?}",
+            abs_python, abs_runner
+        );
+
+        #[cfg(target_os = "windows")]
+        use std::os::windows::process::CommandExt;
+
+        let mut cmd = Command::new(&abs_python);
+        cmd.arg(&abs_runner);
+        cmd.current_dir(backend_dir);
+
+        #[cfg(target_os = "windows")]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        match cmd.spawn() {
+            Ok(child) => {
+                let pid = child.id();
+                println!("[Tauri Supervisor] Backend spawned via dev venv with PID {}", pid);
+
+                if let Some(ref guard) = job_guard {
+                    if let Err(err) = guard.assign_child(&child) {
+                        eprintln!(
+                            "[Tauri Supervisor] WARNING: Failed to assign backend PID {} to Job Object: {}",
+                            pid, err
+                        );
+                    }
+                }
+
+                let mut state = backend_state.lock().unwrap();
+                state.child_process = Some(child);
+                state.job_guard = job_guard;
+                return;
+            }
+            Err(err) => {
+                eprintln!("[Tauri Supervisor] Failed to spawn backend via dev venv: {}", err);
+            }
+        }
+    }
+
+    // Production / packaged binary location
     if let Some(exe_path) = locate_backend_executable(app_handle) {
         println!("[Tauri Supervisor] Spawning backend binary: {:?}", exe_path);
 
@@ -150,15 +257,34 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
             }
         }
     } else {
-        // Dev fallback: try python venv
-        let venv_python = PathBuf::from("backend/.venv/Scripts/python.exe");
-        let run_script = PathBuf::from("backend/run_server.py");
-        if venv_python.exists() && run_script.exists() {
-            println!("[Tauri Supervisor] Spawning backend via dev venv: {:?}", venv_python);
-            match Command::new(&venv_python).arg(&run_script).spawn() {
+        // Fallback: try locate_dev_backend if in release mode or if packaged binary not found
+        if let Some((venv_python, run_script)) = locate_dev_backend() {
+            let abs_python = venv_python.canonicalize().unwrap_or(venv_python.clone());
+            let abs_runner = run_script.canonicalize().unwrap_or(run_script.clone());
+            let backend_dir = abs_runner.parent().unwrap_or(Path::new("."));
+
+            println!(
+                "[Tauri Supervisor] Spawning fallback backend via dev venv: {:?} with runner: {:?}",
+                abs_python, abs_runner
+            );
+
+            #[cfg(target_os = "windows")]
+            use std::os::windows::process::CommandExt;
+
+            let mut cmd = Command::new(&abs_python);
+            cmd.arg(&abs_runner);
+            cmd.current_dir(backend_dir);
+
+            #[cfg(target_os = "windows")]
+            {
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                cmd.creation_flags(CREATE_NO_WINDOW);
+            }
+
+            match cmd.spawn() {
                 Ok(child) => {
                     let pid = child.id();
-                    println!("[Tauri Supervisor] Backend spawned via venv with PID {}", pid);
+                    println!("[Tauri Supervisor] Backend spawned via dev venv with PID {}", pid);
 
                     if let Some(ref guard) = job_guard {
                         if let Err(err) = guard.assign_child(&child) {
@@ -171,14 +297,16 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
                     state.job_guard = job_guard;
                 }
                 Err(err) => {
-                    eprintln!("[Tauri Supervisor] Failed to spawn backend via venv: {}", err);
+                    eprintln!("[Tauri Supervisor] Failed to spawn backend via dev venv: {}", err);
                 }
             }
         } else {
-            eprintln!("[Tauri Supervisor] Standalone backend binary not found.");
+            log_dev_backend_failure();
         }
     }
+
 }
+
 
 fn terminate_backend(backend_state: &ManagedBackend) {
     let mut state = backend_state.lock().unwrap();
