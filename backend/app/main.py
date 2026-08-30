@@ -1,0 +1,498 @@
+"""FileMind Local Backend Service - Phase 1 Filesystem Engine."""
+
+import os
+import sys
+import time
+import subprocess
+from contextlib import asynccontextmanager
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI, HTTPException, Query, status
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
+from app.core.security import normalize_path
+from app.db.connection import db_manager
+from app.db.repository import Repository
+from app.engine.coordinator import coordinator
+from app.schemas import (
+    ActionRequest,
+    ActionResponse,
+    ActionType,
+    EnumerateRequest,
+    EnumerateResponse,
+    EventListResponse,
+    FileItem,
+    FileListResponse,
+    FolderCreate,
+    FolderResponse,
+    FolderUpdate,
+    HealthResponse,
+    IndexingControlAction,
+    IndexingControlRequest,
+    IndexingControlResponse,
+    IndexingStatusResponse,
+    JobListResponse,
+    SearchRequest,
+    SearchResponse,
+)
+
+PORT = 24823
+HOST = "127.0.0.1"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle manager: initializes database migrations, crash recovery, and worker pool."""
+    coordinator.initialize()
+    yield
+    coordinator.shutdown()
+
+
+app = FastAPI(
+    title="FileMind Backend",
+    description="FileMind Local-First Desktop Service - Phase 1 Filesystem Engine",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# Enable CORS for local webview and dev origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:1420",
+        "http://localhost:5173",
+        "http://127.0.0.1:1420",
+        "http://127.0.0.1:5173",
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "*",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health", response_model=HealthResponse, tags=["Health"])
+def get_health() -> HealthResponse:
+    """Deterministic health check endpoint for Tauri desktop supervisor."""
+    return HealthResponse(
+        status="healthy",
+        service="FileMind Backend",
+        version="0.1.0",
+        port=PORT,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Folders API
+# ---------------------------------------------------------------------------
+
+@app.get("/folders", response_model=List[FolderResponse], tags=["Folders"])
+def list_registered_folders() -> List[FolderResponse]:
+    """Lists all registered folders tracked by FileMind."""
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        folders = repo.list_folders()
+        return [FolderResponse(**f) for f in folders]
+
+
+@app.post("/folders", response_model=FolderResponse, status_code=status.HTTP_201_CREATED, tags=["Folders"])
+def register_folder(payload: FolderCreate) -> FolderResponse:
+    """Registers a new folder for indexing and discovery."""
+    try:
+        norm_path = normalize_path(payload.path)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    if not os.path.exists(norm_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Directory not found: {norm_path}")
+
+    if not os.path.isdir(norm_path):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Path is not a directory: {norm_path}")
+
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        existing = repo.get_folder_by_path(norm_path)
+        if existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Folder is already registered")
+
+        folder = repo.create_folder(
+            path=norm_path,
+            recursive=payload.recursive,
+            integrity_mode=payload.integrity_mode.value,
+            indexing_enabled=payload.indexing_enabled,
+            exclude_patterns=payload.exclude_patterns,
+        )
+
+    # Trigger discovery scan and sync watcher
+    if payload.indexing_enabled:
+        coordinator.scan_single_folder(folder["folder_id"])
+
+    return FolderResponse(**folder)
+
+
+@app.get("/folders/{folder_id}", response_model=FolderResponse, tags=["Folders"])
+def get_folder(folder_id: str) -> FolderResponse:
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        folder = repo.get_folder(folder_id)
+        if not folder:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found")
+        return FolderResponse(**folder)
+
+
+@app.patch("/folders/{folder_id}", response_model=FolderResponse, tags=["Folders"])
+def update_folder(folder_id: str, payload: FolderUpdate) -> FolderResponse:
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        updated = repo.update_folder(
+            folder_id=folder_id,
+            recursive=payload.recursive,
+            integrity_mode=payload.integrity_mode.value if payload.integrity_mode else None,
+            indexing_enabled=payload.indexing_enabled,
+            exclude_patterns=payload.exclude_patterns,
+        )
+        if not updated:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found")
+
+    coordinator.sync_watches()
+    return FolderResponse(**updated)
+
+
+@app.delete("/folders/{folder_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Folders"])
+def delete_folder(folder_id: str):
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        deleted = repo.delete_folder(folder_id)
+        if not deleted:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found")
+
+    coordinator.sync_watches()
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Files API
+# ---------------------------------------------------------------------------
+
+@app.get("/files", response_model=FileListResponse, tags=["Files"])
+def list_files(
+    folder_id: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+) -> FileListResponse:
+    """Lists tracked files with optional status filtering and pagination."""
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        files = repo.list_files(folder_id=folder_id, status=status_filter, limit=limit, offset=offset)
+        counts = repo.count_files_by_status(folder_id=folder_id)
+        total = counts["TOTAL"]
+        return FileListResponse(
+            total=total,
+            files=[FileItem(**f) for f in files],
+        )
+
+
+@app.get("/files/{file_id}", response_model=FileItem, tags=["Files"])
+def get_file(file_id: str) -> FileItem:
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        file_rec = repo.get_file_by_id(file_id)
+        if not file_rec:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+        return FileItem(**file_rec)
+
+
+# ---------------------------------------------------------------------------
+# Indexing & Control API
+# ---------------------------------------------------------------------------
+
+@app.get("/indexing/status", response_model=IndexingStatusResponse, tags=["Indexing"])
+def get_indexing_status() -> IndexingStatusResponse:
+    """Returns live progressive indexing statistics across all folders."""
+    stats = coordinator.get_aggregate_status()
+    return IndexingStatusResponse(**stats)
+
+
+@app.post("/indexing/control", response_model=IndexingControlResponse, tags=["Indexing"])
+def control_indexing(payload: IndexingControlRequest) -> IndexingControlResponse:
+    """Controls the background indexing engine (Start, Pause, Resume, Stop, Rescan)."""
+    action = payload.action
+
+    if action == IndexingControlAction.PAUSE:
+        coordinator.pause_indexing()
+        msg = "Indexing paused"
+    elif action == IndexingControlAction.RESUME:
+        coordinator.resume_indexing()
+        msg = "Indexing resumed"
+    elif action == IndexingControlAction.START:
+        coordinator.resume_indexing()
+        if payload.folder_id:
+            coordinator.scan_single_folder(payload.folder_id)
+        else:
+            coordinator.scan_all_enabled_folders()
+        msg = "Indexing started"
+    elif action == IndexingControlAction.RESCAN:
+        if payload.folder_id:
+            coordinator.scan_single_folder(payload.folder_id, force_strict=True)
+            msg = f"Rescanning folder {payload.folder_id}"
+        else:
+            coordinator.scan_all_enabled_folders()
+            msg = "Rescanning all folders"
+    elif action == IndexingControlAction.STOP:
+        coordinator.pause_indexing()
+        msg = "Indexing stopped"
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown action: {action}")
+
+    current_status = coordinator.get_aggregate_status()
+    return IndexingControlResponse(
+        success=True,
+        action=action.value,
+        message=msg,
+        status=IndexingStatusResponse(**current_status),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Events & Jobs API
+# ---------------------------------------------------------------------------
+
+@app.get("/events", response_model=EventListResponse, tags=["Events"])
+def list_events(folder_id: Optional[str] = None, limit: int = Query(100, ge=1, le=500)) -> EventListResponse:
+    """Returns the normalized filesystem event audit trail."""
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        events = repo.list_events(folder_id=folder_id, limit=limit)
+        return EventListResponse(total=len(events), events=[EventItem(**ev) for ev in events])
+
+
+@app.get("/jobs", response_model=JobListResponse, tags=["Jobs"])
+def list_jobs(status_filter: Optional[str] = Query(None, alias="status"), limit: int = Query(50, ge=1, le=200)) -> JobListResponse:
+    """Returns active and historical indexing jobs."""
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        jobs = repo.list_jobs(status=status_filter, limit=limit)
+        return JobListResponse(total=len(jobs), jobs=[JobItem(**j) for j in jobs])
+
+
+# ---------------------------------------------------------------------------
+# Filesystem Actions & Legacy Smoke-Test
+# ---------------------------------------------------------------------------
+
+@app.post("/fs/action", response_model=ActionResponse, tags=["Filesystem"])
+def execute_safe_action(payload: ActionRequest) -> ActionResponse:
+    """Execute allowlisted, safe, deterministic desktop filesystem actions."""
+    try:
+        target_path = normalize_path(payload.target_path)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    if not os.path.exists(target_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Target path does not exist: {target_path}",
+        )
+
+    action = payload.action
+
+    if action == ActionType.OPEN_FILE:
+        if not os.path.isfile(target_path):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Target is not a regular file: {target_path}",
+            )
+        try:
+            if sys.platform == "win32":
+                os.startfile(target_path)
+            else:
+                subprocess.Popen(["xdg-open", target_path])
+            return ActionResponse(
+                success=True,
+                action=action.value,
+                target_path=target_path,
+                message="File opened with default OS application",
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to open file: {str(exc)}",
+            )
+
+    elif action == ActionType.OPEN_FOLDER:
+        try:
+            if sys.platform == "win32":
+                if os.path.isfile(target_path):
+                    subprocess.Popen(["explorer.exe", f"/select,{target_path}"])
+                else:
+                    os.startfile(target_path)
+            else:
+                parent_dir = target_path if os.path.isdir(target_path) else os.path.dirname(target_path)
+                subprocess.Popen(["xdg-open", parent_dir])
+            return ActionResponse(
+                success=True,
+                action=action.value,
+                target_path=target_path,
+                message="Folder opened in OS file explorer",
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to open folder: {str(exc)}",
+            )
+
+    elif action == ActionType.COPY_PATH:
+        return ActionResponse(
+            success=True,
+            action=action.value,
+            target_path=target_path,
+            message="Canonical path validated successfully",
+        )
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported action: {action}",
+        )
+
+
+@app.post("/fs/enumerate", response_model=EnumerateResponse, tags=["Filesystem"])
+def enumerate_folder(payload: EnumerateRequest) -> EnumerateResponse:
+    """Safe recursive directory scan (Phase 0 legacy endpoint)."""
+    try:
+        folder_path = normalize_path(payload.folder_path)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    if not os.path.exists(folder_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Directory does not exist: {folder_path}")
+
+    if not os.path.isdir(folder_path):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Specified path is not a directory: {folder_path}")
+
+    start_time = time.perf_counter()
+    file_items: List[FileItem] = []
+
+    try:
+        for root, _, files in os.walk(folder_path):
+            for file_name in files:
+                abs_path = os.path.normpath(os.path.join(root, file_name))
+                try:
+                    rel_path = os.path.relpath(abs_path, folder_path)
+                    st = os.stat(abs_path)
+                    from datetime import datetime, timezone
+                    mod_iso = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat()
+                    _, ext = os.path.splitext(file_name)
+                    file_items.append(
+                        FileItem(
+                            relative_path=rel_path,
+                            path=abs_path,
+                            filename=file_name,
+                            size_bytes=st.st_size,
+                            modified_at=mod_iso,
+                            extension=ext.lower(),
+                        )
+                    )
+                except (OSError, PermissionError):
+                    continue
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+
+    scan_duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+    return EnumerateResponse(
+        folder_path=folder_path,
+        file_count=len(file_items),
+        scan_duration_ms=scan_duration_ms,
+        files=file_items,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: Document Intelligence & Chunks API
+# ---------------------------------------------------------------------------
+
+@app.get("/files/{file_id}/chunks", response_model=Dict[str, Any], tags=["Document Intelligence"])
+def get_file_chunks(file_id: str) -> Dict[str, Any]:
+    """Retrieves all generated chunks and provenance records for a file."""
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        file_rec = repo.get_file_by_id(file_id)
+        if not file_rec:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found: {file_id}")
+        chunks = repo.get_chunks_by_file(file_id)
+        return {
+            "total": len(chunks),
+            "file_id": file_id,
+            "filename": file_rec["filename"],
+            "source_path": file_rec["path"],
+            "chunks": chunks,
+        }
+
+
+@app.get("/chunks/{chunk_id}", response_model=Dict[str, Any], tags=["Document Intelligence"])
+def get_chunk_by_id(chunk_id: str) -> Dict[str, Any]:
+    """Retrieves a single chunk by its deterministic chunk_id."""
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        chunk = repo.get_chunk_by_id(chunk_id)
+        if not chunk:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chunk not found: {chunk_id}")
+        return chunk
+
+
+@app.get("/intelligence/status", response_model=Dict[str, Any], tags=["Document Intelligence"])
+def get_document_intelligence_status() -> Dict[str, Any]:
+    """Returns aggregate document intelligence statistics (chunks, parsed files, failures)."""
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        return repo.get_document_intelligence_stats()
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Retrieval API
+# ---------------------------------------------------------------------------
+
+@app.post("/search", response_model=SearchResponse, tags=["Retrieval"])
+def search_evidence(req: SearchRequest) -> SearchResponse:
+    """
+    Local hybrid evidence retrieval endpoint.
+    Combines BM25 lexical ranking and dense vector similarity using Reciprocal Rank Fusion (RRF).
+    """
+    filters = {}
+    if req.folder_id:
+        filters["folder_id"] = req.folder_id
+    if req.extension:
+        filters["extension"] = req.extension
+    if req.file_id:
+        filters["file_id"] = req.file_id
+
+    with db_manager.session() as conn:
+        from app.retrieval.hybrid import HybridRetriever
+        retriever = HybridRetriever(conn)
+        resp = retriever.search(
+            query=req.query,
+            top_k=req.top_k,
+            filters=filters,
+            mode=req.mode,
+        )
+        return SearchResponse(**resp)
+
+
+def start():
+    """Main entrypoint for running the backend service."""
+    uvicorn.run(
+        app,
+        host=HOST,
+        port=PORT,
+        log_level="info",
+        access_log=False,
+    )
+
+
+if __name__ == "__main__":
+    start()
+

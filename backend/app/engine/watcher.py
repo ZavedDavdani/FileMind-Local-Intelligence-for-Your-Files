@@ -1,0 +1,473 @@
+"""Filesystem watcher with event normalization, debouncing, and deduplication."""
+
+import logging
+import os
+import threading
+import time
+from typing import Any, Callable, Dict, List, Optional
+
+from watchdog.events import (
+    FileSystemEvent,
+    FileSystemEventHandler,
+    FileCreatedEvent,
+    FileModifiedEvent,
+    FileDeletedEvent,
+    FileMovedEvent,
+    DirCreatedEvent,
+    DirModifiedEvent,
+    DirDeletedEvent,
+    DirMovedEvent,
+)
+from watchdog.observers import Observer
+
+from app.core.exclusions import ExclusionMatcher
+from app.core.security import normalize_path
+from app.db.connection import DatabaseManager
+from app.db.repository import Repository
+
+logger = logging.getLogger("FileMind.Watcher")
+
+
+def is_subpath(child_path: str, parent_path: str) -> bool:
+    """Returns True if child_path is equal to or strictly inside parent_path (case-insensitive)."""
+    norm_child = normalize_path(child_path).replace("\\", "/").rstrip("/").lower()
+    norm_parent = normalize_path(parent_path).replace("\\", "/").rstrip("/").lower()
+    if norm_child == norm_parent:
+        return True
+    return norm_child.startswith(norm_parent + "/")
+
+
+class DebouncedEventManager:
+    """Coalesces rapid duplicate filesystem notifications and directory cascades within a sliding window."""
+
+    def __init__(
+        self,
+        debounce_window_sec: float = 0.5,
+        on_flush: Optional[Callable[[Dict[str, Any]], None]] = None,
+        on_flush_batch: Optional[Callable[[List[Dict[str, Any]]], None]] = None,
+    ):
+        self.debounce_window_sec = debounce_window_sec
+        self.on_flush = on_flush
+        self.on_flush_batch = on_flush_batch
+        self._pending_events: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
+        self._timer: Optional[threading.Timer] = None
+
+    def push_event(self, event_data: Dict[str, Any]):
+        path = event_data["path"]
+        event_type = event_data["event_type"]
+        is_directory = event_data.get("is_directory", False)
+
+        with self._lock:
+            if is_directory and event_type == "DELETE":
+                # 1. Prune all existing pending child events under this deleted directory subtree
+                keys_to_purge = [
+                    k for k in self._pending_events
+                    if is_subpath(k, path)
+                ]
+                for k in keys_to_purge:
+                    del self._pending_events[k]
+
+                # 2. Check if an existing pending directory delete already covers this path
+                already_covered = any(
+                    ev.get("is_directory") and ev["event_type"] == "DELETE" and is_subpath(path, ev["path"])
+                    for ev in self._pending_events.values()
+                )
+                if not already_covered:
+                    self._pending_events[path] = event_data
+
+            elif is_directory and event_type in ("MOVE", "RENAME"):
+                old_path = event_data.get("old_path")
+                if old_path:
+                    keys_to_purge = [
+                        k for k in self._pending_events
+                        if is_subpath(k, old_path)
+                    ]
+                    for k in keys_to_purge:
+                        del self._pending_events[k]
+                self._pending_events[path] = event_data
+
+            elif not is_directory and event_type in ("MOVE", "RENAME"):
+                # If a pending directory move covers this child file, suppress redundant child move!
+                old_p = event_data.get("old_path", "")
+                already_covered = any(
+                    ev.get("is_directory") and ev["event_type"] in ("MOVE", "RENAME")
+                    and ev.get("old_path") and is_subpath(old_p, ev["old_path"])
+                    for ev in self._pending_events.values()
+                )
+                if not already_covered:
+                    self._pending_events[path] = event_data
+
+            elif not is_directory and event_type == "DELETE":
+                # Check if a pending directory delete already covers this child file
+                already_covered = any(
+                    ev.get("is_directory") and ev["event_type"] == "DELETE" and is_subpath(path, ev["path"])
+                    for ev in self._pending_events.values()
+                )
+                if not already_covered:
+                    self._pending_events[path] = event_data
+
+            else:
+                # Standard file-level debouncing
+                if path in self._pending_events:
+                    existing = self._pending_events[path]
+                    prev_type = existing["event_type"]
+
+                    if prev_type == "CREATE" and event_type == "MODIFY":
+                        existing["observed_at"] = event_data["observed_at"]
+                    else:
+                        self._pending_events[path] = event_data
+                else:
+                    self._pending_events[path] = event_data
+
+            self._reset_timer()
+
+    def _reset_timer(self):
+        if self._timer:
+            self._timer.cancel()
+        self._timer = threading.Timer(self.debounce_window_sec, self._flush)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def flush(self):
+        """Immediately flushes all pending debounced events synchronously."""
+        if self._timer:
+            self._timer.cancel()
+            self._timer = None
+        self._flush()
+
+    def _flush(self):
+        with self._lock:
+            events_to_process = list(self._pending_events.values())
+            self._pending_events.clear()
+
+        if self.on_flush_batch:
+            try:
+                self.on_flush_batch(events_to_process)
+            except Exception as exc:
+                logger.error("Error flushing debounced event batch: %s", str(exc))
+        elif self.on_flush:
+            for ev in events_to_process:
+                try:
+                    self.on_flush(ev)
+                except Exception as exc:
+                    logger.error("Error flushing debounced event: %s", str(exc))
+
+
+class FolderWatchHandler(FileSystemEventHandler):
+    """Translates raw watchdog events into normalized FileMind logical events."""
+
+    def __init__(
+        self,
+        folder_id: str,
+        folder_path: str,
+        exclude_patterns: list,
+        debouncer: DebouncedEventManager,
+    ):
+        super().__init__()
+        self.folder_id = folder_id
+        self.folder_path = folder_path
+        self.matcher = ExclusionMatcher(exclude_patterns)
+        self.debouncer = debouncer
+
+    def _should_ignore(self, path: str, is_dir: bool = False) -> bool:
+        try:
+            rel = os.path.relpath(path, self.folder_path)
+            if is_dir:
+                name = os.path.basename(path)
+                return self.matcher.is_directory_excluded(name, rel)
+            else:
+                name = os.path.basename(path)
+                return self.matcher.is_file_excluded(name, rel)
+        except Exception:
+            return True
+
+    def on_created(self, event: FileSystemEvent):
+        if event.is_directory or self._should_ignore(event.src_path, is_dir=event.is_directory):
+            return
+        self.debouncer.push_event({
+            "folder_id": self.folder_id,
+            "event_type": "CREATE",
+            "path": normalize_path(event.src_path),
+            "old_path": None,
+            "is_directory": False,
+            "observed_at": time.time(),
+        })
+
+    def on_modified(self, event: FileSystemEvent):
+        if event.is_directory or self._should_ignore(event.src_path, is_dir=event.is_directory):
+            return
+        self.debouncer.push_event({
+            "folder_id": self.folder_id,
+            "event_type": "MODIFY",
+            "path": normalize_path(event.src_path),
+            "old_path": None,
+            "is_directory": False,
+            "observed_at": time.time(),
+        })
+
+    def on_deleted(self, event: FileSystemEvent):
+        if event.is_directory:
+            if self._should_ignore(event.src_path, is_dir=True):
+                return
+            self.debouncer.push_event({
+                "folder_id": self.folder_id,
+                "event_type": "DELETE",
+                "path": normalize_path(event.src_path),
+                "old_path": None,
+                "is_directory": True,
+                "observed_at": time.time(),
+            })
+        else:
+            if self._should_ignore(event.src_path, is_dir=False):
+                return
+            self.debouncer.push_event({
+                "folder_id": self.folder_id,
+                "event_type": "DELETE",
+                "path": normalize_path(event.src_path),
+                "old_path": None,
+                "is_directory": False,
+                "observed_at": time.time(),
+            })
+
+    def on_moved(self, event: FileMovedEvent):
+        if event.is_directory:
+            src_ignored = self._should_ignore(event.src_path, is_dir=True)
+            dest_ignored = self._should_ignore(event.dest_path, is_dir=True)
+
+            if src_ignored and dest_ignored:
+                return
+            elif not src_ignored and dest_ignored:
+                # Moved to ignored location -> DELETE directory
+                self.debouncer.push_event({
+                    "folder_id": self.folder_id,
+                    "event_type": "DELETE",
+                    "path": normalize_path(event.src_path),
+                    "old_path": None,
+                    "is_directory": True,
+                    "observed_at": time.time(),
+                })
+            else:
+                # Valid directory move / rename
+                old_p = normalize_path(event.src_path)
+                new_p = normalize_path(event.dest_path)
+                is_same_dir = os.path.dirname(old_p) == os.path.dirname(new_p)
+                self.debouncer.push_event({
+                    "folder_id": self.folder_id,
+                    "event_type": "RENAME" if is_same_dir else "MOVE",
+                    "path": new_p,
+                    "old_path": old_p,
+                    "is_directory": True,
+                    "observed_at": time.time(),
+                })
+            return
+
+        src_ignored = self._should_ignore(event.src_path, is_dir=False)
+        dest_ignored = self._should_ignore(event.dest_path, is_dir=False)
+
+        if src_ignored and dest_ignored:
+            return
+        elif src_ignored and not dest_ignored:
+            # Appeared from ignored location -> CREATE
+            self.debouncer.push_event({
+                "folder_id": self.folder_id,
+                "event_type": "CREATE",
+                "path": normalize_path(event.dest_path),
+                "old_path": None,
+                "is_directory": False,
+                "observed_at": time.time(),
+            })
+        elif not src_ignored and dest_ignored:
+            # Moved to ignored location -> DELETE
+            self.debouncer.push_event({
+                "folder_id": self.folder_id,
+                "event_type": "DELETE",
+                "path": normalize_path(event.src_path),
+                "old_path": None,
+                "is_directory": False,
+                "observed_at": time.time(),
+            })
+        else:
+            # True RENAME / MOVE
+            old_p = normalize_path(event.src_path)
+            new_p = normalize_path(event.dest_path)
+            is_same_dir = os.path.dirname(old_p) == os.path.dirname(new_p)
+            self.debouncer.push_event({
+                "folder_id": self.folder_id,
+                "event_type": "RENAME" if is_same_dir else "MOVE",
+                "path": new_p,
+                "old_path": old_p,
+                "is_directory": False,
+                "observed_at": time.time(),
+            })
+
+
+class WatcherService:
+    """Manages active filesystem observers across all registered folders."""
+
+    def __init__(self, db_manager: DatabaseManager, on_normalized_event: Optional[Callable[[Dict[str, Any]], None]] = None):
+        self.db = db_manager
+        self.on_normalized_event = on_normalized_event
+        self.debouncer = DebouncedEventManager(debounce_window_sec=0.5, on_flush_batch=self._handle_flushed_batch)
+        self.observer: Optional[Observer] = None
+        self.watches: Dict[str, Any] = {}
+        self._lock = threading.Lock()
+
+    def start(self):
+        with self._lock:
+            if self.observer and self.observer.is_alive():
+                return
+            self.observer = Observer()
+            self.observer.daemon = True
+            self.observer.start()
+            self._sync_watches()
+        logger.info("WatcherService started")
+
+    def stop(self):
+        with self._lock:
+            if self.observer:
+                self.observer.stop()
+                self.observer.join(timeout=2.0)
+                self.observer = None
+            self.watches.clear()
+        self.debouncer.flush()
+        logger.info("WatcherService stopped")
+
+    def sync_watches(self):
+        """Synchronizes watchdog monitors with folders table in SQLite."""
+        with self._lock:
+            self._sync_watches()
+
+    def _sync_watches(self):
+        if not self.observer or not self.observer.is_alive():
+            return
+
+        with self.db.session() as conn:
+            repo = Repository(conn)
+            folders = repo.list_folders()
+
+        active_folder_ids = set()
+        for f in folders:
+            fid = f["folder_id"]
+            fpath = f["path"]
+            is_enabled = f["indexing_enabled"]
+            is_rec = f["recursive"]
+            patterns = f["exclude_patterns"]
+
+            if is_enabled and os.path.exists(fpath) and os.path.isdir(fpath):
+                active_folder_ids.add(fid)
+                if fid not in self.watches:
+                    handler = FolderWatchHandler(fid, fpath, patterns, self.debouncer)
+                    watch = self.observer.schedule(handler, fpath, recursive=is_rec)
+                    self.watches[fid] = watch
+                    logger.info("Watching folder: %s (recursive=%s)", fpath, is_rec)
+
+        # Remove watches for removed/disabled folders
+        for fid in list(self.watches.keys()):
+            if fid not in active_folder_ids:
+                watch = self.watches.pop(fid)
+                try:
+                    self.observer.unschedule(watch)
+                    logger.info("Unscheduled watch for folder %s", fid)
+                except Exception:
+                    pass
+
+    def _handle_flushed_batch(self, events: List[Dict[str, Any]]):
+        """Processes a batch of normalized events inside a single atomic SQLite transaction."""
+        if not events:
+            return
+
+        with self.db.session() as conn:
+            repo = Repository(conn)
+
+            for event_data in events:
+                folder_id = event_data["folder_id"]
+                event_type = event_data["event_type"]
+                path = event_data["path"]
+                old_path = event_data.get("old_path")
+                is_directory = event_data.get("is_directory", False)
+
+                # Log event in audit table
+                repo.log_event(
+                    folder_id=folder_id,
+                    event_type=event_type,
+                    path=path,
+                    old_path=old_path,
+                    status="PROCESSED",
+                )
+
+                folder = repo.get_folder(folder_id)
+                if not folder or not folder["indexing_enabled"]:
+                    continue
+
+                if is_directory:
+                    if event_type == "DELETE":
+                        # Atomic subtree deletion: mark all files under directory missing and cancel pending jobs
+                        # Handle recreate race: only proceed if directory no longer exists on disk
+                        if not os.path.exists(path):
+                            repo.mark_directory_missing(folder_id=folder_id, dir_path=path)
+
+                    elif event_type in ("MOVE", "RENAME"):
+                        if old_path and os.path.exists(path):
+                            repo.rename_directory_path(
+                                folder_id=folder_id,
+                                old_dir_path=old_path,
+                                new_dir_path=path,
+                                root_folder_path=folder["path"]
+                            )
+                    continue
+
+                if event_type in ("CREATE", "MODIFY"):
+                    if os.path.exists(path) and os.path.isfile(path):
+                        st = os.stat(path)
+                        filename = os.path.basename(path)
+                        _, ext = os.path.splitext(filename)
+                        rel = os.path.relpath(path, folder["path"]).replace("\\", "/")
+                        from datetime import datetime, timezone
+                        mod_iso = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat()
+                        
+                        file_rec = repo.upsert_file(
+                            folder_id=folder_id,
+                            path=path,
+                            relative_path=rel,
+                            filename=filename,
+                            extension=ext.lower(),
+                            size_bytes=st.st_size,
+                            modified_at=mod_iso,
+                            index_status="QUEUED",
+                        )
+                        repo.enqueue_job(
+                            file_id=file_rec["file_id"],
+                            folder_id=folder_id,
+                            job_type="HASH_VERIFICATION",
+                            priority=3,
+                        )
+
+                elif event_type == "DELETE":
+                    file_rec = repo.get_file_by_path(path)
+                    if file_rec:
+                        repo.mark_file_missing(path)
+                        repo.cancel_pending_jobs_for_file(file_rec["file_id"])
+
+                elif event_type in ("RENAME", "MOVE"):
+                    if old_path and os.path.exists(path):
+                        file_rec = repo.get_file_by_path(old_path)
+                        if file_rec:
+                            filename = os.path.basename(path)
+                            _, ext = os.path.splitext(filename)
+                            rel = os.path.relpath(path, folder["path"]).replace("\\", "/")
+                            repo.rename_file_path(old_path, path, rel, filename, ext.lower())
+                            repo.enqueue_job(
+                                file_id=file_rec["file_id"],
+                                folder_id=folder_id,
+                                job_type="HASH_VERIFICATION",
+                                priority=2,
+                            )
+
+        if self.on_normalized_event:
+            for ev in events:
+                try:
+                    self.on_normalized_event(ev)
+                except Exception:
+                    pass
+

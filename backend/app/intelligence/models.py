@@ -1,0 +1,97 @@
+"""Normalized Document Model for FileMind Document Intelligence.
+
+Provides a parser-independent internal representation preserving
+hierarchical structure (H1/H2 headings), paragraphs, lists, tables,
+code fences, and precise source-location metadata (page numbers, line numbers, character spans).
+"""
+
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+
+class ElementType(str, Enum):
+    HEADING = "HEADING"
+    PARAGRAPH = "PARAGRAPH"
+    LIST_ITEM = "LIST_ITEM"
+    TABLE = "TABLE"
+    CODE_BLOCK = "CODE_BLOCK"
+    PAGE_BREAK = "PAGE_BREAK"
+
+
+@dataclass
+class TableData:
+    """Structured representation of table cells."""
+    headers: List[str] = field(default_factory=list)
+    rows: List[List[str]] = field(default_factory=list)
+    caption: Optional[str] = None
+
+    def to_markdown(self) -> str:
+        """Renders table as clean GitHub Flavored Markdown."""
+        lines = []
+        if self.caption:
+            lines.append(f"**Table: {self.caption}**\n")
+
+        if self.headers:
+            header_row = "| " + " | ".join(str(h).replace("\n", " ").strip() for h in self.headers) + " |"
+            separator = "| " + " | ".join("---" for _ in self.headers) + " |"
+            lines.append(header_row)
+            lines.append(separator)
+
+        for row in self.rows:
+            # Ensure row length matches headers if present
+            row_cells = [str(c).replace("\n", " ").strip() for c in row]
+            if self.headers and len(row_cells) < len(self.headers):
+                row_cells.extend([""] * (len(self.headers) - len(row_cells)))
+            lines.append("| " + " | ".join(row_cells) + " |")
+
+        return "\n".join(lines)
+
+
+@dataclass
+class DocumentElement:
+    """Individual structural element within a document."""
+    element_id: str
+    element_type: ElementType
+    text: str
+    page_number: Optional[int] = None
+    line_start: Optional[int] = None
+    line_end: Optional[int] = None
+    char_start: Optional[int] = None
+    char_end: Optional[int] = None
+    level: Optional[int] = None  # Heading level: 1 (H1), 2 (H2), 3 (H3), etc.
+    table_data: Optional[TableData] = None
+    language: Optional[str] = None  # For CODE_BLOCK
+    parent_heading_id: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Document:
+    """Parser-independent normalized document container."""
+    file_id: str
+    source_path: str
+    filename: str
+    mime_type: str
+    title: Optional[str] = None
+    total_pages: Optional[int] = None
+    elements: List[DocumentElement] = field(default_factory=list)
+    parser_name: str = "unknown"
+    parser_version: str = "1.0.0"
+    quality_assessment: Optional[Any] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def full_text(self) -> str:
+        """Concatenated text of all elements."""
+        return "\n\n".join(e.text for e in self.elements if e.text.strip())
+
+    @property
+    def headings(self) -> List[DocumentElement]:
+        """Returns all heading elements."""
+        return [e for e in self.elements if e.element_type == ElementType.HEADING]
+
+    @property
+    def tables(self) -> List[DocumentElement]:
+        """Returns all table elements."""
+        return [e for e in self.elements if e.element_type == ElementType.TABLE]

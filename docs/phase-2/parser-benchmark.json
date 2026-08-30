@@ -1,0 +1,128 @@
+{
+  "metadata": {
+    "benchmark_date": "2026-08-30T07:45:30.820631+00:00",
+    "corpus_version": "phase2-structural-corpus-v1",
+    "num_runs": 5,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python_version": "3.11.0",
+    "file_count": 8,
+    "total_bytes": 76960,
+    "peak_rss_mb": 92.36
+  },
+  "pdf_comparison": {
+    "candidate_a_pymupdf": {
+      "parser_name": "pymupdf-parser",
+      "parser_version": "1.0.0",
+      "latency_ms": {
+        "median": 48.89,
+        "min": 26.12,
+        "max": 56.2,
+        "runs": [
+          56.2,
+          50.18,
+          48.89,
+          36.87,
+          26.12
+        ]
+      },
+      "headings_preserved": 4,
+      "tables_preserved": 1,
+      "elements_total": 12,
+      "chunks_total": 5
+    },
+    "candidate_b_pypdf": {
+      "parser_name": "pypdf-parser",
+      "parser_version": "1.0.0",
+      "latency_ms": {
+        "median": 12.17,
+        "min": 6.82,
+        "max": 16.44,
+        "runs": [
+          16.44,
+          12.17,
+          12.49,
+          6.82,
+          6.97
+        ]
+      },
+      "headings_preserved": 0,
+      "tables_preserved": 0,
+      "elements_total": 2,
+      "chunks_total": 1
+    }
+  },
+  "format_latencies_ms": {
+    "pdf_pymupdf": {
+      "median": 48.89,
+      "min": 26.12,
+      "max": 56.2,
+      "runs": [
+        56.2,
+        50.18,
+        48.89,
+        36.87,
+        26.12
+      ]
+    },
+    "docx": {
+      "median": 29.69,
+      "min": 18.63,
+      "max": 40.94,
+      "runs": [
+        33.62,
+        40.94,
+        29.69,
+        18.63,
+        22.78
+      ]
+    },
+    "pptx": {
+      "median": 17.37,
+      "min": 8.78,
+      "max": 29.33,
+      "runs": [
+        8.78,
+        29.33,
+        20.05,
+        17.36,
+        17.37
+      ]
+    },
+    "markdown": {
+      "median": 0.77,
+      "min": 0.42,
+      "max": 1.08,
+      "runs": [
+        0.67,
+        1.08,
+        0.84,
+        0.42,
+        0.77
+      ]
+    },
+    "xlsx": {
+      "median": 9.16,
+      "min": 5.32,
+      "max": 11.97,
+      "runs": [
+        9.2,
+        11.97,
+        7.26,
+        5.32,
+        9.16
+      ]
+    }
+  },
+  "hierarchical_chunking_latency_ms": {
+    "median": 0.74,
+    "min": 0.47,
+    "max": 4.48,
+    "runs": [
+      4.48,
+      1.14,
+      0.74,
+      0.47,
+      0.64
+    ]
+  }
+}

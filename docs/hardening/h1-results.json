@@ -1,0 +1,39 @@
+{
+  "hardening_task": "H1_WINDOWS_JOB_OBJECT_LIFECYCLE",
+  "status": "PASS",
+  "timestamp": "2026-08-30T13:36:38Z",
+  "job_object_configured": true,
+  "limit_flags": "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE (0x00002000)",
+  "exact_pid_assignment": true,
+  "scenarios": {
+    "scenario_a_graceful_close": {
+      "parent_pid": 20696,
+      "child_pid": 10672,
+      "in_job_object": true,
+      "backend_terminated": true,
+      "port_released": true,
+      "port_release_latency_ms": 306.99
+    },
+    "scenario_b_forced_parent_kill": {
+      "parent_pid": 12336,
+      "child_pid": 14168,
+      "in_job_object": true,
+      "forced_kill_parent": true,
+      "job_object_child_kill_verified": true,
+      "child_termination_latency_ms": 100.41,
+      "port_released": true,
+      "port_release_latency_ms": 301.41
+    },
+    "scenario_c_relaunch_health": {
+      "parent_pid": 5168,
+      "child_pid": 16444,
+      "relaunch_health_status": "healthy",
+      "relaunch_success": true
+    }
+  },
+  "safety_audit": {
+    "no_name_based_kills": true,
+    "exact_pid_isolation": true,
+    "zero_orphan_processes": true
+  }
+}

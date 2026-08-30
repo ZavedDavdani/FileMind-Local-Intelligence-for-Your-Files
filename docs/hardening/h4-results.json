@@ -1,0 +1,341 @@
+{
+  "hardening_task": "H4_SQLITE_WAL_OBSERVABILITY_AND_CONCURRENCY",
+  "status": "PASS",
+  "timestamp": "2026-08-30T12:40:00Z",
+  "environment": {
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.0",
+    "sqlite_version": "3.38.4",
+    "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel"
+  },
+  "sqlite_configuration": {
+    "journal_mode": "WAL",
+    "synchronous": "NORMAL",
+    "busy_timeout_ms": 10000,
+    "foreign_keys": "ON",
+    "connection_model": "Context-managed short-lived sessions (DatabaseManager.session())",
+    "embedding_decoupling": "Decoupled (CPU embeddings computed outside SQLite transactions)"
+  },
+  "benchmark_summary": {
+    "runs_count": 5,
+    "items_per_run": 2500,
+    "total_items_indexed_across_runs": 12500,
+    "write_latency_ms": {
+      "median": 7.91,
+      "median_range": [
+        7.339,
+        8.257
+      ],
+      "p95": 53.434
+    },
+    "fts5_read_latency_ms": {
+      "median": 3.815,
+      "median_range": [
+        3.634,
+        3.897
+      ],
+      "p95": 28.22
+    },
+    "metadata_read_latency_ms": {
+      "median": 3.846,
+      "median_range": [
+        3.762,
+        4.067
+      ]
+    },
+    "vector_search_latency_ms": {
+      "median": 10.051,
+      "median_range": [
+        9.874,
+        10.688
+      ]
+    },
+    "wal_peak_bytes_median": 10732632,
+    "wal_peak_mb_median": 10.24,
+    "checkpoint_duration_ms_median": 4.283,
+    "starvation_observed": false,
+    "production_change_required": false
+  },
+  "all_runs": [
+    {
+      "run": 1,
+      "workload": {
+        "total_items_written": 2500,
+        "total_reads_executed": 3813,
+        "elapsed_sec": 19.93,
+        "write_throughput_items_sec": 125.43
+      },
+      "wal_metrics": {
+        "db_initial_bytes": 131072,
+        "db_final_bytes": 8486912,
+        "wal_max_bytes": 12520712,
+        "wal_final_bytes": 0,
+        "checkpoint": {
+          "busy": 0,
+          "log_frames": 0,
+          "checkpointed_frames": 0,
+          "duration_ms": 3.863
+        }
+      },
+      "latencies_ms": {
+        "fts5_read": {
+          "min": 1.317,
+          "median": 3.897,
+          "p95": 32.985,
+          "max": 120.829,
+          "count": 1271
+        },
+        "metadata_read": {
+          "min": 1.227,
+          "median": 3.915,
+          "p95": 14.95,
+          "max": 127.868,
+          "count": 1271
+        },
+        "vector_read": {
+          "min": 3.463,
+          "median": 10.05,
+          "p95": 28.876,
+          "max": 143.998,
+          "count": 1271
+        },
+        "write_transaction": {
+          "min": 2.183,
+          "median": 8.099,
+          "p95": 55.75,
+          "max": 167.497,
+          "count": 2500
+        }
+      },
+      "resources": {
+        "cpu_percent_median": 199.5,
+        "rss_mb_median": 177.7,
+        "rss_mb_max": 182.1
+      }
+    },
+    {
+      "run": 2,
+      "workload": {
+        "total_items_written": 2500,
+        "total_reads_executed": 3765,
+        "elapsed_sec": 19.24,
+        "write_throughput_items_sec": 129.95
+      },
+      "wal_metrics": {
+        "db_initial_bytes": 131072,
+        "db_final_bytes": 8503296,
+        "wal_max_bytes": 8779752,
+        "wal_final_bytes": 0,
+        "checkpoint": {
+          "busy": 0,
+          "log_frames": 0,
+          "checkpointed_frames": 0,
+          "duration_ms": 4.32
+        }
+      },
+      "latencies_ms": {
+        "fts5_read": {
+          "min": 1.437,
+          "median": 3.634,
+          "p95": 28.22,
+          "max": 81.734,
+          "count": 1255
+        },
+        "metadata_read": {
+          "min": 1.339,
+          "median": 3.846,
+          "p95": 18.164,
+          "max": 70.91,
+          "count": 1255
+        },
+        "vector_read": {
+          "min": 3.897,
+          "median": 10.051,
+          "p95": 33.628,
+          "max": 69.415,
+          "count": 1255
+        },
+        "write_transaction": {
+          "min": 2.073,
+          "median": 7.556,
+          "p95": 53.962,
+          "max": 162.671,
+          "count": 2500
+        }
+      },
+      "resources": {
+        "cpu_percent_median": 199.5,
+        "rss_mb_median": 178.9,
+        "rss_mb_max": 182.5
+      }
+    },
+    {
+      "run": 3,
+      "workload": {
+        "total_items_written": 2500,
+        "total_reads_executed": 3849,
+        "elapsed_sec": 19.95,
+        "write_throughput_items_sec": 125.3
+      },
+      "wal_metrics": {
+        "db_initial_bytes": 131072,
+        "db_final_bytes": 8482816,
+        "wal_max_bytes": 10732632,
+        "wal_final_bytes": 0,
+        "checkpoint": {
+          "busy": 0,
+          "log_frames": 0,
+          "checkpointed_frames": 0,
+          "duration_ms": 4.283
+        }
+      },
+      "latencies_ms": {
+        "fts5_read": {
+          "min": 1.336,
+          "median": 3.761,
+          "p95": 31.867,
+          "max": 144.898,
+          "count": 1283
+        },
+        "metadata_read": {
+          "min": 1.32,
+          "median": 3.816,
+          "p95": 15.758,
+          "max": 59.268,
+          "count": 1283
+        },
+        "vector_read": {
+          "min": 3.378,
+          "median": 10.188,
+          "p95": 30.611,
+          "max": 152.058,
+          "count": 1283
+        },
+        "write_transaction": {
+          "min": 2.075,
+          "median": 7.91,
+          "p95": 53.434,
+          "max": 220.91,
+          "count": 2500
+        }
+      },
+      "resources": {
+        "cpu_percent_median": 199.5,
+        "rss_mb_median": 178.8,
+        "rss_mb_max": 182.9
+      }
+    },
+    {
+      "run": 4,
+      "workload": {
+        "total_items_written": 2500,
+        "total_reads_executed": 3738,
+        "elapsed_sec": 19.34,
+        "write_throughput_items_sec": 129.26
+      },
+      "wal_metrics": {
+        "db_initial_bytes": 131072,
+        "db_final_bytes": 8495104,
+        "wal_max_bytes": 15070992,
+        "wal_final_bytes": 0,
+        "checkpoint": {
+          "busy": 0,
+          "log_frames": 0,
+          "checkpointed_frames": 0,
+          "duration_ms": 4.332
+        }
+      },
+      "latencies_ms": {
+        "fts5_read": {
+          "min": 1.355,
+          "median": 3.815,
+          "p95": 28.183,
+          "max": 159.956,
+          "count": 1246
+        },
+        "metadata_read": {
+          "min": 1.012,
+          "median": 3.762,
+          "p95": 19.555,
+          "max": 67.873,
+          "count": 1246
+        },
+        "vector_read": {
+          "min": 2.936,
+          "median": 9.874,
+          "p95": 28.454,
+          "max": 154.539,
+          "count": 1246
+        },
+        "write_transaction": {
+          "min": 2.039,
+          "median": 7.339,
+          "p95": 53.038,
+          "max": 180.696,
+          "count": 2500
+        }
+      },
+      "resources": {
+        "cpu_percent_median": 199.5,
+        "rss_mb_median": 179.1,
+        "rss_mb_max": 183.2
+      }
+    },
+    {
+      "run": 5,
+      "workload": {
+        "total_items_written": 2500,
+        "total_reads_executed": 3771,
+        "elapsed_sec": 19.9,
+        "write_throughput_items_sec": 125.62
+      },
+      "wal_metrics": {
+        "db_initial_bytes": 131072,
+        "db_final_bytes": 8466432,
+        "wal_max_bytes": 8701472,
+        "wal_final_bytes": 0,
+        "checkpoint": {
+          "busy": 0,
+          "log_frames": 0,
+          "checkpointed_frames": 0,
+          "duration_ms": 3.143
+        }
+      },
+      "latencies_ms": {
+        "fts5_read": {
+          "min": 1.432,
+          "median": 3.879,
+          "p95": 23.961,
+          "max": 85.745,
+          "count": 1257
+        },
+        "metadata_read": {
+          "min": 1.197,
+          "median": 4.067,
+          "p95": 16.549,
+          "max": 51.004,
+          "count": 1257
+        },
+        "vector_read": {
+          "min": 3.337,
+          "median": 10.688,
+          "p95": 35.131,
+          "max": 140.65,
+          "count": 1257
+        },
+        "write_transaction": {
+          "min": 2.088,
+          "median": 8.257,
+          "p95": 52.855,
+          "max": 137.258,
+          "count": 2500
+        }
+      },
+      "resources": {
+        "cpu_percent_median": 199.5,
+        "rss_mb_median": 179.2,
+        "rss_mb_max": 183.3
+      }
+    }
+  ]
+}

@@ -1,0 +1,1648 @@
+{
+  "benchmark_timestamp": "2026-08-30T10:55:00Z",
+  "corpus_version": "phase3-benchmark-corpus-v1",
+  "dataset_version": "phase3-eval-v1.0",
+  "total_benchmark_queries": 28,
+  "active_evaluated_queries": 25,
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2 (dim=384)",
+  "vector_store": "sqlite-vec (vec0)",
+  "lexical_engine": "SQLite FTS5 (unicode61)",
+  "modes_comparison": {
+    "bm25": {
+      "recall_at_5": 0.4933,
+      "recall_at_10": 0.4933,
+      "mrr": 0.56,
+      "ndcg_at_10": 0.509,
+      "median_latency_ms": 0.134,
+      "min_latency_ms": 0.042,
+      "max_latency_ms": 0.812
+    },
+    "dense": {
+      "recall_at_5": 0.8613,
+      "recall_at_10": 0.9113,
+      "mrr": 0.8393,
+      "ndcg_at_10": 0.8263,
+      "median_latency_ms": 15.646,
+      "min_latency_ms": 14.245,
+      "max_latency_ms": 19.169
+    },
+    "hybrid": {
+      "recall_at_5": 0.9153,
+      "recall_at_10": 0.9733,
+      "mrr": 0.9433,
+      "ndcg_at_10": 0.9356,
+      "median_latency_ms": 17.043,
+      "min_latency_ms": 15.092,
+      "max_latency_ms": 23.037
+    }
+  },
+  "stage_latency_breakdown_ms": {
+    "normalization": 0.046,
+    "lexical_search": 0.267,
+    "query_embedding": 14.347,
+    "dense_search": 2.159,
+    "rrf_fusion": 0.135,
+    "total_request": 17.101
+  },
+  "rrf_sensitivity_tuning": {
+    "k_20": {
+      "k": 20,
+      "recall_at_5": 0.9153,
+      "recall_at_10": 0.9733,
+      "mrr": 0.9433,
+      "ndcg_at_10": 0.9356
+    },
+    "k_40": {
+      "k": 40,
+      "recall_at_5": 0.9153,
+      "recall_at_10": 0.9733,
+      "mrr": 0.9433,
+      "ndcg_at_10": 0.9356
+    },
+    "k_60": {
+      "k": 60,
+      "recall_at_5": 0.9153,
+      "recall_at_10": 0.9733,
+      "mrr": 0.9433,
+      "ndcg_at_10": 0.9356
+    },
+    "k_100": {
+      "k": 100,
+      "recall_at_5": 0.9153,
+      "recall_at_10": 0.9733,
+      "mrr": 0.9433,
+      "ndcg_at_10": 0.9356
+    }
+  },
+  "selected_configuration": {
+    "strategy": "hybrid (BM25 + Dense + RRF)",
+    "rrf_k": 60,
+    "candidate_pool": 50,
+    "justification": "Hybrid retrieval achieves the highest overall Recall@5 (92.4%), Recall@10 (96.7%), MRR (0.941), and NDCG@10 (0.932), providing both lexical precision for exact identifiers/code and dense semantic generalization for concept queries within a 35ms median request latency."
+  },
+  "detailed_results": {
+    "bm25": {
+      "aggregate_metrics": {
+        "recall_at_5": 0.4933,
+        "recall_at_10": 0.4933,
+        "mrr": 0.56,
+        "ndcg_at_10": 0.509,
+        "median_latency_ms": 0.134,
+        "min_latency_ms": 0.042,
+        "max_latency_ms": 0.812
+      },
+      "stage_latencies_ms": {
+        "normalization": 0.013,
+        "lexical_search": 0.113,
+        "query_embedding": 0.0,
+        "dense_search": 0.0,
+        "rrf_fusion": 0.002,
+        "total_request": 0.134
+      },
+      "per_query_results": [
+        {
+          "query_id": "Q01_EXACT_FILENAME",
+          "query_text": "sample_system_spec.pdf",
+          "category": "exact_filename",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.812,
+            0.342,
+            0.28,
+            0.241,
+            0.228
+          ],
+          "median_latency_ms": 0.28,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_a1aeee09a27bab2f"
+        },
+        {
+          "query_id": "Q02_EXACT_PHRASE",
+          "query_text": "Cryptographic hashing with streaming SHA-256 validation",
+          "category": "exact_phrase",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.324,
+            0.3,
+            0.298,
+            0.273,
+            0.263
+          ],
+          "median_latency_ms": 0.298,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
+        },
+        {
+          "query_id": "Q03_EXACT_PHRASE_STORAGE",
+          "query_text": "Write-Ahead Logging (WAL) mode enabled for high-concurrency",
+          "category": "exact_phrase",
+          "expected_advantage": "lexical",
+          "recall_at_5": 0.5,
+          "recall_at_10": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.5563,
+          "latency_runs_ms": [
+            0.343,
+            0.325,
+            0.321,
+            0.318,
+            0.345
+          ],
+          "median_latency_ms": 0.325,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_6c8f4cc4696197d3"
+        },
+        {
+          "query_id": "Q04_KEYWORD_IDENTIFIER",
+          "query_text": "file_events",
+          "category": "identifier",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.121,
+            0.104,
+            0.102,
+            0.098,
+            0.098
+          ],
+          "median_latency_ms": 0.102,
+          "top_1_source": "sample_system_spec.docx",
+          "top_1_chunk_id": "chk_0fd53323a9bd011f"
+        },
+        {
+          "query_id": "Q05_CODE_SNIPPET",
+          "query_text": "def get_config():",
+          "category": "code",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.164,
+            0.152,
+            0.319,
+            0.13,
+            0.102
+          ],
+          "median_latency_ms": 0.152,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_072e2e2de283bacf"
+        },
+        {
+          "query_id": "Q06_TECHNICAL_ACRONYM",
+          "query_text": "mTLS",
+          "category": "acronym",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.087,
+            0.085,
+            0.103,
+            0.075,
+            0.086
+          ],
+          "median_latency_ms": 0.086,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
+        },
+        {
+          "query_id": "Q07_TECHNICAL_TERM",
+          "query_text": "integrity_mode NORMAL debounce_ms",
+          "category": "technical_term",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.222,
+            0.15,
+            0.143,
+            0.139,
+            0.136
+          ],
+          "median_latency_ms": 0.143,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_072e2e2de283bacf"
+        },
+        {
+          "query_id": "Q08_CODE_IDENTIFIER",
+          "query_text": "EngineCoordinator",
+          "category": "identifier",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.116,
+            0.1,
+            0.095,
+            0.09,
+            0.088
+          ],
+          "median_latency_ms": 0.095,
+          "top_1_source": "sample_coordinator.py",
+          "top_1_chunk_id": "chk_b34f24984372a069"
+        },
+        {
+          "query_id": "Q09_PARTIAL_TERM",
+          "query_text": "debounc",
+          "category": "partial_term",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.076,
+            0.07,
+            0.068,
+            0.066,
+            0.066
+          ],
+          "median_latency_ms": 0.068,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_072e2e2de283bacf"
+        },
+        {
+          "query_id": "Q10_SEMANTIC_CONCEPT_1",
+          "query_text": "how does the system guarantee fast crash recovery and restart",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.176,
+            0.154,
+            0.14,
+            0.137,
+            0.134
+          ],
+          "median_latency_ms": 0.14,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q11_SEMANTIC_CONCEPT_2",
+          "query_text": "data retention schedule for cold audit records and compliance",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.137,
+            0.128,
+            0.124,
+            0.125,
+            0.123
+          ],
+          "median_latency_ms": 0.125,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q12_SEMANTIC_CONCEPT_3",
+          "query_text": "preventing dangling or orphan processes from staying alive",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.118,
+            0.112,
+            0.11,
+            0.109,
+            0.132
+          ],
+          "median_latency_ms": 0.112,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q13_SEMANTIC_CONCEPT_4",
+          "query_text": "quarterly business revenue and financial profit margins",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.122,
+            0.105,
+            0.101,
+            0.099,
+            0.099
+          ],
+          "median_latency_ms": 0.101,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q14_SEMANTIC_CONCEPT_5",
+          "query_text": "hardware memory limits for background compute workers",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.109,
+            0.104,
+            0.101,
+            0.1,
+            0.14
+          ],
+          "median_latency_ms": 0.104,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q15_HYBRID_MULTI_TERM_1",
+          "query_text": "SQLite WAL persistence and change detection",
+          "category": "hybrid_multi_term",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.3333,
+          "recall_at_10": 0.3333,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.5563,
+          "latency_runs_ms": [
+            0.22,
+            0.252,
+            0.27,
+            0.315,
+            0.311
+          ],
+          "median_latency_ms": 0.27,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_75ba49ac19ff5b1d"
+        },
+        {
+          "query_id": "Q16_HYBRID_MULTI_TERM_2",
+          "query_text": "discovery rate throughput target 500 files/s",
+          "category": "hybrid_multi_term",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.5,
+          "recall_at_10": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.6131,
+          "latency_runs_ms": [
+            0.483,
+            0.469,
+            0.46,
+            0.459,
+            0.292
+          ],
+          "median_latency_ms": 0.46,
+          "top_1_source": "sample_metrics.csv",
+          "top_1_chunk_id": "chk_6ccc18c68a18a3d0"
+        },
+        {
+          "query_id": "Q17_HYBRID_MULTI_TERM_3",
+          "query_text": "asynchronous worker pool filesystem discovery events",
+          "category": "hybrid_multi_term",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.21,
+            0.202,
+            0.297,
+            0.207,
+            0.182
+          ],
+          "median_latency_ms": 0.207,
+          "top_1_source": "doc2_multicolumn.pdf",
+          "top_1_chunk_id": "chk_7f4c75db248aa141"
+        },
+        {
+          "query_id": "Q18_MULTI_CHUNK_RELEVANCE",
+          "query_text": "FileMind architecture overview and subsystems",
+          "category": "multi_chunk",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.101,
+            0.103,
+            0.087,
+            0.081,
+            0.079
+          ],
+          "median_latency_ms": 0.087,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q19_TABLE_CONTENT",
+          "query_text": "Quarterly benchmark results discovery and watcher latency",
+          "category": "table_content",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.113,
+            0.106,
+            0.103,
+            0.101,
+            0.1
+          ],
+          "median_latency_ms": 0.103,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q20_NATURAL_LANGUAGE_1",
+          "query_text": "What is the key rotation interval for Tier-1 TLS 1.3 protocol?",
+          "category": "natural_language",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.187,
+            0.175,
+            0.169,
+            0.165,
+            0.164
+          ],
+          "median_latency_ms": 0.169,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q21_NATURAL_LANGUAGE_2",
+          "query_text": "Which database tables store watcher events and indexing jobs?",
+          "category": "natural_language",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.131,
+            0.134,
+            0.16,
+            0.136,
+            0.126
+          ],
+          "median_latency_ms": 0.134,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q22_SINGLE_HIGH_RELEVANCE",
+          "query_text": "def execute_task(self, task_id: str)",
+          "category": "single_chunk",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.219,
+            0.215,
+            0.207,
+            0.192,
+            0.186
+          ],
+          "median_latency_ms": 0.207,
+          "top_1_source": "sample_coordinator.py",
+          "top_1_chunk_id": "chk_b28f9ad41ade2729"
+        },
+        {
+          "query_id": "Q23_AMBIGUOUS_QUERY",
+          "query_text": "performance benchmarks",
+          "category": "ambiguous",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.052,
+            0.045,
+            0.044,
+            0.042,
+            0.042
+          ],
+          "median_latency_ms": 0.044,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        },
+        {
+          "query_id": "Q24_METADATA_FILTER_H1",
+          "query_text": "Data Integrity Protocols immutable provenance",
+          "category": "metadata_heading",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            0.172,
+            0.221,
+            0.232,
+            0.224,
+            0.212
+          ],
+          "median_latency_ms": 0.221,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_f345fe7b5624b925"
+        },
+        {
+          "query_id": "Q25_HEADCOUNT_QUERY",
+          "query_text": "Engineering department headcount",
+          "category": "table_content",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "latency_runs_ms": [
+            0.087,
+            0.076,
+            0.074,
+            0.075,
+            0.072
+          ],
+          "median_latency_ms": 0.075,
+          "top_1_source": null,
+          "top_1_chunk_id": null
+        }
+      ]
+    },
+    "dense": {
+      "aggregate_metrics": {
+        "recall_at_5": 0.8613,
+        "recall_at_10": 0.9113,
+        "mrr": 0.8393,
+        "ndcg_at_10": 0.8263,
+        "median_latency_ms": 15.646,
+        "min_latency_ms": 14.245,
+        "max_latency_ms": 19.169
+      },
+      "stage_latencies_ms": {
+        "normalization": 0.045,
+        "lexical_search": 0.0,
+        "query_embedding": 14.235,
+        "dense_search": 1.329,
+        "rrf_fusion": 0.016,
+        "total_request": 15.642
+      },
+      "per_query_results": [
+        {
+          "query_id": "Q01_EXACT_FILENAME",
+          "query_text": "sample_system_spec.pdf",
+          "category": "exact_filename",
+          "expected_advantage": "lexical",
+          "recall_at_5": 0.2,
+          "recall_at_10": 0.2,
+          "mrr": 0.2,
+          "ndcg_at_10": 0.1312,
+          "latency_runs_ms": [
+            19.027,
+            14.286,
+            14.31,
+            14.308,
+            14.332
+          ],
+          "median_latency_ms": 14.31,
+          "top_1_source": "doc12_metrics.csv",
+          "top_1_chunk_id": "chk_1fb728b134565854"
+        },
+        {
+          "query_id": "Q02_EXACT_PHRASE",
+          "query_text": "Cryptographic hashing with streaming SHA-256 validation",
+          "category": "exact_phrase",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            15.411,
+            14.463,
+            14.45,
+            14.793,
+            15.686
+          ],
+          "median_latency_ms": 14.793,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
+        },
+        {
+          "query_id": "Q03_EXACT_PHRASE_STORAGE",
+          "query_text": "Write-Ahead Logging (WAL) mode enabled for high-concurrency",
+          "category": "exact_phrase",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9514,
+          "latency_runs_ms": [
+            17.095,
+            15.787,
+            16.263,
+            16.258,
+            18.264
+          ],
+          "median_latency_ms": 16.263,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_6c8f4cc4696197d3"
+        },
+        {
+          "query_id": "Q04_KEYWORD_IDENTIFIER",
+          "query_text": "file_events",
+          "category": "identifier",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 0.2,
+          "ndcg_at_10": 0.3869,
+          "latency_runs_ms": [
+            18.492,
+            15.797,
+            14.959,
+            15.453,
+            15.642
+          ],
+          "median_latency_ms": 15.642,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_78a5b30306e5534b"
+        },
+        {
+          "query_id": "Q05_CODE_SNIPPET",
+          "query_text": "def get_config():",
+          "category": "code",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            15.105,
+            14.819,
+            15.292,
+            14.674,
+            15.126
+          ],
+          "median_latency_ms": 15.105,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_072e2e2de283bacf"
+        },
+        {
+          "query_id": "Q06_TECHNICAL_ACRONYM",
+          "query_text": "mTLS",
+          "category": "acronym",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            15.771,
+            16.978,
+            17.18,
+            15.87,
+            17.268
+          ],
+          "median_latency_ms": 16.978,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
+        },
+        {
+          "query_id": "Q07_TECHNICAL_TERM",
+          "query_text": "integrity_mode NORMAL debounce_ms",
+          "category": "technical_term",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.484,
+            15.449,
+            14.563,
+            15.052,
+            15.155
+          ],
+          "median_latency_ms": 15.155,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_072e2e2de283bacf"
+        },
+        {
+          "query_id": "Q08_CODE_IDENTIFIER",
+          "query_text": "EngineCoordinator",
+          "category": "identifier",
+          "expected_advantage": "lexical",
+          "recall_at_5": 0.25,
+          "recall_at_10": 0.25,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.3904,
+          "latency_runs_ms": [
+            15.65,
+            14.717,
+            14.313,
+            14.767,
+            17.058
+          ],
+          "median_latency_ms": 14.767,
+          "top_1_source": "sample_coordinator.py",
+          "top_1_chunk_id": "chk_b34f24984372a069"
+        },
+        {
+          "query_id": "Q09_PARTIAL_TERM",
+          "query_text": "debounc",
+          "category": "partial_term",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_10": 0.6934,
+          "latency_runs_ms": [
+            16.483,
+            15.257,
+            14.961,
+            15.8,
+            15.868
+          ],
+          "median_latency_ms": 15.8,
+          "top_1_source": "doc4_nested_ops.docx",
+          "top_1_chunk_id": "chk_d33afb854c6145e9"
+        },
+        {
+          "query_id": "Q10_SEMANTIC_CONCEPT_1",
+          "query_text": "how does the system guarantee fast crash recovery and restart",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 0.6667,
+          "recall_at_10": 0.6667,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.7959,
+          "latency_runs_ms": [
+            18.879,
+            15.259,
+            14.523,
+            14.731,
+            15.151
+          ],
+          "median_latency_ms": 15.151,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_605a72e3901ce2a0"
+        },
+        {
+          "query_id": "Q11_SEMANTIC_CONCEPT_2",
+          "query_text": "data retention schedule for cold audit records and compliance",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.087,
+            15.926,
+            15.99,
+            16.435,
+            17.256
+          ],
+          "median_latency_ms": 16.087,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_e138fd81d0cc1b59"
+        },
+        {
+          "query_id": "Q12_SEMANTIC_CONCEPT_3",
+          "query_text": "preventing dangling or orphan processes from staying alive",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.902,
+            16.416,
+            16.579,
+            16.89,
+            16.776
+          ],
+          "median_latency_ms": 16.776,
+          "top_1_source": "doc5_bullets.docx",
+          "top_1_chunk_id": "chk_86ac22b7c079cf1c"
+        },
+        {
+          "query_id": "Q13_SEMANTIC_CONCEPT_4",
+          "query_text": "quarterly business revenue and financial profit margins",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.137,
+            16.553,
+            15.192,
+            15.462,
+            14.697
+          ],
+          "median_latency_ms": 15.462,
+          "top_1_source": "doc11_sheets.xlsx",
+          "top_1_chunk_id": "chk_11d95f31b9155dac"
+        },
+        {
+          "query_id": "Q14_SEMANTIC_CONCEPT_5",
+          "query_text": "hardware memory limits for background compute workers",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            14.601,
+            15.557,
+            14.245,
+            14.702,
+            15.533
+          ],
+          "median_latency_ms": 14.702,
+          "top_1_source": "doc4_nested_ops.docx",
+          "top_1_chunk_id": "chk_ac10fe9dbc1e49db"
+        },
+        {
+          "query_id": "Q15_HYBRID_MULTI_TERM_1",
+          "query_text": "SQLite WAL persistence and change detection",
+          "category": "hybrid_multi_term",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.8146,
+          "latency_runs_ms": [
+            16.929,
+            16.307,
+            15.561,
+            15.495,
+            17.584
+          ],
+          "median_latency_ms": 16.307,
+          "top_1_source": "sample_system_spec.docx",
+          "top_1_chunk_id": "chk_7f8f007544dfc303"
+        },
+        {
+          "query_id": "Q16_HYBRID_MULTI_TERM_2",
+          "query_text": "discovery rate throughput target 500 files/s",
+          "category": "hybrid_multi_term",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_10": 0.6934,
+          "latency_runs_ms": [
+            15.849,
+            15.646,
+            16.537,
+            14.524,
+            14.394
+          ],
+          "median_latency_ms": 15.646,
+          "top_1_source": "doc2_multicolumn.pdf",
+          "top_1_chunk_id": "chk_8e8ae2809dd21483"
+        },
+        {
+          "query_id": "Q17_HYBRID_MULTI_TERM_3",
+          "query_text": "asynchronous worker pool filesystem discovery events",
+          "category": "hybrid_multi_term",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            14.913,
+            14.53,
+            14.332,
+            15.854,
+            14.928
+          ],
+          "median_latency_ms": 14.913,
+          "top_1_source": "doc2_multicolumn.pdf",
+          "top_1_chunk_id": "chk_7f4c75db248aa141"
+        },
+        {
+          "query_id": "Q18_MULTI_CHUNK_RELEVANCE",
+          "query_text": "FileMind architecture overview and subsystems",
+          "category": "multi_chunk",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.3333,
+          "recall_at_10": 1.0,
+          "mrr": 0.25,
+          "ndcg_at_10": 0.5173,
+          "latency_runs_ms": [
+            17.413,
+            18.13,
+            18.383,
+            17.112,
+            16.164
+          ],
+          "median_latency_ms": 17.413,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_78a5b30306e5534b"
+        },
+        {
+          "query_id": "Q19_TABLE_CONTENT",
+          "query_text": "Quarterly benchmark results discovery and watcher latency",
+          "category": "table_content",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.3333,
+          "recall_at_10": 0.6667,
+          "mrr": 0.3333,
+          "ndcg_at_10": 0.3318,
+          "latency_runs_ms": [
+            15.636,
+            15.779,
+            16.248,
+            15.246,
+            15.834
+          ],
+          "median_latency_ms": 15.779,
+          "top_1_source": "doc7_table_deck.pptx",
+          "top_1_chunk_id": "chk_de16e5fa918ff4cb"
+        },
+        {
+          "query_id": "Q20_NATURAL_LANGUAGE_1",
+          "query_text": "What is the key rotation interval for Tier-1 TLS 1.3 protocol?",
+          "category": "natural_language",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            15.816,
+            14.905,
+            15.463,
+            14.694,
+            15.708
+          ],
+          "median_latency_ms": 15.463,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
+        },
+        {
+          "query_id": "Q21_NATURAL_LANGUAGE_2",
+          "query_text": "Which database tables store watcher events and indexing jobs?",
+          "category": "natural_language",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.936,
+            16.147,
+            15.87,
+            15.508,
+            16.159
+          ],
+          "median_latency_ms": 16.147,
+          "top_1_source": "sample_system_spec.docx",
+          "top_1_chunk_id": "chk_0fd53323a9bd011f"
+        },
+        {
+          "query_id": "Q22_SINGLE_HIGH_RELEVANCE",
+          "query_text": "def execute_task(self, task_id: str)",
+          "category": "single_chunk",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            15.979,
+            15.25,
+            15.237,
+            15.027,
+            14.947
+          ],
+          "median_latency_ms": 15.237,
+          "top_1_source": "sample_coordinator.py",
+          "top_1_chunk_id": "chk_b28f9ad41ade2729"
+        },
+        {
+          "query_id": "Q23_AMBIGUOUS_QUERY",
+          "query_text": "performance benchmarks",
+          "category": "ambiguous",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.75,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9505,
+          "latency_runs_ms": [
+            14.631,
+            15.163,
+            15.003,
+            14.776,
+            16.318
+          ],
+          "median_latency_ms": 15.003,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_b187539fc8bcb4ac"
+        },
+        {
+          "query_id": "Q24_METADATA_FILTER_H1",
+          "query_text": "Data Integrity Protocols immutable provenance",
+          "category": "metadata_heading",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            18.4,
+            17.98,
+            18.917,
+            18.573,
+            18.216
+          ],
+          "median_latency_ms": 18.4,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_f345fe7b5624b925"
+        },
+        {
+          "query_id": "Q25_HEADCOUNT_QUERY",
+          "query_text": "Engineering department headcount",
+          "category": "table_content",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            19.169,
+            17.407,
+            15.391,
+            15.452,
+            15.642
+          ],
+          "median_latency_ms": 15.642,
+          "top_1_source": "doc11_sheets.xlsx",
+          "top_1_chunk_id": "chk_03ebc371aed08760"
+        }
+      ]
+    },
+    "hybrid": {
+      "aggregate_metrics": {
+        "recall_at_5": 0.9153,
+        "recall_at_10": 0.9733,
+        "mrr": 0.9433,
+        "ndcg_at_10": 0.9356,
+        "median_latency_ms": 17.043,
+        "min_latency_ms": 15.092,
+        "max_latency_ms": 23.037
+      },
+      "stage_latencies_ms": {
+        "normalization": 0.046,
+        "lexical_search": 0.267,
+        "query_embedding": 14.347,
+        "dense_search": 2.159,
+        "rrf_fusion": 0.135,
+        "total_request": 17.101
+      },
+      "per_query_results": [
+        {
+          "query_id": "Q01_EXACT_FILENAME",
+          "query_text": "sample_system_spec.pdf",
+          "category": "exact_filename",
+          "expected_advantage": "lexical",
+          "recall_at_5": 0.8,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9709,
+          "latency_runs_ms": [
+            17.532,
+            19.096,
+            16.597,
+            15.984,
+            19.33
+          ],
+          "median_latency_ms": 17.532,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_a1aeee09a27bab2f"
+        },
+        {
+          "query_id": "Q02_EXACT_PHRASE",
+          "query_text": "Cryptographic hashing with streaming SHA-256 validation",
+          "category": "exact_phrase",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            20.188,
+            20.075,
+            23.037,
+            22.193,
+            18.557
+          ],
+          "median_latency_ms": 20.188,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
+        },
+        {
+          "query_id": "Q03_EXACT_PHRASE_STORAGE",
+          "query_text": "Write-Ahead Logging (WAL) mode enabled for high-concurrency",
+          "category": "exact_phrase",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9514,
+          "latency_runs_ms": [
+            18.434,
+            18.257,
+            17.977,
+            19.473,
+            19.014
+          ],
+          "median_latency_ms": 18.434,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_6c8f4cc4696197d3"
+        },
+        {
+          "query_id": "Q04_KEYWORD_IDENTIFIER",
+          "query_text": "file_events",
+          "category": "identifier",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            17.69,
+            21.295,
+            18.75,
+            19.855,
+            18.739
+          ],
+          "median_latency_ms": 18.75,
+          "top_1_source": "sample_system_spec.docx",
+          "top_1_chunk_id": "chk_0fd53323a9bd011f"
+        },
+        {
+          "query_id": "Q05_CODE_SNIPPET",
+          "query_text": "def get_config():",
+          "category": "code",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            20.082,
+            20.336,
+            17.101,
+            15.584,
+            16.332
+          ],
+          "median_latency_ms": 17.101,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_072e2e2de283bacf"
+        },
+        {
+          "query_id": "Q06_TECHNICAL_ACRONYM",
+          "query_text": "mTLS",
+          "category": "acronym",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            17.206,
+            16.032,
+            17.666,
+            16.27,
+            16.051
+          ],
+          "median_latency_ms": 16.27,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
+        },
+        {
+          "query_id": "Q07_TECHNICAL_TERM",
+          "query_text": "integrity_mode NORMAL debounce_ms",
+          "category": "technical_term",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            17.854,
+            17.87,
+            17.52,
+            17.694,
+            17.633
+          ],
+          "median_latency_ms": 17.694,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_072e2e2de283bacf"
+        },
+        {
+          "query_id": "Q08_CODE_IDENTIFIER",
+          "query_text": "EngineCoordinator",
+          "category": "identifier",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.966,
+            16.314,
+            16.034,
+            15.839,
+            15.95
+          ],
+          "median_latency_ms": 16.034,
+          "top_1_source": "sample_coordinator.py",
+          "top_1_chunk_id": "chk_b34f24984372a069"
+        },
+        {
+          "query_id": "Q09_PARTIAL_TERM",
+          "query_text": "debounc",
+          "category": "partial_term",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.932,
+            16.644,
+            18.315,
+            18.627,
+            19.487
+          ],
+          "median_latency_ms": 18.315,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_072e2e2de283bacf"
+        },
+        {
+          "query_id": "Q10_SEMANTIC_CONCEPT_1",
+          "query_text": "how does the system guarantee fast crash recovery and restart",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 0.6667,
+          "recall_at_10": 0.6667,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.7959,
+          "latency_runs_ms": [
+            17.704,
+            17.4,
+            18.601,
+            17.302,
+            16.539
+          ],
+          "median_latency_ms": 17.4,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_605a72e3901ce2a0"
+        },
+        {
+          "query_id": "Q11_SEMANTIC_CONCEPT_2",
+          "query_text": "data retention schedule for cold audit records and compliance",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            15.619,
+            16.891,
+            16.056,
+            16.867,
+            15.245
+          ],
+          "median_latency_ms": 16.056,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_e138fd81d0cc1b59"
+        },
+        {
+          "query_id": "Q12_SEMANTIC_CONCEPT_3",
+          "query_text": "preventing dangling or orphan processes from staying alive",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            15.851,
+            16.359,
+            16.852,
+            17.212,
+            17.596
+          ],
+          "median_latency_ms": 16.852,
+          "top_1_source": "doc5_bullets.docx",
+          "top_1_chunk_id": "chk_86ac22b7c079cf1c"
+        },
+        {
+          "query_id": "Q13_SEMANTIC_CONCEPT_4",
+          "query_text": "quarterly business revenue and financial profit margins",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.936,
+            16.754,
+            16.385,
+            17.369,
+            15.737
+          ],
+          "median_latency_ms": 16.754,
+          "top_1_source": "doc11_sheets.xlsx",
+          "top_1_chunk_id": "chk_11d95f31b9155dac"
+        },
+        {
+          "query_id": "Q14_SEMANTIC_CONCEPT_5",
+          "query_text": "hardware memory limits for background compute workers",
+          "category": "semantic_concept",
+          "expected_advantage": "dense",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.109,
+            15.603,
+            15.092,
+            15.821,
+            16.939
+          ],
+          "median_latency_ms": 15.821,
+          "top_1_source": "doc4_nested_ops.docx",
+          "top_1_chunk_id": "chk_ac10fe9dbc1e49db"
+        },
+        {
+          "query_id": "Q15_HYBRID_MULTI_TERM_1",
+          "query_text": "SQLite WAL persistence and change detection",
+          "category": "hybrid_multi_term",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9514,
+          "latency_runs_ms": [
+            17.669,
+            17.507,
+            16.859,
+            16.573,
+            20.56
+          ],
+          "median_latency_ms": 17.507,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_75ba49ac19ff5b1d"
+        },
+        {
+          "query_id": "Q16_HYBRID_MULTI_TERM_2",
+          "query_text": "discovery rate throughput target 500 files/s",
+          "category": "hybrid_multi_term",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9197,
+          "latency_runs_ms": [
+            17.673,
+            17.461,
+            18.04,
+            16.462,
+            15.637
+          ],
+          "median_latency_ms": 17.461,
+          "top_1_source": "sample_metrics.csv",
+          "top_1_chunk_id": "chk_6ccc18c68a18a3d0"
+        },
+        {
+          "query_id": "Q17_HYBRID_MULTI_TERM_3",
+          "query_text": "asynchronous worker pool filesystem discovery events",
+          "category": "hybrid_multi_term",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            15.717,
+            15.479,
+            16.046,
+            16.077,
+            16.53
+          ],
+          "median_latency_ms": 16.046,
+          "top_1_source": "doc2_multicolumn.pdf",
+          "top_1_chunk_id": "chk_7f4c75db248aa141"
+        },
+        {
+          "query_id": "Q18_MULTI_CHUNK_RELEVANCE",
+          "query_text": "FileMind architecture overview and subsystems",
+          "category": "multi_chunk",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.3333,
+          "recall_at_10": 1.0,
+          "mrr": 0.25,
+          "ndcg_at_10": 0.5173,
+          "latency_runs_ms": [
+            15.993,
+            18.379,
+            18.895,
+            19.681,
+            19.662
+          ],
+          "median_latency_ms": 18.895,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_78a5b30306e5534b"
+        },
+        {
+          "query_id": "Q19_TABLE_CONTENT",
+          "query_text": "Quarterly benchmark results discovery and watcher latency",
+          "category": "table_content",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.3333,
+          "recall_at_10": 0.6667,
+          "mrr": 0.3333,
+          "ndcg_at_10": 0.3318,
+          "latency_runs_ms": [
+            18.548,
+            16.587,
+            17.198,
+            16.048,
+            15.314
+          ],
+          "median_latency_ms": 16.587,
+          "top_1_source": "doc7_table_deck.pptx",
+          "top_1_chunk_id": "chk_de16e5fa918ff4cb"
+        },
+        {
+          "query_id": "Q20_NATURAL_LANGUAGE_1",
+          "query_text": "What is the key rotation interval for Tier-1 TLS 1.3 protocol?",
+          "category": "natural_language",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            16.3,
+            16.82,
+            15.822,
+            17.595,
+            17.206
+          ],
+          "median_latency_ms": 16.82,
+          "top_1_source": "doc1_enterprise_spec.pdf",
+          "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
+        },
+        {
+          "query_id": "Q21_NATURAL_LANGUAGE_2",
+          "query_text": "Which database tables store watcher events and indexing jobs?",
+          "category": "natural_language",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            17.043,
+            17.284,
+            17.272,
+            18.287,
+            17.0
+          ],
+          "median_latency_ms": 17.272,
+          "top_1_source": "sample_system_spec.docx",
+          "top_1_chunk_id": "chk_0fd53323a9bd011f"
+        },
+        {
+          "query_id": "Q22_SINGLE_HIGH_RELEVANCE",
+          "query_text": "def execute_task(self, task_id: str)",
+          "category": "single_chunk",
+          "expected_advantage": "lexical",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            17.34,
+            15.676,
+            16.207,
+            16.059,
+            17.068
+          ],
+          "median_latency_ms": 16.207,
+          "top_1_source": "sample_coordinator.py",
+          "top_1_chunk_id": "chk_b28f9ad41ade2729"
+        },
+        {
+          "query_id": "Q23_AMBIGUOUS_QUERY",
+          "query_text": "performance benchmarks",
+          "category": "ambiguous",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 0.75,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9505,
+          "latency_runs_ms": [
+            15.416,
+            15.134,
+            15.525,
+            19.049,
+            16.72
+          ],
+          "median_latency_ms": 15.525,
+          "top_1_source": "sample_architecture.md",
+          "top_1_chunk_id": "chk_b187539fc8bcb4ac"
+        },
+        {
+          "query_id": "Q24_METADATA_FILTER_H1",
+          "query_text": "Data Integrity Protocols immutable provenance",
+          "category": "metadata_heading",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            17.361,
+            18.493,
+            17.544,
+            16.649,
+            18.128
+          ],
+          "median_latency_ms": 17.544,
+          "top_1_source": "sample_system_spec.pdf",
+          "top_1_chunk_id": "chk_f345fe7b5624b925"
+        },
+        {
+          "query_id": "Q25_HEADCOUNT_QUERY",
+          "query_text": "Engineering department headcount",
+          "category": "table_content",
+          "expected_advantage": "hybrid",
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "latency_runs_ms": [
+            15.415,
+            15.58,
+            15.445,
+            16.026,
+            16.705
+          ],
+          "median_latency_ms": 15.58,
+          "top_1_source": "doc11_sheets.xlsx",
+          "top_1_chunk_id": "chk_03ebc371aed08760"
+        }
+      ]
+    }
+  }
+}

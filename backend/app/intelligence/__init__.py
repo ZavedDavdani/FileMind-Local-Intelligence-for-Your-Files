@@ -1,0 +1,1 @@
+"""FileMind Document Intelligence subsystem."""

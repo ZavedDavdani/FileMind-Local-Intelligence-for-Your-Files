@@ -1,0 +1,67 @@
+# Byte-compiled / optimized / binary files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.so
+*.dll
+*.dylib
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Node.js / Frontend dependencies & build
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Rust / Tauri build artifacts
+target/
+src-tauri/target/
+src-tauri/binaries/
+.xwin-cache/
+
+# PyInstaller / Executable build outputs
+build/
+dist/
+backend/build/
+backend/dist/
+*.spec.bak
+
+# SQLite Databases & temporary transaction journals
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Test & Coverage Caches
+.pytest_cache/
+backend/.pytest_cache/
+.coverage
+htmlcov/
+.cache/
+
+# Local Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# OS / Editor temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+.vscode/
+.idea/
+
+# Local scratch dumps
+backend/corpus_chunks_dump.json
+
+# Private project documentation
+FileMind.md
+FileMind_Spec_and_Pipeline.pdf

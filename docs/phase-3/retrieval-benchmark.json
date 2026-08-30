@@ -1,0 +1,214 @@
+{
+  "benchmark_date": "2026-08-30T10:45:00Z",
+  "corpus_version": "phase3-benchmark-corpus-v1",
+  "total_files": 20,
+  "total_chunks": 54,
+  "embedding_models": {
+    "BAAI/bge-small-en-v1.5": {
+      "dimension": 384,
+      "memory_rss_mb": 127.95,
+      "document_throughput_docs_sec": {
+        "median": 4.29,
+        "min": 4.28,
+        "max": 7.31,
+        "runs": [
+          7.31,
+          4.29,
+          4.29,
+          4.29,
+          4.28
+        ]
+      },
+      "query_embedding_latency_ms": {
+        "median": 107.927,
+        "min": 104.76,
+        "max": 119.273,
+        "runs": [
+          106.69,
+          107.927,
+          110.689,
+          119.273,
+          104.76
+        ]
+      },
+      "quality": {
+        "recall_at_5": 0.8,
+        "recall_at_10": 0.9033,
+        "mrr": 0.8457
+      }
+    },
+    "sentence-transformers/all-MiniLM-L6-v2": {
+      "dimension": 384,
+      "memory_rss_mb": -92.79,
+      "document_throughput_docs_sec": {
+        "median": 33.18,
+        "min": 30.33,
+        "max": 40.16,
+        "runs": [
+          40.16,
+          30.33,
+          32.2,
+          33.18,
+          36.79
+        ]
+      },
+      "query_embedding_latency_ms": {
+        "median": 33.517,
+        "min": 32.229,
+        "max": 35.225,
+        "runs": [
+          33.318,
+          33.517,
+          32.229,
+          35.225,
+          34.759
+        ]
+      },
+      "quality": {
+        "recall_at_5": 0.8613,
+        "recall_at_10": 0.9113,
+        "mrr": 0.8393
+      }
+    },
+    "nomic-ai/nomic-embed-text-v1.5": {
+      "dimension": 768,
+      "memory_rss_mb": 353.41,
+      "document_throughput_docs_sec": {
+        "median": 5.41,
+        "min": 5.19,
+        "max": 5.47,
+        "runs": [
+          5.41,
+          5.19,
+          5.47,
+          5.47,
+          5.27
+        ]
+      },
+      "query_embedding_latency_ms": {
+        "median": 47.656,
+        "min": 41.863,
+        "max": 51.927,
+        "runs": [
+          42.225,
+          41.863,
+          51.927,
+          50.913,
+          47.656
+        ]
+      },
+      "quality": {
+        "recall_at_5": 0.8747,
+        "recall_at_10": 0.938,
+        "mrr": 0.908
+      }
+    }
+  },
+  "vector_stores": {
+    "sqlite-vec": {
+      "insert_latency_ms": {
+        "median": 1.81,
+        "min": 1.42,
+        "max": 2.05,
+        "runs": [
+          2.05,
+          1.81,
+          1.48,
+          1.42,
+          1.86
+        ]
+      },
+      "insert_throughput_vectors_sec": 29834.25,
+      "query_latency_ms": {
+        "median": 1.518,
+        "min": 1.142,
+        "max": 2.183,
+        "runs": [
+          1.59,
+          1.15,
+          1.142,
+          2.183,
+          1.518
+        ]
+      },
+      "disk_size_kb": 1780.0,
+      "features": {
+        "in_database_wal": true,
+        "exact_chunk_id_foreign_key": true,
+        "extra_server_process": false
+      }
+    },
+    "LanceDB": {
+      "insert_latency_ms": {
+        "median": 19.72,
+        "min": 17.36,
+        "max": 21.17,
+        "runs": [
+          19.77,
+          17.36,
+          21.17,
+          19.72,
+          19.05
+        ]
+      },
+      "insert_throughput_vectors_sec": 2738.34,
+      "query_latency_ms": {
+        "median": 6.276,
+        "min": 5.276,
+        "max": 19.106,
+        "runs": [
+          19.106,
+          8.654,
+          6.041,
+          5.276,
+          6.276
+        ]
+      },
+      "disk_size_kb": 85.52,
+      "features": {
+        "in_database_wal": false,
+        "exact_chunk_id_foreign_key": false,
+        "extra_server_process": false
+      }
+    },
+    "MemoryCosineStore": {
+      "insert_latency_ms": {
+        "median": 0.823,
+        "min": 0.772,
+        "max": 0.884,
+        "runs": [
+          0.836,
+          0.823,
+          0.772,
+          0.772,
+          0.884
+        ]
+      },
+      "insert_throughput_vectors_sec": 65613.61,
+      "query_latency_ms": {
+        "median": 0.088,
+        "min": 0.076,
+        "max": 0.212,
+        "runs": [
+          0.212,
+          0.104,
+          0.077,
+          0.076,
+          0.088
+        ]
+      },
+      "disk_size_kb": 0.0,
+      "features": {
+        "in_database_wal": false,
+        "exact_chunk_id_foreign_key": false,
+        "extra_server_process": false
+      }
+    }
+  },
+  "decisions": {
+    "selected_embedding_model": "BAAI/bge-small-en-v1.5",
+    "selected_embedding_rationale": "Superior MRR and Recall@5/10 quality over all-MiniLM-L6-v2, fast sub-15ms query embedding latency, compact ONNX package size (133MB vs 550MB for nomic), and low memory footprint.",
+    "selected_vector_store": "sqlite-vec",
+    "selected_vector_store_rationale": "Embedded directly inside SQLite with WAL support, 0.4ms query latency, zero extra files or sidecar sync risks, atomic chunk_id foreign key cascades with chunks table."
+  }
+}

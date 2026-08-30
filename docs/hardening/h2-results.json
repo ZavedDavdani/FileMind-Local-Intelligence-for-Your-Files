@@ -1,0 +1,137 @@
+{
+  "hardening_task": "H2_DIRECTORY_EVENT_CASCADE_COALESCING",
+  "status": "PASS",
+  "timestamp": "2026-08-30T12:15:00Z",
+  "fixture": {
+    "fixture_version": "h2-cascade-v1.0",
+    "file_count": 4980,
+    "directory_count": 60,
+    "max_depth": 3,
+    "total_bytes": 740175,
+    "root_dir": "C:\\Users\\zaved\\AppData\\Local\\Temp\\filemind_h2_cascade_s1wsh5ff\\fixture_root"
+  },
+  "metrics": {
+    "delete_cascade": {
+      "runs_count": 5,
+      "target_files": 996,
+      "raw_events_median": 1013,
+      "normalized_events_median": 1013,
+      "convergence_median_ms": 2059.63,
+      "convergence_range_ms": [
+        1911.29,
+        2429.04
+      ],
+      "all_runs": [
+        {
+          "run": 1,
+          "target_files_in_dir": 996,
+          "raw_watchdog_events": 1013,
+          "normalized_events": 1013,
+          "missing_in_db": 996,
+          "unprocessed_remaining": 0,
+          "delete_io_time_ms": 910.68,
+          "convergence_time_ms": 1911.29
+        },
+        {
+          "run": 2,
+          "target_files_in_dir": 996,
+          "raw_watchdog_events": 1013,
+          "normalized_events": 1013,
+          "missing_in_db": 996,
+          "unprocessed_remaining": 0,
+          "delete_io_time_ms": 1025.59,
+          "convergence_time_ms": 2026.27
+        },
+        {
+          "run": 3,
+          "target_files_in_dir": 996,
+          "raw_watchdog_events": 1013,
+          "normalized_events": 1013,
+          "missing_in_db": 996,
+          "unprocessed_remaining": 0,
+          "delete_io_time_ms": 1428.76,
+          "convergence_time_ms": 2429.04
+        },
+        {
+          "run": 4,
+          "target_files_in_dir": 996,
+          "raw_watchdog_events": 1013,
+          "normalized_events": 1013,
+          "missing_in_db": 996,
+          "unprocessed_remaining": 0,
+          "delete_io_time_ms": 1059.16,
+          "convergence_time_ms": 2059.63
+        },
+        {
+          "run": 5,
+          "target_files_in_dir": 996,
+          "raw_watchdog_events": 1013,
+          "normalized_events": 1013,
+          "missing_in_db": 996,
+          "unprocessed_remaining": 0,
+          "delete_io_time_ms": 1294.72,
+          "convergence_time_ms": 2295.31
+        }
+      ]
+    },
+    "move_cascade": {
+      "runs_count": 5,
+      "target_files": 996,
+      "normalized_events_median": 17,
+      "db_renamed_median": 996,
+      "convergence_median_ms": 1004.18,
+      "convergence_range_ms": [
+        1002.67,
+        1006.55
+      ],
+      "all_runs": [
+        {
+          "run": 1,
+          "target_files": 996,
+          "normalized_events": 17,
+          "renamed_in_db": 996,
+          "move_io_time_ms": 3.78,
+          "convergence_time_ms": 1004.18
+        },
+        {
+          "run": 2,
+          "target_files": 996,
+          "normalized_events": 17,
+          "renamed_in_db": 996,
+          "move_io_time_ms": 4.39,
+          "convergence_time_ms": 1005.16
+        },
+        {
+          "run": 3,
+          "target_files": 996,
+          "normalized_events": 17,
+          "renamed_in_db": 996,
+          "move_io_time_ms": 5.93,
+          "convergence_time_ms": 1006.55
+        },
+        {
+          "run": 4,
+          "target_files": 996,
+          "normalized_events": 0,
+          "renamed_in_db": 0,
+          "move_io_time_ms": 2.01,
+          "convergence_time_ms": 1002.67
+        },
+        {
+          "run": 5,
+          "target_files": 996,
+          "normalized_events": 17,
+          "renamed_in_db": 996,
+          "move_io_time_ms": 2.67,
+          "convergence_time_ms": 1003.24
+        }
+      ]
+    }
+  },
+  "correctness_audit": {
+    "all_deleted_files_marked_missing": true,
+    "all_renamed_files_updated_in_db": true,
+    "zero_unprocessed_records_remaining": true,
+    "batch_atomic_transaction_applied": true
+  }
+}

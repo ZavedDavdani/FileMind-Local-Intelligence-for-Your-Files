@@ -1,0 +1,185 @@
+{
+  "metadata": {
+    "timestamp": "2026-08-29T20:05:56Z",
+    "runs_count": 5,
+    "os": "Windows-10-10.0.26200-SP0",
+    "python_version": "3.11.0",
+    "cpu": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+    "fixture": "1,000 clean files across 5 nested directories + 150 excluded files in node_modules, .git, venv"
+  },
+  "historical_measurements": {
+    "note": "Original single-run Phase 1 report figures superseded by audited 5-run baseline.",
+    "discovery_throughput_files_per_sec": 731.03,
+    "sha256_throughput_mb_per_sec": 1007.14,
+    "worker_queue_throughput_jobs_per_sec": 240.98,
+    "watcher_event_latency_ms": 556.45,
+    "crash_recovery_latency_ms": 9.33,
+    "rss_ram_mb": 25.97,
+    "cpu_percent": 0.0
+  },
+  "audited_measurements": {
+    "discovery_throughput_files_per_sec": {
+      "runs": [
+        761.56,
+        878.33,
+        715.84,
+        767.54,
+        748.38
+      ],
+      "median": 761.56,
+      "mean": 774.33,
+      "range": [
+        715.84,
+        878.33
+      ],
+      "target": "> 200 files/sec",
+      "status": "PASS"
+    },
+    "sha256_streaming_throughput_mb_per_sec": {
+      "runs": [
+        656.04,
+        656.73,
+        554.88,
+        517.88,
+        606.74
+      ],
+      "median": 606.74,
+      "mean": 598.45,
+      "range": [
+        517.88,
+        656.73
+      ],
+      "target": "> 200 MB/s",
+      "status": "PASS"
+    },
+    "worker_queue_throughput_jobs_per_sec": {
+      "runs": [
+        205.85,
+        219.51,
+        210.47,
+        237.19,
+        216.76
+      ],
+      "median": 216.76,
+      "mean": 217.96,
+      "range": [
+        205.85,
+        237.19
+      ],
+      "target": "> 100 jobs/sec",
+      "status": "PASS"
+    },
+    "watcher_event_latency_ms": {
+      "runs": [
+        558.5,
+        554.8,
+        555.97,
+        557.59,
+        556.51
+      ],
+      "median": 556.51,
+      "mean": 556.67,
+      "range": [
+        554.8,
+        558.5
+      ],
+      "target": "< 1000 ms",
+      "status": "PASS"
+    },
+    "crash_recovery_latency_ms": {
+      "runs": [
+        10.68,
+        13.04,
+        8.02,
+        10.41,
+        11.87
+      ],
+      "median": 10.68,
+      "mean": 10.8,
+      "range": [
+        8.02,
+        13.04
+      ],
+      "target": "< 1000 ms",
+      "status": "PASS"
+    },
+    "resources": {
+      "rss_ram_mb": 27.62,
+      "cpu_percent": 0.0,
+      "ram_target": "< 100 MB",
+      "cpu_target": "< 2.0%",
+      "status": "PASS"
+    }
+  },
+  "supplementary_realistic_workload_benchmark": {
+    "benchmark_name": "Supplementary realistic filesystem workload benchmark",
+    "description": "500 mixed-size files (1 KB - 500 KB) across 4 directory depths, representative text/code/json/csv content, 75 excluded files in node_modules/.git/venv",
+    "total_files": 500,
+    "total_dataset_bytes": 15800235,
+    "total_dataset_mb": 15.07,
+    "discovery_throughput_files_per_sec": {
+      "timer_boundary": "scanner.scan_folder() entry -> return after persisting 500 records into SQLite",
+      "runs": [
+        661.81,
+        766.9,
+        533.88,
+        323.62,
+        738.78
+      ],
+      "median": 661.81,
+      "range": [
+        323.62,
+        766.9
+      ],
+      "target": "> 200 files/sec",
+      "status": "PASS"
+    },
+    "realistic_workload_hashing_only_throughput_mb_per_sec": {
+      "timer_boundary": "hash timer start -> stream all 500 files sequentially via 64 KB buffers -> hash complete (strictly excludes worker pool, queue claiming, SQLite writes, and state updates)",
+      "runs": [
+        88.23,
+        82.63,
+        34.23,
+        31.87,
+        74.15
+      ],
+      "median": 74.15,
+      "range": [
+        31.87,
+        88.23
+      ],
+      "throughput_files_per_sec": {
+        "runs": [
+          2927.66,
+          2741.98,
+          1135.87,
+          1057.66,
+          2460.33
+        ],
+        "median": 2460.33,
+        "range": [
+          1057.66,
+          2927.66
+        ]
+      },
+      "status": "PASS"
+    },
+    "end_to_end_worker_processing_throughput_jobs_per_sec": {
+      "timer_boundary": "worker pool start -> all 500 files reach INDEXED state in SQLite (includes queue claiming, streaming SHA-256, SQLite updates, and worker coordination)",
+      "runs": [
+        208.35,
+        204.95,
+        166.39,
+        157.42,
+        210.26
+      ],
+      "median": 204.95,
+      "range": [
+        157.42,
+        210.26
+      ],
+      "target": "> 100 jobs/sec",
+      "status": "PASS"
+    }
+  }
+}
