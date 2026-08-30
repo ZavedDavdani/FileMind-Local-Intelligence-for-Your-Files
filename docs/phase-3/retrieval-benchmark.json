@@ -6,29 +6,70 @@
   "embedding_models": {
     "BAAI/bge-small-en-v1.5": {
       "dimension": 384,
-      "memory_rss_mb": 127.95,
+      "memory_rss_mb": 139.73,
+      "model_load_rss_delta_mb": 139.73,
+      "absolute_process_rss_mb": 167.9,
+      "memory_detailed": {
+        "model_load_rss_delta_mb": {
+          "median": 139.73,
+          "min": 139.51,
+          "max": 139.93,
+          "runs": [
+            139.93,
+            139.73,
+            139.51,
+            139.65,
+            139.8
+          ]
+        },
+        "absolute_process_rss_mb": {
+          "median": 167.9,
+          "min": 167.75,
+          "max": 168.08,
+          "runs": [
+            168.08,
+            167.9,
+            167.75,
+            167.84,
+            167.99
+          ]
+        },
+        "baseline_process_rss_mb": {
+          "median": 28.19,
+          "min": 28.14,
+          "max": 28.24,
+          "runs": [
+            28.14,
+            28.16,
+            28.24,
+            28.19,
+            28.19
+          ]
+        }
+      },
+      "historical_invalid_measurement_mb": null,
       "document_throughput_docs_sec": {
-        "median": 4.29,
-        "min": 4.28,
-        "max": 7.31,
+        "median": 5.91,
+        "min": 4.44,
+        "max": 5.94,
         "runs": [
-          7.31,
-          4.29,
-          4.29,
-          4.29,
-          4.28
+          5.94,
+          5.94,
+          5.91,
+          5.2,
+          4.44
         ]
       },
       "query_embedding_latency_ms": {
-        "median": 107.927,
-        "min": 104.76,
-        "max": 119.273,
+        "median": 106.728,
+        "min": 96.922,
+        "max": 112.858,
         "runs": [
-          106.69,
-          107.927,
-          110.689,
-          119.273,
-          104.76
+          106.728,
+          112.858,
+          100.295,
+          111.197,
+          96.922
         ]
       },
       "quality": {
@@ -39,29 +80,70 @@
     },
     "sentence-transformers/all-MiniLM-L6-v2": {
       "dimension": 384,
-      "memory_rss_mb": -92.79,
+      "memory_rss_mb": 151.68,
+      "model_load_rss_delta_mb": 151.68,
+      "absolute_process_rss_mb": 179.89,
+      "memory_detailed": {
+        "model_load_rss_delta_mb": {
+          "median": 151.68,
+          "min": 151.25,
+          "max": 151.93,
+          "runs": [
+            151.45,
+            151.77,
+            151.93,
+            151.68,
+            151.25
+          ]
+        },
+        "absolute_process_rss_mb": {
+          "median": 179.89,
+          "min": 179.48,
+          "max": 180.18,
+          "runs": [
+            179.78,
+            180.11,
+            180.18,
+            179.89,
+            179.48
+          ]
+        },
+        "baseline_process_rss_mb": {
+          "median": 28.24,
+          "min": 28.21,
+          "max": 28.34,
+          "runs": [
+            28.32,
+            28.34,
+            28.24,
+            28.21,
+            28.22
+          ]
+        }
+      },
+      "historical_invalid_measurement_mb": -92.79,
       "document_throughput_docs_sec": {
-        "median": 33.18,
-        "min": 30.33,
-        "max": 40.16,
+        "median": 35.47,
+        "min": 32.05,
+        "max": 67.5,
         "runs": [
-          40.16,
-          30.33,
-          32.2,
-          33.18,
-          36.79
+          67.5,
+          39.35,
+          34.83,
+          32.05,
+          35.47
         ]
       },
       "query_embedding_latency_ms": {
-        "median": 33.517,
-        "min": 32.229,
-        "max": 35.225,
+        "median": 31.161,
+        "min": 29.841,
+        "max": 36.367,
         "runs": [
-          33.318,
-          33.517,
-          32.229,
-          35.225,
-          34.759
+          29.841,
+          30.833,
+          31.161,
+          36.367,
+          35.289
         ]
       },
       "quality": {
@@ -72,29 +154,70 @@
     },
     "nomic-ai/nomic-embed-text-v1.5": {
       "dimension": 768,
-      "memory_rss_mb": 353.41,
+      "memory_rss_mb": 589.9,
+      "model_load_rss_delta_mb": 589.9,
+      "absolute_process_rss_mb": 618.18,
+      "memory_detailed": {
+        "model_load_rss_delta_mb": {
+          "median": 589.9,
+          "min": 589.48,
+          "max": 590.0,
+          "runs": [
+            589.96,
+            590.0,
+            589.8,
+            589.9,
+            589.48
+          ]
+        },
+        "absolute_process_rss_mb": {
+          "median": 618.18,
+          "min": 617.7,
+          "max": 618.3,
+          "runs": [
+            618.18,
+            618.3,
+            618.05,
+            618.27,
+            617.7
+          ]
+        },
+        "baseline_process_rss_mb": {
+          "median": 28.26,
+          "min": 28.22,
+          "max": 28.37,
+          "runs": [
+            28.22,
+            28.3,
+            28.26,
+            28.37,
+            28.22
+          ]
+        }
+      },
+      "historical_invalid_measurement_mb": null,
       "document_throughput_docs_sec": {
-        "median": 5.41,
-        "min": 5.19,
-        "max": 5.47,
+        "median": 5.56,
+        "min": 5.16,
+        "max": 5.91,
         "runs": [
+          5.91,
+          5.16,
           5.41,
-          5.19,
-          5.47,
-          5.47,
-          5.27
+          5.75,
+          5.56
         ]
       },
       "query_embedding_latency_ms": {
-        "median": 47.656,
-        "min": 41.863,
-        "max": 51.927,
+        "median": 46.138,
+        "min": 44.282,
+        "max": 56.608,
         "runs": [
-          42.225,
-          41.863,
-          51.927,
-          50.913,
-          47.656
+          56.608,
+          48.742,
+          44.282,
+          44.335,
+          46.138
         ]
       },
       "quality": {
@@ -107,28 +230,28 @@
   "vector_stores": {
     "sqlite-vec": {
       "insert_latency_ms": {
-        "median": 1.81,
-        "min": 1.42,
-        "max": 2.05,
+        "median": 1.76,
+        "min": 1.58,
+        "max": 1.99,
         "runs": [
-          2.05,
-          1.81,
-          1.48,
-          1.42,
-          1.86
+          1.58,
+          1.99,
+          1.83,
+          1.76,
+          1.76
         ]
       },
-      "insert_throughput_vectors_sec": 29834.25,
+      "insert_throughput_vectors_sec": 30681.82,
       "query_latency_ms": {
-        "median": 1.518,
-        "min": 1.142,
-        "max": 2.183,
+        "median": 1.151,
+        "min": 1.028,
+        "max": 2.373,
         "runs": [
-          1.59,
-          1.15,
-          1.142,
-          2.183,
-          1.518
+          2.373,
+          1.48,
+          1.151,
+          1.079,
+          1.028
         ]
       },
       "disk_size_kb": 1780.0,
@@ -140,28 +263,28 @@
     },
     "LanceDB": {
       "insert_latency_ms": {
-        "median": 19.72,
-        "min": 17.36,
-        "max": 21.17,
+        "median": 16.97,
+        "min": 13.95,
+        "max": 107.94,
         "runs": [
-          19.77,
-          17.36,
-          21.17,
-          19.72,
-          19.05
+          107.94,
+          13.95,
+          16.97,
+          15.57,
+          22.86
         ]
       },
-      "insert_throughput_vectors_sec": 2738.34,
+      "insert_throughput_vectors_sec": 3182.09,
       "query_latency_ms": {
-        "median": 6.276,
-        "min": 5.276,
-        "max": 19.106,
+        "median": 9.847,
+        "min": 9.76,
+        "max": 190.509,
         "runs": [
-          19.106,
-          8.654,
-          6.041,
-          5.276,
-          6.276
+          190.509,
+          9.847,
+          9.95,
+          9.76,
+          9.777
         ]
       },
       "disk_size_kb": 85.52,
@@ -173,28 +296,28 @@
     },
     "MemoryCosineStore": {
       "insert_latency_ms": {
-        "median": 0.823,
-        "min": 0.772,
-        "max": 0.884,
+        "median": 1.204,
+        "min": 1.163,
+        "max": 1.323,
         "runs": [
-          0.836,
-          0.823,
-          0.772,
-          0.772,
-          0.884
+          1.172,
+          1.323,
+          1.24,
+          1.204,
+          1.163
         ]
       },
-      "insert_throughput_vectors_sec": 65613.61,
+      "insert_throughput_vectors_sec": 44850.5,
       "query_latency_ms": {
-        "median": 0.088,
-        "min": 0.076,
-        "max": 0.212,
+        "median": 0.13,
+        "min": 0.127,
+        "max": 0.295,
         "runs": [
-          0.212,
-          0.104,
-          0.077,
-          0.076,
-          0.088
+          0.295,
+          0.15,
+          0.13,
+          0.129,
+          0.127
         ]
       },
       "disk_size_kb": 0.0,

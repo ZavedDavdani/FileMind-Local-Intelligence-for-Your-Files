@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import statistics
+import subprocess
 import sys
 import tempfile
 import time
@@ -32,9 +33,62 @@ EMBEDDING_CANDIDATES = [
 ]
 
 
-def get_process_memory_mb() -> float:
-    proc = psutil.Process()
-    return round(proc.memory_info().rss / (1024 * 1024), 2)
+def measure_isolated_model_memory(model_name: str, runs: int = 5) -> dict:
+    """Measures model loading memory RSS delta and absolute process RSS in isolated subprocesses.
+    
+    Prevents cross-model GC / heap reuse interference that occurs when benchmarking sequentially
+    in a single process.
+    """
+    backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    code = f'''
+import sys, psutil, gc
+import os
+sys.path.insert(0, r"{backend_dir}")
+from app.retrieval.embeddings import EmbeddingEngine
+
+proc = psutil.Process()
+gc.collect()
+base_rss = proc.memory_info().rss / (1024 * 1024)
+
+engine = EmbeddingEngine("{model_name}")
+engine._ensure_loaded()
+gc.collect()
+loaded_rss = proc.memory_info().rss / (1024 * 1024)
+delta_rss = max(0.0, loaded_rss - base_rss)
+
+print(f"{{base_rss:.2f}},{{loaded_rss:.2f}},{{delta_rss:.2f}}")
+'''
+    base_runs = []
+    loaded_runs = []
+    delta_runs = []
+
+    for _ in range(runs):
+        out = subprocess.check_output([sys.executable, "-c", code], text=True).strip()
+        b, l, d = [float(x) for x in out.split(",")]
+        base_runs.append(b)
+        loaded_runs.append(l)
+        delta_runs.append(d)
+
+    return {
+        "model_load_rss_delta_mb": {
+            "median": round(statistics.median(delta_runs), 2),
+            "min": round(min(delta_runs), 2),
+            "max": round(max(delta_runs), 2),
+            "runs": [round(x, 2) for x in delta_runs],
+        },
+        "absolute_process_rss_mb": {
+            "median": round(statistics.median(loaded_runs), 2),
+            "min": round(min(loaded_runs), 2),
+            "max": round(max(loaded_runs), 2),
+            "runs": [round(x, 2) for x in loaded_runs],
+        },
+        "baseline_process_rss_mb": {
+            "median": round(statistics.median(base_runs), 2),
+            "min": round(min(base_runs), 2),
+            "max": round(max(base_runs), 2),
+            "runs": [round(x, 2) for x in base_runs],
+        },
+    }
 
 
 def benchmark_embedding_models(corpus_chunks: list, benchmark_queries: list) -> dict:
@@ -46,13 +100,15 @@ def benchmark_embedding_models(corpus_chunks: list, benchmark_queries: list) -> 
 
     for model_name in EMBEDDING_CANDIDATES:
         print(f"\nEvaluating Model: {model_name}...")
-        gc.collect()
-        mem_before = get_process_memory_mb()
+        
+        # Measure isolated memory in clean subprocesses (5 runs)
+        mem_metrics = measure_isolated_model_memory(model_name, runs=5)
+        med_delta_mb = mem_metrics["model_load_rss_delta_mb"]["median"]
+        med_abs_mb = mem_metrics["absolute_process_rss_mb"]["median"]
+        print(f"  Memory -> Load Delta RSS: {med_delta_mb:.2f} MB, Absolute Process RSS: {med_abs_mb:.2f} MB")
 
         engine = EmbeddingEngine(model_name)
         engine._ensure_loaded()
-        mem_after_load = get_process_memory_mb()
-        model_rss_mb = round(mem_after_load - mem_before, 2)
 
         # 1. Measure Document Embedding Throughput (5 runs)
         throughput_runs = []
@@ -128,7 +184,11 @@ def benchmark_embedding_models(corpus_chunks: list, benchmark_queries: list) -> 
 
         results[model_name] = {
             "dimension": dim,
-            "memory_rss_mb": model_rss_mb,
+            "memory_rss_mb": med_delta_mb,
+            "model_load_rss_delta_mb": med_delta_mb,
+            "absolute_process_rss_mb": med_abs_mb,
+            "memory_detailed": mem_metrics,
+            "historical_invalid_measurement_mb": -92.79 if "all-MiniLM" in model_name else None,
             "document_throughput_docs_sec": {
                 "median": med_throughput,
                 "min": min(throughput_runs),

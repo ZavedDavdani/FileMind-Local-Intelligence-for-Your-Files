@@ -36,11 +36,11 @@ Phase 3 implements a deterministic, local-first retrieval engine that transforms
 
 ### A. Embedding Model Candidates
 
-| Candidate Model | Dim | Indexing Throughput | Single Query Latency | Recall@5 | Recall@10 | MRR | RSS Footprint | Selected? |
+| Candidate Model | Dim | Indexing Throughput | Single Query Latency | Recall@5 | Recall@10 | MRR | RSS Footprint (Load Delta / Process Total) | Selected? |
 |---|---|---|---|---|---|---|---|---|
-| `sentence-transformers/all-MiniLM-L6-v2` | 384 | **36.08 docs/s** | **33.52 ms** | **0.8613** | **0.9113** | 0.8393 | ~90 MB | **YES (Primary)** |
-| `BAAI/bge-small-en-v1.5` | 384 | 4.29 docs/s | 107.93 ms | 0.8000 | 0.9033 | 0.8457 | ~133 MB | Candidate |
-| `nomic-ai/nomic-embed-text-v1.5` | 768 | 5.39 docs/s | 47.66 ms | 0.8747 | 0.9380 | 0.9080 | ~550 MB | Candidate |
+| `sentence-transformers/all-MiniLM-L6-v2` | 384 | **35.47 docs/s** | **31.16 ms** | **0.8613** | **0.9113** | 0.8393 | **151.68 MB delta / 179.89 MB total** *(Historical invalid: -92.79 MB)* | **YES (Primary)** |
+| `BAAI/bge-small-en-v1.5` | 384 | 5.91 docs/s | 106.73 ms | 0.8000 | 0.9033 | 0.8457 | 139.73 MB delta / 167.90 MB total | Candidate |
+| `nomic-ai/nomic-embed-text-v1.5` | 768 | 5.56 docs/s | 46.14 ms | 0.8747 | 0.9380 | 0.9080 | 589.90 MB delta / 618.18 MB total | Candidate |
 
 **Rationale**: `all-MiniLM-L6-v2` delivers 8.4x higher indexing throughput and 3.2x faster query embedding latency than `bge-small` with high quality, low RAM footprint, and minimal disk impact.
 
