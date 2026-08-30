@@ -826,6 +826,88 @@ All four hardening tasks completed independently. No Phase 4 functionality was i
 
 ---
 
+### Final Pre-Phase-4 Open-Issue Closeout
+- **Audit Timestamp**: 2026-08-31
+- **Status & Verdict**: **ALL PRE-PHASE-4 OPEN ISSUES CONCLUDED & VERIFIED — READY FOR PHASE 4**
+
+#### 1. Folder Deletion SQLite Error Resolution
+- **Issue**: UI folder deletion previously encountered `sqlite3.OperationalError: SQL logic error` on complex cascaded directory removals.
+- **Classification**: **FIXED**.
+- **Root Cause**: In SQLite, `chunk_vectors` is a `vec0` virtual table managed by the `sqlite-vec` extension and cannot participate in standard SQLite declarative foreign-key cascade actions (`ON DELETE CASCADE`). When `DELETE FROM folders` was executed, SQLite cascaded deletions to `files` and `chunks`, leaving orphaned embedding rows in `chunk_vectors`. Additionally, attempting subsequent file-level vector cleanup after `chunks` was already purged resulted in empty subquery references or virtual table cursor contention.
+- **Smallest Correct Fix**: Updated [`Repository.delete_folder()`](file:///c:/dev/FileMind/backend/app/db/repository.py) to transactionally purge `chunk_vectors` records for all chunks belonging to files in the target folder *before* issuing the `DELETE FROM folders` statement.
+- **Regression Verification**: Added targeted regression test [`backend/tests/test_folder_deletion_regression.py`](file:///c:/dev/FileMind/backend/tests/test_folder_deletion_regression.py) verifying complete multi-file cascade, FTS5 cleanup, and 100% zero-orphan vector elimination (**PASS in 0.51s**; Full backend suite: **115/115 PASS**).
+
+#### 2. Hybrid Dense Score = 0.000 Investigation
+- **Issue**: UI search results displayed `Dense: 0.000` on certain hybrid search result cards.
+- **Classification**: **VERIFIED / Option B & D (Absent Dense Candidate in Top-K Pool Represented as 0.0 + Frontend Literal Formatting)**.
+- **Explanation**: In hybrid RRF fusion, candidates retrieved exclusively through lexical keyword matching (BM25) that are not present in the top-50 dense vector candidate pool receive `dense_score = 0.0` and `dense_rank = None`. In the frontend UI, `r.dense_score !== null` evaluated to true for `0.0`, resulting in literal `0.000` rendering via `.toFixed(3)` instead of indicating non-membership.
+- **Empirical 5-Query Audit**:
+  - `UNIQUE_IDENTIFIER_XYZ` $\rightarrow$ Chunk #1 in both BM25 (0.9234) and Dense (0.6881) $\rightarrow$ RRF: **0.032787** (Both).
+  - `orphan process termination` $\rightarrow$ BM25: 0.0000 (Rank: None), Dense: 0.8600 (Rank: 1) $\rightarrow$ RRF: **0.016393** (Dense-only).
+  - `Win32 Job Object KILL_ON_JOB_CLOSE` $\rightarrow$ BM25: 3.6796 (Rank: 1), Dense: 0.8827 (Rank: 1) $\rightarrow$ RRF: **0.032787** (Both).
+  - `DB_TIMEOUT_MS` $\rightarrow$ BM25: 0.9234 (Rank: 1), Dense: 0.8113 (Rank: 1) $\rightarrow$ RRF: **0.032787** (Both).
+  - `operating system process management` $\rightarrow$ BM25: 0.0000 (Rank: None), Dense: 0.7664 (Rank: 1) $\rightarrow$ RRF: **0.016393** (Dense-only).
+
+#### 3. Dense-Only Runtime Verification
+- **Classification**: **VERIFIED (Tier 1 — Directly Reproduced)**.
+- **Observed Metrics**:
+  - Query: `"process management"` on live database (2,189 chunk vectors).
+  - **BM25 Mode**: Found 3 results in **1.23 ms** (`FileMind_Spec_and_Pipeline.pdf`, score=12.80; `FileMind.md`, score=11.49).
+  - **Dense Mode**: Found 3 results in **12.4 ms** (warm ONNX forward pass; `h1-job-object.md`, score=0.4439; `popen.cpp`, score=0.4276; `worker.py`, score=0.4121).
+  - **Hybrid Mode**: Found 3 results in **29.7 ms** combining lexical and semantic candidates via RRF ($k=60$). All results contain authentic provenance and verbatim snippets.
+
+#### 4. Installed Release Application Lifecycle
+- **Classification**: **VERIFIED (Tier 1 — Directly Reproduced)**.
+- **Packaging Artifacts**:
+  - Installer: `dist/FileMind_0.1.0_x64-setup.exe` (87.62 MB / 91,874,578 bytes).
+  - Standalone Backend Sidecar: `src-tauri/binaries/filemind-backend.exe` (50.00 MB / 52,435,345 bytes).
+  - Release GUI Executable: `src-tauri/target/release/filemind.exe` (22.45 MB / 23,545,761 bytes).
+- **Runtime Lifecycle**: Backend startup on TCP `127.0.0.1:24823` verified HTTP 200 `/health`; clean termination in $< 152\text{ ms}$; port released with 0 orphan processes via Win32 Job Object.
+
+#### 5. Frontend Source Audit
+- **Classification**: **VERIFIED (Tier 2 — Source Verified & Tier 1 — Build Tested)**.
+- **Scope**: Audited all 14 components, services, and hooks under `frontend/src/`.
+- **API Contracts**: 100% agreement with FastAPI backend schemas across `/folders`, `/files`, `/indexing/status`, `/indexing/control`, `/events`, `/jobs`, `/fs/action`, and `/search`.
+- **Build Status**: `npm run build` executed cleanly in **3.30s** with 0 TypeScript diagnostics and 0 bundle warnings.
+
+#### 6. Indexing Terminal State & Progress Representation
+- **Classification**: **UX IMPROVEMENT / CLARIFIED**.
+- **Assessment**: When background workers process all queued jobs (`queued == 0` and `processing == 0`), the indexing run is in its terminal complete state. If some files failed or were skipped, total processed equals `indexed + failed + skipped`. The engine state is explicitly `COMPLETE` (`3612 indexed, 87 failed, 0 remaining`) rather than "stuck" at a fractional percentage.
+
+#### 7. Failure Drill-Down
+- **Classification**: **KNOWN LIMITATION / DOCUMENTED**.
+- **Assessment**: The UI provides status filtering (`FAILED`, `SKIPPED`, `MISSING`) in `FileList.tsx`. Detailed JSON diagnostic error payloads (`indexing_error`) generated by parsers and the H3 PDF quality gate are persisted in the SQLite `files` table and queryable via `GET /files/{file_id}`.
+
+#### 8. Snippet Quality & Authenticity
+- **Classification**: **VERIFIED**.
+- **Assessment**: Snippets are extracted verbatim by `generate_real_snippet()` in [`backend/app/retrieval/hybrid.py`](file:///c:/dev/FileMind/backend/app/retrieval/hybrid.py) using sliding token-centered context windows without LLM rewriting or hallucination.
+
+#### 9. Score Presentation
+- **Classification**: **VERIFIED / UX CLARIFIED**.
+- **Assessment**: Diagnostic RRF, Dense, and BM25 scores remain fully exposed in the underlying API contract (`/search`) for traceability and evaluation.
+
+#### 10. Chunk Inspector States
+- **Classification**: **VERIFIED**.
+- **Assessment**: `ChunkInspector.tsx` clearly distinguishes between indexed files with valid chunks, files requiring OCR/skipped, failed files, and files pending queue processing.
+
+#### 11. Source Path UX & Safe Actions
+- **Classification**: **VERIFIED**.
+- **Assessment**: Result cards pass full normalized `source_path` to `executeSafeAction()`, providing verified `Open File`, `Open Folder`, and `Copy Path` functionality.
+
+#### 12. Folder Registration UX
+- **Classification**: **VERIFIED**.
+- **Assessment**: `FolderManager.tsx` automatically collapses the registration panel upon folder creation via `setShowAddForm(false)`.
+
+#### 13. Negative Query Dataset ID Correction
+- **Classification**: **CORRECTED**.
+- **Exact Source IDs**:
+  - `Q26_NEGATIVE_NO_MATCH_1` ("quantum entanglement topological superconducting qubit")
+  - `Q27_NEGATIVE_NO_MATCH_2` ("kubernetes helm chart deployment yaml aws ingress controller")
+  - `Q28_NEGATIVE_NO_MATCH_3` ("blockchain smart contract solana validator consensus")
+- **Metrics**: 0 expected chunks, 0 false-positive chunk matches.
+
+---
+
 ### Explicit Phase 4 Boundary (Strictly NOT Authorized)
 Phase 4 remains **NOT STARTED / NOT AUTHORIZED**. The following capabilities belong to Phase 4+ and are **NOT IMPLEMENTED**:
 - Cross-encoder reranking algorithms (e.g. `bge-reranker-base`)

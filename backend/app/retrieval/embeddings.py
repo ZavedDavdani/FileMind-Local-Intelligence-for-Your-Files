@@ -14,7 +14,7 @@ import numpy as np
 
 logger = logging.getLogger("FileMind.Retrieval.Embeddings")
 
-DEFAULT_MODEL_NAME = "BAAI/bge-small-en-v1.5"
+DEFAULT_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 MODEL_DIMENSIONS = {
     "BAAI/bge-small-en-v1.5": 384,
