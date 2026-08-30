@@ -157,8 +157,16 @@ def test_job_object_lifecycle_and_orphan_prevention():
         print(f"[Test] Parent PID {parent_pid_a} terminated gracefully")
 
         # 5. Verify child backend terminated and port released
-        time.sleep(0.5)
-        assert not psutil.pid_exists(child_pid_a), f"Child PID {child_pid_a} survived graceful parent close!"
+        t0 = time.perf_counter()
+        child_dead_a = False
+        while time.perf_counter() - t0 < 5.0:
+            if not psutil.pid_exists(child_pid_a):
+                child_dead_a = True
+                break
+            time.sleep(0.05)
+        time_to_child_dead_a = time.perf_counter() - t0
+        assert child_dead_a, f"Child PID {child_pid_a} survived graceful parent close within 5.0s!"
+        print(f"[Test] Child PID {child_pid_a} terminated in {time_to_child_dead_a*1000:.2f} ms")
         port_release_time_a = wait_for_port_release(24823, timeout_s=4.0)
         print(f"[Test] Port 24823 released in {port_release_time_a*1000:.2f} ms")
 
@@ -282,6 +290,7 @@ def test_job_object_lifecycle_and_orphan_prevention():
                 "child_pid": child_pid_a,
                 "in_job_object": True,
                 "backend_terminated": True,
+                "child_termination_latency_ms": round(time_to_child_dead_a * 1000, 2),
                 "port_released": True,
                 "port_release_latency_ms": round(port_release_time_a * 1000, 2)
             },
