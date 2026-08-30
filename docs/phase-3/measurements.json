@@ -13,36 +13,36 @@
       "recall_at_10": 0.4933,
       "mrr": 0.56,
       "ndcg_at_10": 0.509,
-      "median_latency_ms": 0.134,
-      "min_latency_ms": 0.042,
-      "max_latency_ms": 0.812
+      "median_latency_ms": 0.183,
+      "min_latency_ms": 0.054,
+      "max_latency_ms": 2.715
     },
     "dense": {
       "recall_at_5": 0.8613,
       "recall_at_10": 0.9113,
       "mrr": 0.8393,
       "ndcg_at_10": 0.8263,
-      "median_latency_ms": 15.646,
-      "min_latency_ms": 14.245,
-      "max_latency_ms": 19.169
+      "median_latency_ms": 19.02,
+      "min_latency_ms": 16.707,
+      "max_latency_ms": 25.585
     },
     "hybrid": {
       "recall_at_5": 0.9153,
       "recall_at_10": 0.9733,
       "mrr": 0.9433,
       "ndcg_at_10": 0.9356,
-      "median_latency_ms": 17.043,
-      "min_latency_ms": 15.092,
-      "max_latency_ms": 23.037
+      "median_latency_ms": 20.344,
+      "min_latency_ms": 17.979,
+      "max_latency_ms": 47.122
     }
   },
   "stage_latency_breakdown_ms": {
-    "normalization": 0.046,
-    "lexical_search": 0.267,
-    "query_embedding": 14.347,
-    "dense_search": 2.159,
-    "rrf_fusion": 0.135,
-    "total_request": 17.101
+    "normalization": 0.051,
+    "lexical_search": 0.303,
+    "query_embedding": 17.104,
+    "dense_search": 2.58,
+    "rrf_fusion": 0.157,
+    "total_request": 20.315
   },
   "rrf_sensitivity_tuning": {
     "k_20": {
@@ -87,17 +87,17 @@
         "recall_at_10": 0.4933,
         "mrr": 0.56,
         "ndcg_at_10": 0.509,
-        "median_latency_ms": 0.134,
-        "min_latency_ms": 0.042,
-        "max_latency_ms": 0.812
+        "median_latency_ms": 0.183,
+        "min_latency_ms": 0.054,
+        "max_latency_ms": 2.715
       },
       "stage_latencies_ms": {
-        "normalization": 0.013,
-        "lexical_search": 0.113,
+        "normalization": 0.018,
+        "lexical_search": 0.146,
         "query_embedding": 0.0,
         "dense_search": 0.0,
         "rrf_fusion": 0.002,
-        "total_request": 0.134
+        "total_request": 0.171
       },
       "per_query_results": [
         {
@@ -110,13 +110,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.812,
-            0.342,
-            0.28,
-            0.241,
-            0.228
+            1.042,
+            0.421,
+            0.328,
+            0.295,
+            0.281
           ],
-          "median_latency_ms": 0.28,
+          "median_latency_ms": 0.328,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_a1aeee09a27bab2f"
         },
@@ -130,13 +130,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.324,
-            0.3,
-            0.298,
-            0.273,
-            0.263
+            0.417,
+            0.362,
+            0.341,
+            0.331,
+            0.322
           ],
-          "median_latency_ms": 0.298,
+          "median_latency_ms": 0.341,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
         },
@@ -150,13 +150,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.5563,
           "latency_runs_ms": [
-            0.343,
-            0.325,
-            0.321,
-            0.318,
-            0.345
+            0.425,
+            0.404,
+            0.42,
+            0.407,
+            0.394
           ],
-          "median_latency_ms": 0.325,
+          "median_latency_ms": 0.407,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_6c8f4cc4696197d3"
         },
@@ -170,13 +170,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.121,
-            0.104,
-            0.102,
-            0.098,
-            0.098
+            0.171,
+            0.127,
+            0.125,
+            0.122,
+            0.12
           ],
-          "median_latency_ms": 0.102,
+          "median_latency_ms": 0.125,
           "top_1_source": "sample_system_spec.docx",
           "top_1_chunk_id": "chk_0fd53323a9bd011f"
         },
@@ -190,13 +190,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.164,
-            0.152,
-            0.319,
-            0.13,
-            0.102
+            0.236,
+            0.173,
+            0.163,
+            0.163,
+            0.16
           ],
-          "median_latency_ms": 0.152,
+          "median_latency_ms": 0.163,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_072e2e2de283bacf"
         },
@@ -210,13 +210,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.087,
-            0.085,
-            0.103,
-            0.075,
-            0.086
+            0.106,
+            0.094,
+            0.093,
+            0.094,
+            0.276
           ],
-          "median_latency_ms": 0.086,
+          "median_latency_ms": 0.094,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
         },
@@ -230,13 +230,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.222,
-            0.15,
-            0.143,
-            0.139,
-            0.136
+            0.332,
+            0.338,
+            0.59,
+            0.373,
+            0.394
           ],
-          "median_latency_ms": 0.143,
+          "median_latency_ms": 0.373,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_072e2e2de283bacf"
         },
@@ -250,13 +250,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.116,
-            0.1,
-            0.095,
-            0.09,
-            0.088
+            0.309,
+            0.363,
+            0.23,
+            0.197,
+            0.18
           ],
-          "median_latency_ms": 0.095,
+          "median_latency_ms": 0.23,
           "top_1_source": "sample_coordinator.py",
           "top_1_chunk_id": "chk_b34f24984372a069"
         },
@@ -270,13 +270,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.076,
-            0.07,
-            0.068,
-            0.066,
-            0.066
+            0.183,
+            0.112,
+            0.093,
+            0.089,
+            0.092
           ],
-          "median_latency_ms": 0.068,
+          "median_latency_ms": 0.093,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_072e2e2de283bacf"
         },
@@ -290,13 +290,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.176,
-            0.154,
-            0.14,
-            0.137,
-            0.134
+            0.226,
+            0.212,
+            0.187,
+            0.194,
+            0.175
           ],
-          "median_latency_ms": 0.14,
+          "median_latency_ms": 0.194,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -310,13 +310,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.137,
-            0.128,
-            0.124,
-            0.125,
-            0.123
+            0.174,
+            0.163,
+            0.159,
+            0.156,
+            0.156
           ],
-          "median_latency_ms": 0.125,
+          "median_latency_ms": 0.159,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -330,13 +330,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.118,
-            0.112,
-            0.11,
-            0.109,
-            0.132
+            0.155,
+            0.144,
+            0.14,
+            0.156,
+            0.163
           ],
-          "median_latency_ms": 0.112,
+          "median_latency_ms": 0.155,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -350,13 +350,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
+            0.136,
+            0.126,
             0.122,
-            0.105,
-            0.101,
-            0.099,
-            0.099
+            0.122,
+            0.121
           ],
-          "median_latency_ms": 0.101,
+          "median_latency_ms": 0.122,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -370,13 +370,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.109,
-            0.104,
-            0.101,
-            0.1,
-            0.14
+            0.146,
+            0.128,
+            0.125,
+            0.123,
+            0.124
           ],
-          "median_latency_ms": 0.104,
+          "median_latency_ms": 0.125,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -390,13 +390,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.5563,
           "latency_runs_ms": [
-            0.22,
-            0.252,
-            0.27,
-            0.315,
-            0.311
+            0.272,
+            0.251,
+            0.225,
+            0.216,
+            0.214
           ],
-          "median_latency_ms": 0.27,
+          "median_latency_ms": 0.225,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_75ba49ac19ff5b1d"
         },
@@ -410,13 +410,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.6131,
           "latency_runs_ms": [
-            0.483,
-            0.469,
-            0.46,
-            0.459,
-            0.292
+            0.386,
+            0.337,
+            0.304,
+            0.322,
+            0.304
           ],
-          "median_latency_ms": 0.46,
+          "median_latency_ms": 0.322,
           "top_1_source": "sample_metrics.csv",
           "top_1_chunk_id": "chk_6ccc18c68a18a3d0"
         },
@@ -430,13 +430,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.21,
-            0.202,
-            0.297,
-            0.207,
-            0.182
+            0.254,
+            0.235,
+            0.226,
+            0.219,
+            0.217
           ],
-          "median_latency_ms": 0.207,
+          "median_latency_ms": 0.226,
           "top_1_source": "doc2_multicolumn.pdf",
           "top_1_chunk_id": "chk_7f4c75db248aa141"
         },
@@ -450,13 +450,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.101,
-            0.103,
-            0.087,
-            0.081,
-            0.079
+            0.118,
+            0.157,
+            0.17,
+            0.124,
+            0.111
           ],
-          "median_latency_ms": 0.087,
+          "median_latency_ms": 0.124,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -470,13 +470,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.113,
-            0.106,
-            0.103,
-            0.101,
-            0.1
+            0.153,
+            0.127,
+            0.14,
+            0.161,
+            0.16
           ],
-          "median_latency_ms": 0.103,
+          "median_latency_ms": 0.153,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -490,13 +490,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.187,
-            0.175,
-            0.169,
-            0.165,
-            0.164
+            0.305,
+            0.23,
+            0.209,
+            0.224,
+            0.213
           ],
-          "median_latency_ms": 0.169,
+          "median_latency_ms": 0.224,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -510,13 +510,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.131,
-            0.134,
-            0.16,
-            0.136,
-            0.126
+            0.171,
+            0.155,
+            0.152,
+            0.199,
+            0.224
           ],
-          "median_latency_ms": 0.134,
+          "median_latency_ms": 0.171,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -530,13 +530,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.219,
-            0.215,
-            0.207,
-            0.192,
-            0.186
+            0.399,
+            2.715,
+            0.743,
+            0.709,
+            0.325
           ],
-          "median_latency_ms": 0.207,
+          "median_latency_ms": 0.709,
           "top_1_source": "sample_coordinator.py",
           "top_1_chunk_id": "chk_b28f9ad41ade2729"
         },
@@ -550,13 +550,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.052,
-            0.045,
-            0.044,
-            0.042,
-            0.042
+            0.082,
+            0.062,
+            0.055,
+            0.055,
+            0.054
           ],
-          "median_latency_ms": 0.044,
+          "median_latency_ms": 0.055,
           "top_1_source": null,
           "top_1_chunk_id": null
         },
@@ -570,13 +570,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            0.172,
-            0.221,
             0.232,
-            0.224,
-            0.212
+            0.24,
+            0.218,
+            0.214,
+            0.216
           ],
-          "median_latency_ms": 0.221,
+          "median_latency_ms": 0.218,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_f345fe7b5624b925"
         },
@@ -590,13 +590,13 @@
           "mrr": 0.0,
           "ndcg_at_10": 0.0,
           "latency_runs_ms": [
-            0.087,
+            0.096,
+            0.081,
             0.076,
             0.074,
-            0.075,
-            0.072
+            0.076
           ],
-          "median_latency_ms": 0.075,
+          "median_latency_ms": 0.076,
           "top_1_source": null,
           "top_1_chunk_id": null
         }
@@ -608,17 +608,17 @@
         "recall_at_10": 0.9113,
         "mrr": 0.8393,
         "ndcg_at_10": 0.8263,
-        "median_latency_ms": 15.646,
-        "min_latency_ms": 14.245,
-        "max_latency_ms": 19.169
+        "median_latency_ms": 19.02,
+        "min_latency_ms": 16.707,
+        "max_latency_ms": 25.585
       },
       "stage_latencies_ms": {
-        "normalization": 0.045,
+        "normalization": 0.052,
         "lexical_search": 0.0,
-        "query_embedding": 14.235,
-        "dense_search": 1.329,
-        "rrf_fusion": 0.016,
-        "total_request": 15.642
+        "query_embedding": 17.069,
+        "dense_search": 1.653,
+        "rrf_fusion": 0.018,
+        "total_request": 18.941
       },
       "per_query_results": [
         {
@@ -631,13 +631,13 @@
           "mrr": 0.2,
           "ndcg_at_10": 0.1312,
           "latency_runs_ms": [
-            19.027,
-            14.286,
-            14.31,
-            14.308,
-            14.332
+            25.585,
+            25.169,
+            22.015,
+            20.434,
+            19.676
           ],
-          "median_latency_ms": 14.31,
+          "median_latency_ms": 22.015,
           "top_1_source": "doc12_metrics.csv",
           "top_1_chunk_id": "chk_1fb728b134565854"
         },
@@ -651,13 +651,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            15.411,
-            14.463,
-            14.45,
-            14.793,
-            15.686
+            19.491,
+            19.39,
+            18.693,
+            18.617,
+            19.717
           ],
-          "median_latency_ms": 14.793,
+          "median_latency_ms": 19.39,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
         },
@@ -671,13 +671,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.9514,
           "latency_runs_ms": [
-            17.095,
-            15.787,
-            16.263,
-            16.258,
-            18.264
+            22.138,
+            24.561,
+            22.514,
+            21.791,
+            22.63
           ],
-          "median_latency_ms": 16.263,
+          "median_latency_ms": 22.514,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_6c8f4cc4696197d3"
         },
@@ -691,13 +691,13 @@
           "mrr": 0.2,
           "ndcg_at_10": 0.3869,
           "latency_runs_ms": [
-            18.492,
-            15.797,
-            14.959,
-            15.453,
-            15.642
+            21.082,
+            20.963,
+            19.934,
+            19.138,
+            18.886
           ],
-          "median_latency_ms": 15.642,
+          "median_latency_ms": 19.934,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_78a5b30306e5534b"
         },
@@ -711,13 +711,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            15.105,
-            14.819,
-            15.292,
-            14.674,
-            15.126
+            18.992,
+            17.801,
+            19.252,
+            23.009,
+            21.136
           ],
-          "median_latency_ms": 15.105,
+          "median_latency_ms": 19.252,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_072e2e2de283bacf"
         },
@@ -731,13 +731,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            15.771,
-            16.978,
-            17.18,
-            15.87,
-            17.268
+            20.432,
+            21.437,
+            20.346,
+            20.757,
+            21.121
           ],
-          "median_latency_ms": 16.978,
+          "median_latency_ms": 20.757,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
         },
@@ -751,13 +751,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.484,
-            15.449,
-            14.563,
-            15.052,
-            15.155
+            19.193,
+            18.277,
+            18.722,
+            18.153,
+            17.162
           ],
-          "median_latency_ms": 15.155,
+          "median_latency_ms": 18.277,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_072e2e2de283bacf"
         },
@@ -771,13 +771,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.3904,
           "latency_runs_ms": [
-            15.65,
-            14.717,
-            14.313,
-            14.767,
-            17.058
+            16.707,
+            19.252,
+            19.848,
+            20.636,
+            19.091
           ],
-          "median_latency_ms": 14.767,
+          "median_latency_ms": 19.252,
           "top_1_source": "sample_coordinator.py",
           "top_1_chunk_id": "chk_b34f24984372a069"
         },
@@ -791,13 +791,13 @@
           "mrr": 0.5,
           "ndcg_at_10": 0.6934,
           "latency_runs_ms": [
-            16.483,
-            15.257,
-            14.961,
-            15.8,
-            15.868
+            17.992,
+            19.652,
+            18.941,
+            17.622,
+            19.52
           ],
-          "median_latency_ms": 15.8,
+          "median_latency_ms": 18.941,
           "top_1_source": "doc4_nested_ops.docx",
           "top_1_chunk_id": "chk_d33afb854c6145e9"
         },
@@ -811,13 +811,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.7959,
           "latency_runs_ms": [
-            18.879,
-            15.259,
-            14.523,
-            14.731,
-            15.151
+            17.567,
+            18.62,
+            17.004,
+            17.395,
+            17.093
           ],
-          "median_latency_ms": 15.151,
+          "median_latency_ms": 17.395,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_605a72e3901ce2a0"
         },
@@ -831,13 +831,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.087,
-            15.926,
-            15.99,
-            16.435,
-            17.256
+            19.623,
+            20.751,
+            19.142,
+            17.899,
+            18.475
           ],
-          "median_latency_ms": 16.087,
+          "median_latency_ms": 19.142,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_e138fd81d0cc1b59"
         },
@@ -851,13 +851,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.902,
-            16.416,
-            16.579,
-            16.89,
-            16.776
+            19.02,
+            19.314,
+            17.915,
+            17.549,
+            17.276
           ],
-          "median_latency_ms": 16.776,
+          "median_latency_ms": 17.915,
           "top_1_source": "doc5_bullets.docx",
           "top_1_chunk_id": "chk_86ac22b7c079cf1c"
         },
@@ -871,13 +871,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.137,
-            16.553,
-            15.192,
-            15.462,
-            14.697
+            16.981,
+            17.349,
+            17.644,
+            18.318,
+            18.829
           ],
-          "median_latency_ms": 15.462,
+          "median_latency_ms": 17.644,
           "top_1_source": "doc11_sheets.xlsx",
           "top_1_chunk_id": "chk_11d95f31b9155dac"
         },
@@ -891,13 +891,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            14.601,
-            15.557,
-            14.245,
-            14.702,
-            15.533
+            18.433,
+            18.281,
+            17.88,
+            18.001,
+            19.501
           ],
-          "median_latency_ms": 14.702,
+          "median_latency_ms": 18.281,
           "top_1_source": "doc4_nested_ops.docx",
           "top_1_chunk_id": "chk_ac10fe9dbc1e49db"
         },
@@ -911,13 +911,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.8146,
           "latency_runs_ms": [
-            16.929,
-            16.307,
-            15.561,
-            15.495,
-            17.584
+            19.321,
+            17.95,
+            17.57,
+            17.313,
+            17.386
           ],
-          "median_latency_ms": 16.307,
+          "median_latency_ms": 17.57,
           "top_1_source": "sample_system_spec.docx",
           "top_1_chunk_id": "chk_7f8f007544dfc303"
         },
@@ -931,13 +931,13 @@
           "mrr": 0.5,
           "ndcg_at_10": 0.6934,
           "latency_runs_ms": [
-            15.849,
-            15.646,
-            16.537,
-            14.524,
-            14.394
+            17.558,
+            17.877,
+            17.704,
+            18.571,
+            20.74
           ],
-          "median_latency_ms": 15.646,
+          "median_latency_ms": 17.877,
           "top_1_source": "doc2_multicolumn.pdf",
           "top_1_chunk_id": "chk_8e8ae2809dd21483"
         },
@@ -951,13 +951,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            14.913,
-            14.53,
-            14.332,
-            15.854,
-            14.928
+            20.222,
+            20.039,
+            18.895,
+            17.998,
+            18.182
           ],
-          "median_latency_ms": 14.913,
+          "median_latency_ms": 18.895,
           "top_1_source": "doc2_multicolumn.pdf",
           "top_1_chunk_id": "chk_7f4c75db248aa141"
         },
@@ -971,13 +971,13 @@
           "mrr": 0.25,
           "ndcg_at_10": 0.5173,
           "latency_runs_ms": [
-            17.413,
-            18.13,
-            18.383,
-            17.112,
-            16.164
+            16.842,
+            17.136,
+            17.161,
+            18.017,
+            17.887
           ],
-          "median_latency_ms": 17.413,
+          "median_latency_ms": 17.161,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_78a5b30306e5534b"
         },
@@ -991,13 +991,13 @@
           "mrr": 0.3333,
           "ndcg_at_10": 0.3318,
           "latency_runs_ms": [
-            15.636,
-            15.779,
-            16.248,
-            15.246,
-            15.834
+            19.154,
+            19.573,
+            19.969,
+            18.234,
+            20.357
           ],
-          "median_latency_ms": 15.779,
+          "median_latency_ms": 19.573,
           "top_1_source": "doc7_table_deck.pptx",
           "top_1_chunk_id": "chk_de16e5fa918ff4cb"
         },
@@ -1011,13 +1011,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            15.816,
-            14.905,
-            15.463,
-            14.694,
-            15.708
+            18.658,
+            18.24,
+            17.938,
+            19.108,
+            20.021
           ],
-          "median_latency_ms": 15.463,
+          "median_latency_ms": 18.658,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
         },
@@ -1031,13 +1031,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.936,
-            16.147,
-            15.87,
-            15.508,
-            16.159
+            18.748,
+            18.884,
+            20.3,
+            21.283,
+            21.325
           ],
-          "median_latency_ms": 16.147,
+          "median_latency_ms": 20.3,
           "top_1_source": "sample_system_spec.docx",
           "top_1_chunk_id": "chk_0fd53323a9bd011f"
         },
@@ -1051,13 +1051,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            15.979,
-            15.25,
-            15.237,
-            15.027,
-            14.947
+            18.773,
+            19.038,
+            19.151,
+            20.295,
+            19.242
           ],
-          "median_latency_ms": 15.237,
+          "median_latency_ms": 19.151,
           "top_1_source": "sample_coordinator.py",
           "top_1_chunk_id": "chk_b28f9ad41ade2729"
         },
@@ -1071,13 +1071,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.9505,
           "latency_runs_ms": [
-            14.631,
-            15.163,
-            15.003,
-            14.776,
-            16.318
+            19.425,
+            18.83,
+            17.69,
+            19.13,
+            18.088
           ],
-          "median_latency_ms": 15.003,
+          "median_latency_ms": 18.83,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_b187539fc8bcb4ac"
         },
@@ -1091,13 +1091,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            18.4,
-            17.98,
-            18.917,
-            18.573,
-            18.216
+            19.445,
+            19.695,
+            19.385,
+            18.288,
+            19.468
           ],
-          "median_latency_ms": 18.4,
+          "median_latency_ms": 19.445,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_f345fe7b5624b925"
         },
@@ -1111,13 +1111,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            19.169,
-            17.407,
-            15.391,
-            15.452,
-            15.642
+            18.179,
+            19.778,
+            19.251,
+            17.133,
+            18.185
           ],
-          "median_latency_ms": 15.642,
+          "median_latency_ms": 18.185,
           "top_1_source": "doc11_sheets.xlsx",
           "top_1_chunk_id": "chk_03ebc371aed08760"
         }
@@ -1129,17 +1129,17 @@
         "recall_at_10": 0.9733,
         "mrr": 0.9433,
         "ndcg_at_10": 0.9356,
-        "median_latency_ms": 17.043,
-        "min_latency_ms": 15.092,
-        "max_latency_ms": 23.037
+        "median_latency_ms": 20.344,
+        "min_latency_ms": 17.979,
+        "max_latency_ms": 47.122
       },
       "stage_latencies_ms": {
-        "normalization": 0.046,
-        "lexical_search": 0.267,
-        "query_embedding": 14.347,
-        "dense_search": 2.159,
-        "rrf_fusion": 0.135,
-        "total_request": 17.101
+        "normalization": 0.051,
+        "lexical_search": 0.303,
+        "query_embedding": 17.104,
+        "dense_search": 2.58,
+        "rrf_fusion": 0.157,
+        "total_request": 20.315
       },
       "per_query_results": [
         {
@@ -1152,13 +1152,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.9709,
           "latency_runs_ms": [
-            17.532,
-            19.096,
-            16.597,
-            15.984,
-            19.33
+            20.898,
+            22.419,
+            19.008,
+            17.979,
+            20.164
           ],
-          "median_latency_ms": 17.532,
+          "median_latency_ms": 20.164,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_a1aeee09a27bab2f"
         },
@@ -1172,13 +1172,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            20.188,
-            20.075,
-            23.037,
-            22.193,
-            18.557
+            20.493,
+            20.68,
+            21.19,
+            22.351,
+            21.336
           ],
-          "median_latency_ms": 20.188,
+          "median_latency_ms": 21.19,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
         },
@@ -1192,13 +1192,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.9514,
           "latency_runs_ms": [
-            18.434,
-            18.257,
-            17.977,
-            19.473,
-            19.014
+            21.211,
+            20.908,
+            19.191,
+            20.396,
+            18.598
           ],
-          "median_latency_ms": 18.434,
+          "median_latency_ms": 20.396,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_6c8f4cc4696197d3"
         },
@@ -1212,13 +1212,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            17.69,
-            21.295,
-            18.75,
-            19.855,
-            18.739
+            18.534,
+            19.263,
+            22.053,
+            21.118,
+            19.468
           ],
-          "median_latency_ms": 18.75,
+          "median_latency_ms": 19.468,
           "top_1_source": "sample_system_spec.docx",
           "top_1_chunk_id": "chk_0fd53323a9bd011f"
         },
@@ -1232,13 +1232,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            20.082,
-            20.336,
-            17.101,
-            15.584,
-            16.332
+            19.207,
+            19.523,
+            20.921,
+            19.564,
+            19.501
           ],
-          "median_latency_ms": 17.101,
+          "median_latency_ms": 19.523,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_072e2e2de283bacf"
         },
@@ -1252,13 +1252,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            17.206,
-            16.032,
-            17.666,
-            16.27,
-            16.051
+            18.946,
+            18.615,
+            22.062,
+            20.551,
+            21.498
           ],
-          "median_latency_ms": 16.27,
+          "median_latency_ms": 20.551,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
         },
@@ -1272,13 +1272,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            17.854,
-            17.87,
-            17.52,
-            17.694,
-            17.633
+            21.807,
+            21.559,
+            20.415,
+            21.668,
+            20.365
           ],
-          "median_latency_ms": 17.694,
+          "median_latency_ms": 21.559,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_072e2e2de283bacf"
         },
@@ -1292,13 +1292,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.966,
-            16.314,
-            16.034,
-            15.839,
-            15.95
+            20.568,
+            22.077,
+            19.129,
+            18.693,
+            18.887
           ],
-          "median_latency_ms": 16.034,
+          "median_latency_ms": 19.129,
           "top_1_source": "sample_coordinator.py",
           "top_1_chunk_id": "chk_b34f24984372a069"
         },
@@ -1312,13 +1312,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.932,
-            16.644,
-            18.315,
-            18.627,
-            19.487
+            20.337,
+            19.645,
+            18.833,
+            20.344,
+            20.199
           ],
-          "median_latency_ms": 18.315,
+          "median_latency_ms": 20.199,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_072e2e2de283bacf"
         },
@@ -1332,13 +1332,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.7959,
           "latency_runs_ms": [
-            17.704,
-            17.4,
-            18.601,
-            17.302,
-            16.539
+            19.842,
+            19.95,
+            21.112,
+            19.903,
+            19.775
           ],
-          "median_latency_ms": 17.4,
+          "median_latency_ms": 19.903,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_605a72e3901ce2a0"
         },
@@ -1352,13 +1352,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            15.619,
-            16.891,
-            16.056,
-            16.867,
-            15.245
+            47.122,
+            24.351,
+            18.515,
+            20.921,
+            21.884
           ],
-          "median_latency_ms": 16.056,
+          "median_latency_ms": 21.884,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_e138fd81d0cc1b59"
         },
@@ -1372,13 +1372,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            15.851,
-            16.359,
-            16.852,
-            17.212,
-            17.596
+            20.819,
+            20.555,
+            19.938,
+            23.441,
+            23.37
           ],
-          "median_latency_ms": 16.852,
+          "median_latency_ms": 20.819,
           "top_1_source": "doc5_bullets.docx",
           "top_1_chunk_id": "chk_86ac22b7c079cf1c"
         },
@@ -1392,13 +1392,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.936,
-            16.754,
-            16.385,
-            17.369,
-            15.737
+            20.898,
+            20.315,
+            18.696,
+            20.315,
+            21.192
           ],
-          "median_latency_ms": 16.754,
+          "median_latency_ms": 20.315,
           "top_1_source": "doc11_sheets.xlsx",
           "top_1_chunk_id": "chk_11d95f31b9155dac"
         },
@@ -1412,13 +1412,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.109,
-            15.603,
-            15.092,
-            15.821,
-            16.939
+            20.134,
+            21.7,
+            21.339,
+            20.207,
+            19.889
           ],
-          "median_latency_ms": 15.821,
+          "median_latency_ms": 20.207,
           "top_1_source": "doc4_nested_ops.docx",
           "top_1_chunk_id": "chk_ac10fe9dbc1e49db"
         },
@@ -1432,13 +1432,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.9514,
           "latency_runs_ms": [
-            17.669,
-            17.507,
-            16.859,
-            16.573,
-            20.56
+            22.024,
+            20.683,
+            21.016,
+            19.541,
+            19.565
           ],
-          "median_latency_ms": 17.507,
+          "median_latency_ms": 20.683,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_75ba49ac19ff5b1d"
         },
@@ -1452,13 +1452,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.9197,
           "latency_runs_ms": [
-            17.673,
-            17.461,
-            18.04,
-            16.462,
-            15.637
+            19.741,
+            18.962,
+            20.268,
+            19.699,
+            21.64
           ],
-          "median_latency_ms": 17.461,
+          "median_latency_ms": 19.741,
           "top_1_source": "sample_metrics.csv",
           "top_1_chunk_id": "chk_6ccc18c68a18a3d0"
         },
@@ -1472,13 +1472,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            15.717,
-            15.479,
-            16.046,
-            16.077,
-            16.53
+            20.387,
+            23.742,
+            20.941,
+            22.093,
+            20.247
           ],
-          "median_latency_ms": 16.046,
+          "median_latency_ms": 20.941,
           "top_1_source": "doc2_multicolumn.pdf",
           "top_1_chunk_id": "chk_7f4c75db248aa141"
         },
@@ -1492,13 +1492,13 @@
           "mrr": 0.25,
           "ndcg_at_10": 0.5173,
           "latency_runs_ms": [
-            15.993,
-            18.379,
-            18.895,
-            19.681,
-            19.662
+            19.292,
+            19.251,
+            20.473,
+            20.391,
+            18.107
           ],
-          "median_latency_ms": 18.895,
+          "median_latency_ms": 19.292,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_78a5b30306e5534b"
         },
@@ -1512,13 +1512,13 @@
           "mrr": 0.3333,
           "ndcg_at_10": 0.3318,
           "latency_runs_ms": [
-            18.548,
-            16.587,
-            17.198,
-            16.048,
-            15.314
+            18.82,
+            19.045,
+            20.11,
+            21.205,
+            21.455
           ],
-          "median_latency_ms": 16.587,
+          "median_latency_ms": 20.11,
           "top_1_source": "doc7_table_deck.pptx",
           "top_1_chunk_id": "chk_de16e5fa918ff4cb"
         },
@@ -1532,13 +1532,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            16.3,
-            16.82,
-            15.822,
-            17.595,
-            17.206
+            20.139,
+            22.813,
+            20.423,
+            20.312,
+            20.715
           ],
-          "median_latency_ms": 16.82,
+          "median_latency_ms": 20.423,
           "top_1_source": "doc1_enterprise_spec.pdf",
           "top_1_chunk_id": "chk_7bf48a114ba7e4ca"
         },
@@ -1552,13 +1552,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            17.043,
-            17.284,
-            17.272,
-            18.287,
-            17.0
+            18.209,
+            18.898,
+            18.88,
+            19.273,
+            19.31
           ],
-          "median_latency_ms": 17.272,
+          "median_latency_ms": 18.898,
           "top_1_source": "sample_system_spec.docx",
           "top_1_chunk_id": "chk_0fd53323a9bd011f"
         },
@@ -1572,13 +1572,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            17.34,
-            15.676,
-            16.207,
-            16.059,
-            17.068
+            20.016,
+            22.124,
+            20.397,
+            20.16,
+            21.372
           ],
-          "median_latency_ms": 16.207,
+          "median_latency_ms": 20.397,
           "top_1_source": "sample_coordinator.py",
           "top_1_chunk_id": "chk_b28f9ad41ade2729"
         },
@@ -1592,13 +1592,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 0.9505,
           "latency_runs_ms": [
-            15.416,
-            15.134,
-            15.525,
-            19.049,
-            16.72
+            19.048,
+            21.592,
+            20.922,
+            20.629,
+            18.745
           ],
-          "median_latency_ms": 15.525,
+          "median_latency_ms": 20.629,
           "top_1_source": "sample_architecture.md",
           "top_1_chunk_id": "chk_b187539fc8bcb4ac"
         },
@@ -1612,13 +1612,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            17.361,
-            18.493,
-            17.544,
-            16.649,
-            18.128
+            22.906,
+            21.077,
+            20.535,
+            20.281,
+            21.01
           ],
-          "median_latency_ms": 17.544,
+          "median_latency_ms": 21.01,
           "top_1_source": "sample_system_spec.pdf",
           "top_1_chunk_id": "chk_f345fe7b5624b925"
         },
@@ -1632,13 +1632,13 @@
           "mrr": 1.0,
           "ndcg_at_10": 1.0,
           "latency_runs_ms": [
-            15.415,
-            15.58,
-            15.445,
-            16.026,
-            16.705
+            20.0,
+            19.317,
+            20.238,
+            20.839,
+            18.507
           ],
-          "median_latency_ms": 15.58,
+          "median_latency_ms": 20.0,
           "top_1_source": "doc11_sheets.xlsx",
           "top_1_chunk_id": "chk_03ebc371aed08760"
         }

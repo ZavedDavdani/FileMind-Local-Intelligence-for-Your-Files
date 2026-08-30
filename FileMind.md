@@ -531,7 +531,8 @@ All four hardening tasks completed independently. No Phase 4 functionality was i
   - Abnormal shutdown: `taskkill /F /PID <parent>` $\rightarrow$ Job Object killed child in `50.44 ms`, port 24823 released in `208.02 ms` (0 orphan processes).
 - **Block 2 Empirical Measurements vs Historical Baselines**:
   - **Standalone Backend Cold-Start (5 runs)**: `[4.252 s, 4.275 s, 4.261 s, 3.697 s, 4.250 s]` $\rightarrow$ Median: **4.252 s** (Gate: $\le 5.0\text{ s} \rightarrow$ **PASS**).
-  - **Tauri Release Full GUI App Cold-Start (5 runs)**: `[3.168 s, 3.165 s, 3.180 s, 5.290 s, 5.849 s]` $\rightarrow$ Median: **3.180 s** (Gate: $\le 5.0\text{ s} \rightarrow$ **PASS**).
+  - **Tauri Release Full GUI App Cold-Start (Initial 5-Run Observation)**: `[3.168 s, 3.165 s, 3.180 s, 5.290 s, 5.849 s]` $\rightarrow$ Median: **3.180 s**. Runs 4 and 5 exceeded 5.0 s due to socket `TIME_WAIT` teardown contention when relaunching the GUI app within 300 ms of process termination.
+  - **Tauri Release Full GUI App Cold-Start (Controlled 5-Run Measurement)**: `[3.170 s, 3.187 s, 3.202 s, 3.193 s, 3.133 s]` $\rightarrow$ Median: **3.187 s** (Range: 3.133 s – 3.202 s; measured with a 1.0 s socket teardown interval between runs; 100% of runs $\le 3.202\text{ s} \le 5.0\text{ s} \rightarrow$ **PASS**).
   - **Warm `/health` Request Latency (5 reqs)**: `[17.06 ms, 15.30 ms, 15.47 ms, 16.68 ms, 4.88 ms]` $\rightarrow$ Median: **15.47 ms**.
   - **Historical Comparison (Preserved & Distinct)**: Original Phase 0 baseline = `3.247 s` (median); Phase 1 baseline = `3.705 s`; Phase 0–2 Freeze Pass onedir baseline = `0.971 s`.
 - **Installer & Security Verification**:
@@ -634,8 +635,8 @@ All four hardening tasks completed independently. No Phase 4 functionality was i
   - **Provenance Contract & Prior 80.8% Finding Audit (Tier 1 & Tier 2)**:
     - **Markdown / Plain Text / Code**: 100% exact character/line offset reconstruction from source bytes.
     - **PDF**: 100% physical page number + section heading + text flow matching.
-    - **DOCX / PPTX / Tabular**: 100% structural matching (headings, list items, table rows, slide numbers).
-    - **Root-Cause Analysis of Prior 80.8% Finding**: OpenXML (`.docx`, `.pptx`) stores document flow XML elements (`w:p`, `w:tbl`, `a:p`) and **does NOT contain static pre-rendered page layout data**. Page breaks in Word documents are dynamically computed by the Word rendering engine at display/print time. The absence of static page numbers for DOCX is an **inherent source-format limitation of OpenXML**, NOT an implementation bug. FileMind maintains 100% structural fidelity without fabricating non-existent page metadata.
+    - **DOCX / PPTX / Tabular**: 100% structural hierarchy matching (headings, list items, table rows, slide numbers).
+    - **OpenXML Physical Page Limitation (Preserving Original P1 Finding)**: OpenXML (`.docx`, `.pptx`) stores document flow XML elements (`w:p`, `w:tbl`, `a:p`) and **does NOT contain static pre-rendered physical page layout data**. Page breaks in Word documents are dynamically computed by the Word rendering engine at display/print time. The absence of physical page numbers for DOCX is an **inherent source-format limitation of OpenXML**, NOT an implementation bug. FileMind maintains 100% structural fidelity (headings, paragraphs, sections) without fabricating non-existent physical page numbers. Physical page provenance is not statically available for DOCX in OpenXML and is NOT claimed.
   - **Content Hashing (Tier 1)**: `compute_chunk_content_hash()` computes deterministic SHA-256 over normalized text without mutable metadata.
 - **H3 PDF Extraction Quality Gate (Tier 1 — Directly Reproduced & Source Verified)**:
   - **10-Fixture Controlled Corpus Evaluation (Tier 1)**:
@@ -675,15 +676,17 @@ All four hardening tasks completed independently. No Phase 4 functionality was i
   - Vector Store: [`backend/app/retrieval/vector_store.py`](file:///c:/dev/FileMind/backend/app/retrieval/vector_store.py) (`SqliteVecStore`, `sqlite-vec`)
   - Hybrid RRF & Snippets: [`backend/app/retrieval/hybrid.py`](file:///c:/dev/FileMind/backend/app/retrieval/hybrid.py) (`HybridRetriever`, `generate_real_snippet()`)
 - **Empirical Reproductions (Tier 1 — Directly Reproduced)**:
-  - **Evaluation Dataset Integrity (Tier 1)**: Reconciled 28/28 queries (100% accounted for, 0 excluded, 3 negative queries) across 16 categories.
+  - **Evaluation Dataset Accounting (Tier 1)**: Dataset contains 28 queries (25 positive with ground-truth chunks + 3 negative with 0 expected chunks).
   - **Query Normalization (Tier 1)**: Preserved technical identifiers (`SHA-256`, `v1.0.0-rc.2`, `sqlite-vec`, `file_events`, `H1/H2`), exact quoted phrases, and sanitized SQL injection payloads into valid FTS5 MATCH queries.
-  - **Retrieval Quality Benchmark (28 Queries) (Tier 1)**:
-    - **BM25 Lexical**: Recall@5 = **0.6071** | Recall@10 = **0.6071** | MRR = **0.6071**
-    - **Dense Vector**: Recall@5 = **0.9286** | Recall@10 = **0.9643** | MRR = **0.8622**
-    - **Hybrid RRF**: Recall@5 = **0.9643** | Recall@10 = **1.0000** | MRR = **0.9158**
+  - **Canonical Retrieval Quality Baseline (25 Positive Queries) (Tier 1)**:
+    - **BM25 Lexical**: Recall@5 = **0.4933** | Recall@10 = **0.4933** | MRR = **0.5600** | NDCG@10 = **0.5090** ($N=25$)
+    - **Dense Vector**: Recall@5 = **0.8613** | Recall@10 = **0.9113** | MRR = **0.8393** | NDCG@10 = **0.8263** ($N=25$)
+    - **Hybrid RRF ($k=60$)**: Recall@5 = **0.9153** | Recall@10 = **0.9733** | MRR = **0.9433** | NDCG@10 = **0.9356** ($N=25$)
+  - **Negative-Query Specificity Audit (3 Negative Queries) (Tier 1)**:
+    - 3 negative queries (`Q26`, `Q27`, `Q28`) evaluated separately for precision/specificity (0 false-positive chunk matches; correctly excluded from Recall/MRR denominator where expected count is 0).
   - **BM25 Failing-Query Diagnosis (Tier 1 & Tier 2)**:
-    - BM25 achieved 100% recall on exact filenames, exact phrases, code snippets, acronyms, identifiers, technical terms, and negative queries.
-    - BM25 failed (Recall@5 = 0.00) on 11 semantic/conceptual/natural language queries due to vocabulary mismatch (e.g. searching for "preventing dangling or orphan processes" against texts discussing "Win32 Job Object lifecycle").
+    - BM25 achieved high recall on exact filenames, exact phrases, code snippets, acronyms, identifiers, and technical terms.
+    - BM25 failed on semantic/conceptual/natural language queries due to vocabulary mismatch (e.g. searching for "preventing dangling or orphan processes" against texts discussing "Win32 Job Object lifecycle").
     - Dense and Hybrid retrieval successfully resolved vocabulary mismatch queries, demonstrating the complementary necessity of hybrid search.
   - **Retrieval Determinism (Tier 1)**: 100% identical rank ordering verified across 5 repeat executions of representative queries.
   - **Provenance & Snippet Authenticity (Tier 1)**:
@@ -754,37 +757,72 @@ All four hardening tasks completed independently. No Phase 4 functionality was i
 
 ---
 
-### Final Evidence Reconciliation
+### Pre-Phase-4 Reconciliation Findings
 - **Audit Timestamp**: 2026-08-31
-- **Status & Verdict**: **PHASE 0 COLD-START GATE VERIFIED PASS — ALL ARTIFACTS RECONCILED**
-- **Part 1 — Authoritative Cold-Start Requirement & Location**:
-  - *Location*: [`docs/phase-0/validation-report.md`](file:///c:/dev/FileMind/docs/phase-0/validation-report.md#L72-L76) Section 3.1 Timing Results.
-  - *Requirement Wording*: `report median of ≥3 runs, plus range` with requirement `≤ 5.0 s`.
-  - *Timer Definition*: Spawns a fresh `filemind-backend.exe` / `filemind.exe` child process and polls `GET http://127.0.0.1:24823/health` every 20ms using Python `urllib.request`. Timer starts immediately before process invocation and stops at the moment the first HTTP 200 payload is parsed.
-- **Part 2 & 3 — Release Cold-Start Measurement Data & Fresh Reproduction (Tier 1)**:
-  - *Standalone Backend (`filemind-backend.exe`)*:
-    - Fresh 5-run measurements: `[4.243 s, 3.738 s, 4.268 s, 4.264 s, 3.711 s]`
-    - Median: **4.243 s** | Min: **3.711 s** | Max: **4.268 s** (100% of runs $\le 4.27\text{ s} \le 5.0\text{ s}$).
-  - *Tauri Release GUI Application (`filemind.exe`)*:
-    - Fresh 5-run measurements: `[3.170 s, 3.187 s, 3.202 s, 3.193 s, 3.133 s]`
-    - Median: **3.187 s** | Min: **3.133 s** | Max: **3.202 s** (100% of runs $\le 3.21\text{ s} \le 5.0\text{ s}$).
-  - *Methodology Clarification on Previous Outliers*:
-    - The previous test harness used a short 300 ms delay between iterations, causing occasional OS TCP socket `TIME_WAIT` teardown contention on repeat launches. When given a standard 1.0 s socket teardown window, every run executes in `3.13 s - 3.20 s`.
-- **Part 4 — Cold-Start Verdict**:
-  - **VERIFIED PASS** under both evaluation semantics (every individual run $\le 5.0\text{ s}$ AND median of 5 runs $\le 5.0\text{ s}$).
-  - Blockers: **0**.
-- **Part 6 — FileMind.md Evidence & Git Boundary**:
-  - `FileMind.md` and `FileMind_Spec_and_Pipeline.pdf` are explicitly ignored in `.gitignore`.
-  - Both files remain private local documentation records and are NOT tracked or committed to Git.
-- **Part 7 — Public Repository Artifact Audit**:
-  - All 11 Phase 3 benchmark metrics verified by [`docs/phase-3/verify_measurement_consistency.py`](file:///c:/dev/FileMind/docs/phase-3/verify_measurement_consistency.py).
-  - All Phase 0–3 and H1–H4 test suites (114/114 backend tests, PyInstaller standalone builds, NSIS installer) are fully reproducible from committed repository files.
-- **Phase Boundaries**:
-  - Phase 0–3: **COMPLETE / PASS**
-  - Hardening H1–H4: **COMPLETE / PASS**
-  - Phase 4: **NOT STARTED / NOT AUTHORIZED**
-  - Phase 5+: **NOT STARTED / NOT AUTHORIZED**
-  - Canonical PDF: **UNMODIFIED**
+- **Status & Verdict**: **ALL INCONSISTENCIES RECONCILED — FOUNDATION VERIFIED WITH DOCUMENTED LIMITATIONS**
+
+#### 1. Phase 3 Evaluation Methodology & Denominator Resolution (Priority 1)
+- **OLD CLAIM**: Block 5 ad-hoc script reported 28/28 queries evaluated in Recall/MRR denominator (BM25 Recall@5 = 0.6071, Hybrid Recall@5 = 0.9643, Hybrid Recall@10 = 1.0000).
+- **NEW CLAIM**: Canonical Phase 3 retrieval evaluation uses the **25 positive queries** with ground-truth chunks for Recall@5, Recall@10, MRR, and NDCG@10. The **3 negative queries** (`Q26`, `Q27`, `Q28`) have 0 expected chunks and are evaluated separately for specificity (0 false positives).
+- **WHY IT CHANGED**: For negative queries with $|\text{expected\_chunks}| = 0$, Recall ($\frac{0}{0}$) is mathematically undefined. Artificially scoring negative queries as 1.0 in a 28-item denominator distorted the metrics. The canonical evaluation benchmark ([`backend/tests/benchmark_retrieval_comparison.py`](file:///c:/dev/FileMind/backend/tests/benchmark_retrieval_comparison.py)) explicitly filters `active_queries = [q for q in queries if q["category"] != "negative"]` ($N=25$).
+- **SOURCE/ARTIFACT**: [`backend/tests/benchmark_retrieval_comparison.py:L91`](file:///c:/dev/FileMind/backend/tests/benchmark_retrieval_comparison.py#L91), [`docs/phase-3/measurements.json`](file:///c:/dev/FileMind/docs/phase-3/measurements.json), [`docs/phase-3/retrieval-benchmark.md`](file:///c:/dev/FileMind/docs/phase-3/retrieval-benchmark.md), [`docs/phase-3/verify_measurement_consistency.py`](file:///c:/dev/FileMind/docs/phase-3/verify_measurement_consistency.py).
+- **EVIDENCE TIER**: **Tier 1 (Directly Reproduced)**.
+
+#### 2. Canonical Phase 3 Retrieval Baseline (Priority 2)
+- **Canonical Metrics ($N=25$ Positive Queries)**:
+  - **BM25 Lexical**: Recall@5 = **0.4933** | Recall@10 = **0.4933** | MRR = **0.5600** | NDCG@10 = **0.5090**
+  - **Dense Vector (`all-MiniLM-L6-v2`)**: Recall@5 = **0.8613** | Recall@10 = **0.9113** | MRR = **0.8393** | NDCG@10 = **0.8263**
+  - **Hybrid RRF ($k=60$)**: Recall@5 = **0.9153** | Recall@10 = **0.9733** | MRR = **0.9433** | NDCG@10 = **0.9356**
+- **Negative Query Specificity ($N=3$ Negative Queries)**:
+  - `Q26_NEGATIVE_NONEXISTENT_TOPIC`: 0 expected, 0 false-positive chunk matches in BM25.
+  - `Q27_NEGATIVE_RANDOM_GIBBERISH`: 0 expected, 0 false-positive chunk matches in BM25.
+  - `Q28_NEGATIVE_OUT_OF_DOMAIN`: 0 expected, 0 false-positive chunk matches in BM25.
+- **Historical vs. Current Canonical Labeling**:
+  - *Current Canonical*: $N=25$ positive queries, Hybrid Recall@5 = 0.9153, Hybrid Recall@10 = 0.9733, MRR = 0.9433, NDCG@10 = 0.9356.
+  - *Historical Ad-hoc Artifact (Preserved for Audit Trail)*: $N=28$ queries with artificial negative query 1.0 substitution (Hybrid Recall@5 = 0.9643).
+
+#### 3. DOCX / OpenXML Provenance Language Correction (Priority 3)
+- **OLD CLAIM**: Previous text implied physical page provenance was 100% verified across all document formats including DOCX.
+- **NEW CLAIM**: Physical page provenance is verified for PDF; exact byte/character/line offsets are verified for Markdown, Plain Text, and Code; structural provenance (headings, sections, paragraphs, list items, table rows) is verified for DOCX, PPTX, and Tabular formats. **Physical page numbers are NOT statically available for DOCX in OpenXML**.
+- **WHY IT CHANGED**: OpenXML (`.docx`, `.pptx`) stores dynamic XML flow structures (`w:p`, `w:tbl`, `a:p`) and does NOT contain pre-rendered page layout data. Page breaks are computed dynamically by word processors at display/print time. The absence of static page numbers in DOCX is an inherent source-format limitation of OpenXML. The original P1 finding is preserved.
+- **SOURCE/ARTIFACT**: [`backend/app/intelligence/parsers/docx_parser.py`](file:///c:/dev/FileMind/backend/app/intelligence/parsers/docx_parser.py), [`backend/tests/test_provenance_integrity.py`](file:///c:/dev/FileMind/backend/tests/test_provenance_integrity.py).
+- **EVIDENCE TIER**: **Tier 1 (Directly Reproduced) & Tier 2 (Source Verified)**.
+
+#### 4. Block 2 Cold-Start Measurement Correction (Priority 4)
+- **OLD CLAIM**: Block 2 reported `[3.168 s, 3.165 s, 3.180 s, 5.290 s, 5.849 s]` as a clean PASS without explaining the two runs $> 5.0\text{ s}$.
+- **NEW CLAIM**:
+  - *Initial Observation*: `[3.168 s, 3.165 s, 3.180 s, 5.290 s, 5.849 s]` (Median: 3.180 s). Runs 4 and 5 exceeded 5.0 s because the test harness used an aggressive 300 ms delay between process terminations, causing OS TCP socket `TIME_WAIT` teardown contention on repeat launches.
+  - *Controlled Measurement*: `[3.170 s, 3.187 s, 3.202 s, 3.193 s, 3.133 s]` (Median: **3.187 s** | Range: 3.133 s – 3.202 s). With a standard 1.0 s socket teardown interval between runs, 100% of runs execute in $\le 3.202\text{ s} \le 5.0\text{ s} \rightarrow$ **VERIFIED PASS**.
+- **WHY IT CHANGED**: Full procedural transparency requires preserving both the unconditioned initial observation (with the root-cause explanation for the 2 outliers) and the controlled measurement.
+- **SOURCE/ARTIFACT**: [`docs/phase-0/block2_measurements.json`](file:///c:/dev/FileMind/docs/phase-0/block2_measurements.json), [`docs/phase-0/validation-report.md:L72-L78`](file:///c:/dev/FileMind/docs/phase-0/validation-report.md#L72-L78).
+- **EVIDENCE TIER**: **Tier 1 (Directly Reproduced)**.
+
+#### 5. Block 3 Hashing Performance Discrepancy Resolution (Priority 5)
+- **Single-File Throughput (606.74 MB/s vs. 493.96 MB/s)**:
+  - Both benchmarks used the identical `compute_file_sha256()` function on a single 50 MB synthetic binary file with 64 KB read buffers.
+  - *Classification*: **Category C (Environment Effect / System Load & CPU Frequency Variation)** during measurement execution.
+- **Multi-File Realistic Throughput (74.15 MB/s vs. 228.91 MB/s)**:
+  - Canonical benchmark ([`backend/tests/measure_supplementary_workload.py`](file:///c:/dev/FileMind/backend/tests/measure_supplementary_workload.py)) tested **500 mixed files** (1 KB – 500 KB) across a 4-level nested directory hierarchy, measuring genuine discrete per-file OS open/stat/read/close overhead.
+  - Block 3 ad-hoc scratch script tested **100 uniform 100 KB files** in a single flat directory, experiencing significantly higher OS cache retention.
+  - *Classification*: **Category A (Different Workload)**. The 500-file mixed hierarchical benchmark remains the authoritative realistic multi-file baseline (74.15 MB/s).
+- **SOURCE/ARTIFACT**: [`backend/tests/measure_phase1.py`](file:///c:/dev/FileMind/backend/tests/measure_phase1.py), [`backend/tests/measure_supplementary_workload.py`](file:///c:/dev/FileMind/backend/tests/measure_supplementary_workload.py).
+- **EVIDENCE TIER**: **Tier 1 (Directly Reproduced) & Tier 2 (Source Verified)**.
+
+#### 6. FileMind.md Public / Git Status Correction (Priority 6)
+- **OLD CLAIM**: Previous notes incorrectly stated `FileMind.md` was "ignored in .gitignore" and "untracked / private-only".
+- **NEW CLAIM**: `FileMind.md` is **PUBLIC and actively tracked in Git** (`git ls-files FileMind.md`). The canonical specification PDF (`FileMind_Spec_and_Pipeline.pdf`) remains **PRIVATE and ignored in .gitignore** (`.gitignore:66`).
+- **WHY IT CHANGED**: `FileMind.md` was committed to the repository as public architectural reference documentation, while the canonical PDF remains excluded from public version control.
+- **SOURCE/ARTIFACT**: Git tree (`git ls-files FileMind.md`), [`.gitignore:L65-L66`](file:///c:/dev/FileMind/.gitignore#L65-L66).
+- **EVIDENCE TIER**: **Tier 1 (Directly Reproduced)**.
+
+#### 7. Final Foundation Readiness Summary
+- **Phase 0 (Packaging & Cold-Start)**: **COMPLETE / PASS** (Controlled release median = 3.187 s, standalone median = 4.243 s, both $\le 5.0\text{ s}$).
+- **Phase 1 (Filesystem Engine & H1/H2)**: **COMPLETE / PASS** (38/38 tests pass, 100% crash recovery, Win32 Job Object verified).
+- **Phase 2 (Document Intelligence & H3)**: **COMPLETE / PASS** (8 parsers, hierarchical chunking, 10-fixture PDF quality gate 0 FP/0 FN, DOCX structural provenance verified with source-format page limitation documented).
+- **Phase 3 (Hybrid Retrieval & H4)**: **COMPLETE / PASS** (BM25 R@5=0.4933, Dense R@5=0.8613, Hybrid R@5=0.9153, Hybrid R@10=0.9733, MRR=0.9433, NDCG@10=0.9356 over $N=25$ positive queries; SQLite WAL concurrency verified).
+- **Blockers**: **0 BLOCKERS**.
+- **Final Verdict**: **FOUNDATION VERIFIED WITH DOCUMENTED LIMITATIONS — READY FOR PHASE 4**.
+- **Phase 4 Status**: **STRICTLY NOT STARTED / NOT AUTHORIZED (Awaiting explicit user authorization)**.
 
 ---
 
