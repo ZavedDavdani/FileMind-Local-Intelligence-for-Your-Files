@@ -330,14 +330,22 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                           RRF: {r.rrf_score.toFixed(4)}
                         </span>
                       )}
-                      {r.dense_score !== null && r.dense_score !== undefined && (
-                        <span className="text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40">
+                      {r.dense_score !== null && r.dense_score !== undefined ? (
+                        <span className="text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40" title={`Dense Rank: #${r.dense_rank || '—'}`}>
                           Dense: {r.dense_score.toFixed(3)}
                         </span>
+                      ) : (
+                        <span className="text-slate-500 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800/40" title="Not in dense candidate pool">
+                          Dense: —
+                        </span>
                       )}
-                      {r.lexical_score !== null && r.lexical_score !== undefined && (
-                        <span className="text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40">
+                      {r.lexical_score !== null && r.lexical_score !== undefined ? (
+                        <span className="text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40" title={`BM25 Rank: #${r.lexical_rank || '—'}`}>
                           BM25: {r.lexical_score.toFixed(1)}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800/40" title="Not in lexical candidate pool">
+                          BM25: —
                         </span>
                       )}
                     </div>

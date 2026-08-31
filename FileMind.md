@@ -1006,6 +1006,56 @@ INSTALLER (dist\FileMind_0.1.0_x64-setup.exe)
 
 ---
 
+### Final Pre-Phase-4 Baseline Integrity Resolution
+
+A final, definitive resolution of the release cold-start gate semantics, dense-score semantics, embedding model history, and canonical retrieval baseline was conducted prior to Phase 4 authorization.
+
+#### 1. Authoritative Cold-Start Gate Definition
+- **Exact Requirement**: "Backend process start → first successful `/health` response $\le$ 5.0 s" (`FileMind.md` §10, `docs/phase-0/validation-report.md` §3 & §5).
+- **Exact Timer Boundary**: Spawns a fresh backend child process and polls `GET http://127.0.0.1:24823/health` every 20ms using Python `urllib.request`. The timer starts immediately before process invocation and stops at the moment the first HTTP 200 payload is parsed.
+- **Historical Measurements**:
+  - Phase 0 Baseline (14 MB binary without embedding models): Median `3.247s` (`[3.333, 3.242, 3.242, 3.247, 3.312] s`).
+  - Block 2 GUI Release Test (Pre-extracted Onedir binary): Median `3.180s` (`[3.170, 3.187, 3.202, 3.193, 3.133] s`).
+- **Fresh Controlled Installed-Backend Measurements** (5 Runs, `180 MB` Onefile Executable):
+  - Run 1: `9.723 s`
+  - Run 2: `8.870 s`
+  - Run 3: `9.164 s`
+  - Run 4: `8.880 s`
+  - Run 5: `8.649 s`
+  - **Median**: `8.880 s` | **Range**: `8.649 s – 9.723 s` (1.074 s spread) | **P95**: `9.723 s`
+- **Cold-Start Decision**: **BLOCKER — RELEASE ONEFILE BACKEND COLD START EXCEEDS PHASE 0 GATE (8.88s > 5.0s)**.
+  - *Root Cause*: Bundling FastEmbed ONNX runtime, tokenizer binaries, and `sqlite-vec` increased standalone executable size from 14 MB to 180 MB. PyInstaller `--onefile` decompression from compressed PKG to `%TEMP%/_MEIxxxxxx` requires ~5.5–6.5 seconds before Python initialization starts.
+  - *Remediation*: Packaging architecture must transition from PyInstaller `--onefile` to PyInstaller `--onedir` distribution (or pre-extracted sidecar payload) in the release installer.
+
+#### 2. Dense Score Semantics & Frontend Representation
+- **Previous Fix Claim Status**: **PREVIOUS FIX CLAIM NOT SUPPORTED BY CURRENT SOURCE**. The earlier audit claimed Dense=0.000 was solely a UI formatting defect; however, `hybrid.py` actively returned numeric `0.0` for absent candidates.
+- **Corrected Contract**:
+  - Absent candidate in Dense pool: `dense_score = None` (`null`), `dense_rank = None` (`null`).
+  - Absent candidate in Lexical pool: `lexical_score = None` (`null`), `lexical_rank = None` (`null`).
+  - True numeric scores: Preserved as floats (e.g. `Dense: 0.628`, `BM25: 15.0`).
+- **Frontend Representation**:
+  - `Dense: —` and `BM25: —` rendered with muted styling for absent candidates.
+  - `Dense: 0.xxx` and `BM25: xx.x` rendered when candidate was retrieved by that engine.
+- **Implementation**: Updated `backend/app/retrieval/hybrid.py` and `frontend/src/components/SearchModal.tsx`. Verified via `backend/tests/test_hybrid_score_semantics.py`.
+
+#### 3. Canonical Embedding Model History & Validation
+- **Model History**:
+  - Commit `11be5fa`: Defined candidate models (`BAAI/bge-small-en-v1.5`, `sentence-transformers/all-MiniLM-L6-v2`, `nomic-ai/nomic-embed-text-v1.5`).
+  - Commit `22953c9`: Explicitly set `DEFAULT_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"`.
+- **Canonical Decision**: `sentence-transformers/all-MiniLM-L6-v2` (dimension=384) is confirmed as the canonical Phase 3 embedding model.
+- **Fresh Baseline Reproduction** (25 Positive Queries, 3 Negative Queries):
+  - **BM25**: Recall@5: `0.4933` | Recall@10: `0.4933` | MRR: `0.5600` | NDCG@10: `0.5078`
+  - **Dense**: Recall@5: `0.8613` | Recall@10: `0.9113` | MRR: `0.8393` | NDCG@10: `0.8279`
+  - **Hybrid**: Recall@5: `0.9153` | Recall@10: `0.9733` | MRR: `0.9433` | NDCG@10: `0.9317`
+  - **Negative Queries**: 0 false-positive chunk matches across `Q26_NEGATIVE_NO_MATCH_1`, `Q27_NEGATIVE_NO_MATCH_2`, `Q28_NEGATIVE_NO_MATCH_3`.
+
+#### 4. Foundation Status & Regression Verification
+- **Folder Deletion Regression**: **PASS** (`backend/tests/test_folder_deletion_regression.py` 100% passing).
+- **Backend Test Suite**: **PASS** (`116 / 116 tests passed in 74.27s`).
+- **Frontend Production Build**: **PASS** (`tsc && vite build` completed with 0 errors).
+
+---
+
 ### Explicit Phase 4 Boundary (Strictly NOT Authorized)
 Phase 4 remains **NOT STARTED / NOT AUTHORIZED**. The following capabilities belong to Phase 4+ and are **NOT IMPLEMENTED**:
 - Cross-encoder reranking algorithms (e.g. `bge-reranker-base`)

@@ -256,8 +256,8 @@ class HybridRetriever:
                     rrf_score += 1.0 / (self.rrf_k + dense_rank)
 
                 base_item = lex_item or dense_item
-                lex_score = lex_item["score"] if lex_item else 0.0
-                dense_score = dense_item["score"] if dense_item else 0.0
+                lex_score = lex_item["score"] if lex_item else None
+                dense_score = dense_item["score"] if dense_item else None
 
                 scored_candidates.append({
                     "chunk_id": cid,
@@ -273,8 +273,8 @@ class HybridRetriever:
             scored_candidates.sort(
                 key=lambda x: (
                     -x["rrf_score"],
-                    -x["dense_score"],
-                    -x["lexical_score"],
+                    -(x["dense_score"] if x["dense_score"] is not None else 0.0),
+                    -(x["lexical_score"] if x["lexical_score"] is not None else 0.0),
                     x["chunk_id"],
                 )
             )
