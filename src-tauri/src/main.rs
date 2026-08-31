@@ -45,17 +45,55 @@ fn is_backend_healthy() -> bool {
     false
 }
 
+fn describe_backend_bundle(exe_path: &Path) {
+    println!(
+        "[Tauri Supervisor] Selected backend: {:?}",
+        exe_path
+    );
+
+    if let Some(parent) = exe_path.parent() {
+        println!(
+            "[Tauri Supervisor] Backend directory: {:?}",
+            parent
+        );
+
+        println!(
+            "[Tauri Supervisor] Executable exists: {}",
+            exe_path.exists()
+        );
+
+        println!(
+            "[Tauri Supervisor] _internal exists: {}",
+            parent.join("_internal").exists()
+        );
+
+        println!(
+            "[Tauri Supervisor] python311.dll exists: {}",
+            parent.join("_internal").join("python311.dll").exists()
+        );
+    }
+}
+
 fn locate_backend_executable(app_handle: &AppHandle) -> Option<PathBuf> {
     // 1. Check next to the current executable (packaged distribution directory)
     if let Ok(curr_exe) = std::env::current_exe() {
         if let Some(parent) = curr_exe.parent() {
+            // Primary ONEDIR candidate: binaries/filemind-backend-dir/filemind-backend-dir.exe
+            // This is the correct PyInstaller onedir layout where _internal/ is adjacent to the exe.
             let candidates = [
-                parent.join("binaries").join("filemind-backend-dir.exe"),
+                parent
+                    .join("binaries")
+                    .join("filemind-backend-dir")
+                    .join("filemind-backend-dir.exe"),
                 parent.join("binaries").join("filemind-backend.exe"),
                 parent.join("filemind-backend.exe"),
                 parent.join("resources").join("filemind-backend.exe"),
-                parent.join("binaries").join("filemind-backend-x86_64-pc-windows-gnu.exe"),
-                parent.join("binaries").join("filemind-backend-x86_64-pc-windows-msvc.exe"),
+                parent
+                    .join("binaries")
+                    .join("filemind-backend-x86_64-pc-windows-gnu.exe"),
+                parent
+                    .join("binaries")
+                    .join("filemind-backend-x86_64-pc-windows-msvc.exe"),
             ];
             for cand in &candidates {
                 if cand.exists() {
@@ -68,10 +106,18 @@ fn locate_backend_executable(app_handle: &AppHandle) -> Option<PathBuf> {
     // 2. Check Tauri resource resolver
     if let Ok(resource_dir) = app_handle.path().resource_dir() {
         let candidates = [
+            resource_dir
+                .join("binaries")
+                .join("filemind-backend-dir")
+                .join("filemind-backend-dir.exe"),
             resource_dir.join("filemind-backend.exe"),
             resource_dir.join("binaries").join("filemind-backend.exe"),
-            resource_dir.join("binaries").join("filemind-backend-x86_64-pc-windows-gnu.exe"),
-            resource_dir.join("binaries").join("filemind-backend-x86_64-pc-windows-msvc.exe"),
+            resource_dir
+                .join("binaries")
+                .join("filemind-backend-x86_64-pc-windows-gnu.exe"),
+            resource_dir
+                .join("binaries")
+                .join("filemind-backend-x86_64-pc-windows-msvc.exe"),
         ];
         for cand in &candidates {
             if cand.exists() {
@@ -224,13 +270,34 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
 
     // Production / packaged binary location
     if let Some(exe_path) = locate_backend_executable(app_handle) {
-        println!("[Tauri Supervisor] Spawning backend binary: {:?}", exe_path);
+        describe_backend_bundle(&exe_path);
 
         #[cfg(target_os = "windows")]
         use std::os::windows::process::CommandExt;
-        
+
         let mut cmd = Command::new(&exe_path);
         if let Some(parent) = exe_path.parent() {
+            println!(
+                "[Tauri Supervisor] Backend executable: {:?}",
+                exe_path
+            );
+            println!(
+                "[Tauri Supervisor] Backend working directory: {:?}",
+                parent
+            );
+            println!(
+                "[Tauri Supervisor] Backend executable exists: {}",
+                exe_path.exists()
+            );
+            let internal_dir = parent.join("_internal");
+            println!(
+                "[Tauri Supervisor] Backend _internal exists: {}",
+                internal_dir.exists()
+            );
+            println!(
+                "[Tauri Supervisor] Python DLL exists: {}",
+                internal_dir.join("python311.dll").exists()
+            );
             cmd.current_dir(parent);
         }
         #[cfg(target_os = "windows")]

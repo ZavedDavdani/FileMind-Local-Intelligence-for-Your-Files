@@ -48,7 +48,8 @@ Section "MainSection" SEC01
   File "..\src-tauri\target\release\WebView2Loader.dll"
 
   ; Bundled Standalone Python FastAPI Backend (unpacked sidecar onedir)
-  SetOutPath "$INSTDIR\binaries"
+  ; The ONEDIR layout requires filemind-backend-dir.exe and _internal/ to be adjacent.
+  SetOutPath "$INSTDIR\binaries\filemind-backend-dir"
   File /r "..\backend\dist\filemind-backend-dir\*.*"
   
   ; Bundled Frontend Distribution Assets
@@ -91,7 +92,8 @@ Section "Uninstall"
   Delete "$DESKTOP\FileMind.lnk"
 
   ; Remove installed files
-  RMDir /r "$INSTDIR\binaries"
+  RMDir /r "$INSTDIR\binaries\filemind-backend-dir"
+  RMDir "$INSTDIR\binaries"
   RMDir /r "$INSTDIR\frontend"
   Delete "$INSTDIR\FileMind.exe"
   Delete "$INSTDIR\WebView2Loader.dll"

@@ -11,23 +11,28 @@
 ## 0. Current Project State — READ FIRST
 
 ### Final Phase Status & Foundation State
-- **Phase 0 — Distribution Feasibility**: **COMPLETE / PASS**
-- **Phase 1 — Filesystem Engine**: **COMPLETE / PASS**
-- **Phase 2 — Document Intelligence**: **COMPLETE / PASS**
-- **Phase 3 — Retrieval & Search**: **COMPLETE / PASS**
-- **Hardening 1 (H1) — Windows Job Object Lifecycle**: **COMPLETE / PASS**
-- **Hardening 2 (H2) — Directory Event Cascade Coalescing**: **COMPLETE / PASS**
-- **Hardening 3 (H3) — PDF Extraction-Quality Gate & Observability**: **COMPLETE / PASS**
-- **Hardening 4 (H4) — SQLite WAL Observability & Concurrency Validation**: **COMPLETE / PASS**
-- **Pre-RAG Integrity Pass (P1–P5)**: **COMPLETE / PASS**
-- **Pre-Phase-4 Cross-Check (Blocks 1–7 & Final Evidence Reconciliation)**: **COMPLETE / PASS**
-- **Phase 0 Release Packaging Remediation (Onedir + Null Score Semantics)**: **COMPLETE / PASS**
-- **WebView2Loader Release Packaging Fix**: **COMPLETE / PASS**
-- **Installed End-to-End Release Application**: **COMPLETE / PASS**
-- **Hybrid Dense Fallback Integrity Hardening**: **COMPLETE / PASS**
-- **Foundation + Retrieval + Hardening**: **FROZEN & VERIFIED READY FOR PHASE 4**
-- **Phase 4 — Reranking & Cross-Encoders**: **NOT STARTED / NOT AUTHORIZED**
-- **Phase 5 — Local & Cloud RAG Pipeline**: **NOT STARTED / NOT AUTHORIZED**
+
+PRE-PHASE-4 FOUNDATION: VERIFIED COMPLETE
+
+- **Phase 0 — Release Cold Start**: **VERIFIED PASS**
+- **Phase 1 — Filesystem Engine**: **VERIFIED PASS**
+- **Phase 2 — Document Intelligence**: **VERIFIED PASS**
+- **Phase 3 — Hybrid Retrieval**: **VERIFIED PASS**
+- **Hardening 1 (H1) — Windows Job Object Lifecycle**: **VERIFIED PASS**
+- **Hardening 2 (H2) — Directory Event Cascade Coalescing**: **VERIFIED PASS**
+- **Hardening 3 (H3) — PDF Extraction-Quality Gate & Observability**: **VERIFIED PASS**
+- **Hardening 4 (H4) — SQLite WAL Observability & Concurrency Validation**: **VERIFIED PASS**
+- **Pre-RAG Integrity Pass (P1–P5)**: **VERIFIED PASS**
+- **Pre-Phase-4 Cross-Check (Blocks 1–7 & Final Evidence Reconciliation)**: **VERIFIED PASS**
+- **Phase 0 Release Packaging Remediation (Onedir + Null Score Semantics)**: **VERIFIED PASS**
+- **WebView2Loader Packaging**: **VERIFIED PASS**
+- **Frontend Production Asset Packaging**: **VERIFIED PASS**
+- **Hybrid Dense Fallback Integrity**: **VERIFIED PASS**
+- **Installed Application Practical Run**: **VERIFIED PASS — 12/12**
+- **Backend Regression**: **VERIFIED PASS — 121/121**
+- **Hybrid Fallback Regression**: **VERIFIED PASS — 14/14**
+- **Phase 4**: **NOT STARTED**
+- **Phase 5**: **NOT STARTED**
 
 ---
 
@@ -1143,7 +1148,7 @@ An installed-application runtime startup failure was identified and resolved whe
   - Hybrid RRF Retrieval: Matched in `26.89 ms` with exact null score semantics (`Dense=None` for BM25-only chunk; `BM25=None` for Dense-only chunk).
   - Modify / Reindex & Delete / Stale Removal: Verified.
   - Shutdown & Relaunch Persistence: Clean port release and 3 persisted folders verified.
-- **Backend Test Suite**: **116 / 116 PASSING in 78.84s**.
+- **Backend Test Suite**: **121 / 121 PASSING in 76.88s**.
 - **Frontend Production Build**: **PASS in 48.96s (0 errors)**.
 - **Release Status**: **`VERIFIED PASS`**.
 
@@ -1182,8 +1187,103 @@ A deep source audit and verification pass was conducted on hybrid retrieval vect
   - Vector dimension mismatch and empty vector validation.
   - Malformed candidate resilience (non-dict or missing `chunk_id`).
   - Valid empty filter non-degradation verification.
-- **Full Backend Test Suite**: **121 / 121 tests passing (100%) in 71.91s**.
+- **Full Backend Test Suite**: **121 / 121 tests passing (100%) in 76.88s**.
 - **Evidence Tier**: **Tier 1 (Directly Executed & Verified)**.
+
+---
+
+### Final Pre-Phase-4 Release Packaging & Practical Verification
+
+A complete, end-to-end practical release verification of FileMind was executed on the packaged Windows application, verifying the PyInstaller `--onedir` backend launch, relative frontend asset loading, WebView2 loader bundling, supervisor diagnostics, and full 12-stage retrieval lifecycle.
+
+#### 1. Packaging Architecture & Supervisor Corrections
+- **PyInstaller `--onedir` Bundle Architecture**:
+  - The standalone Python backend is packaged via `--onedir` into `backend/dist/filemind-backend-dir/` and synchronized to `src-tauri/binaries/filemind-backend-dir/`.
+  - Bundle contains `filemind-backend-dir.exe`, `filemind-backend.exe` alias, and `_internal/` containing `python311.dll`, FastEmbed ONNX Runtime, native `sqlite-vec` DLLs, and Python runtime dependencies.
+  - *Invariant*: `filemind-backend-dir.exe` and `_internal/python311.dll` must remain adjacent in the same ONEDIR folder so the CPython bootloader resolves dynamic libraries without host dependencies.
+- **Backend Build Script Integrity Assertions** (`backend/build_backend.py`):
+  - Post-synchronization assertions verify that `src-tauri/binaries/filemind-backend-dir/filemind-backend-dir.exe` and `src-tauri/binaries/filemind-backend-dir/_internal/python311.dll` exist before build completion.
+  - Standalone backend self-test executes with `/health` validation (latest self-test latency: **2354.9 ms**).
+- **Tauri Supervisor Hardening** (`src-tauri/src/main.rs`):
+  - Updated `locate_backend_executable()` to prioritize the nested ONEDIR layout: `binaries/filemind-backend-dir/filemind-backend-dir.exe`.
+  - Preserves `cmd.current_dir(parent)` ensuring the working directory is set to the ONEDIR directory for `_internal/` library discovery.
+  - Added `describe_backend_bundle()` diagnostic logging before spawning to verify executable existence, parent path, `_internal/` presence, and `python311.dll` existence.
+- **NSIS Installer Packaging** (`installer/FileMind_Installer.nsi`):
+  - Configured `SetOutPath "$INSTDIR\binaries\filemind-backend-dir"` to install the full ONEDIR tree intact.
+  - Included `File "..\src-tauri\target\release\WebView2Loader.dll"` directly in `$INSTDIR\` for Edge WebView2 runtime initialization.
+  - Included relative frontend distribution in `$INSTDIR\frontend\`.
+
+#### 2. Frontend Production Asset Resolution
+- **Vite Configuration Fix** (`frontend/vite.config.ts`):
+  - Configured `base: "./"` to generate relative asset paths rather than root-relative `/assets/`.
+- **Frontend Template Fix** (`frontend/index.html`):
+  - Configured relative `<link rel="icon" type="image/svg+xml" href="./favicon.svg" />`.
+- **Production Build Artifacts** (`frontend/dist/index.html`):
+  - Generated bundle references `./assets/index-RiTwndD5.js`, `./assets/index-bf0ZSEqY.css`, and `./favicon.svg`.
+  - Transformed 1,603 modules in 4.12s with 0 TypeScript errors.
+
+#### 3. Verified Installed Distribution Layout
+```
+C:\Users\zaved\AppData\Local\Programs\FileMind\
+├── FileMind.exe                             (Tauri Native Shell Executable)
+├── WebView2Loader.dll                       (Microsoft Edge WebView2 Loader)
+├── icon.ico                                 (Application Icon)
+├── frontend\                                (Frontend Distribution Assets)
+│   ├── index.html                           (Relative asset paths: ./assets/)
+│   ├── favicon.svg
+│   └── assets\
+│       ├── index-RiTwndD5.js
+│       └── index-bf0ZSEqY.css
+├── binaries\
+│   └── filemind-backend-dir\                (PyInstaller ONEDIR Bundle)
+│       ├── filemind-backend-dir.exe         (Primary Standalone Backend Executable)
+│       ├── filemind-backend.exe             (Alias Executable)
+│       └── _internal\                       (Python 3.11 Runtime & Native DLLs)
+│           ├── python311.dll
+│           ├── sqlite_vec\
+│           └── onnxruntime\
+└── Uninstall.exe
+```
+
+#### 4. Release Build Artifacts & Metrics
+- **Tauri Native Release Build** (`cargo tauri build`):
+  - `src-tauri/target/release/bundle/msi/FileMind_0.1.0_x64_en-US.msi` (**PASS**)
+  - `src-tauri/target/release/bundle/nsis/FileMind_0.1.0_x64-setup.exe` (**PASS**)
+- **Standalone Release Installer**:
+  - `dist/FileMind_0.1.0_x64-setup.exe` (**132.70 MB solid LZMA package; PASS**).
+
+#### 5. Latency Hierarchy & Startup Benchmarks
+- **Authoritative Cold-Start Gate (Stand-alone PyInstaller onedir)**: **1.192 s** median (Range: `1.174 s – 1.416 s`, 5 runs; requirement $\le 5.0\text{ s}$).
+- **Standalone Backend Self-Test**: **2354.9 ms** (FastAPI initialization + model warmup).
+- **Installed GUI Full Cold Launch (`FileMind.exe` $\rightarrow$ WebView2 $\rightarrow$ Sidecar Spawn $\rightarrow$ `/health` 200)**: **4.253 s** (measured live on installed release app).
+
+#### 6. Installed Application 12-Step Practical Verification (`12 / 12 PASS`)
+1. **Launch**: `FileMind.exe` launched directly (PID 10496) with auto-spawned child processes (`msedgewebview2.exe`, `filemind-backend-dir.exe`, `conhost.exe`).
+2. **Health Check**: Port 24823 confirmed listening; `GET http://127.0.0.1:24823/health` returned HTTP 200 `{"status": "healthy", "service": "FileMind Backend", "version": "0.1.0", "port": 24823}` in **4.253 s**.
+3. **Folder Discovery**: Registered test directory `C:\Temp\FileMindInstalledTest` (`folder_id=c2e66c63-1a25-4671-900f-890443a5d7e7`).
+4. **Recursive Indexing**: 3,615 files indexed (97.5% progress).
+5. **BM25 Search**: `FILEMIND_INSTALLED_TEST_ALPHA_7319` matched `test.txt` in **14.797 ms** (score `15.041`).
+6. **Dense Search**: `local deterministic document retrieval` matched `FileMind.md` in **38.711 ms** (score `0.5552`).
+7. **Hybrid RRF Search**: `local evidence retrieval verification` returned RRF fused results in **50.969 ms** with correct null score semantics (`Dense=None` for BM25-only candidates, `BM25=None` for Dense-only candidates).
+8. **Provenance & Actions**: `COPY_PATH` action executed successfully on target canonical path.
+9. **Modify & Reindex**: Modified content (`FILEMIND_UPDATED_CONTENT_ECHO_6384`) became searchable (score `15.0099`), and stale content returned 0 matches.
+10. **Delete & Stale Removal**: Deleted file immediately returned 0 results.
+11. **Graceful Shutdown**: App process tree terminated in **0.047 s**, port 24823 cleanly released.
+12. **Relaunch Persistence**: Relaunched `FileMind.exe` restored all 3 persisted folders and auto-spawned healthy backend.
+
+#### 7. Automated Regression Suite Verification
+- **Hybrid Fallback Hardening Suite** (`backend/tests/test_hybrid_fallback.py`): **`14 / 14 PASS`** in 3.88s.
+- **Full Backend Regression Suite** (`backend/tests/`): **`121 / 121 PASS`** (1 warning) in 76.88s.
+- **Frontend Production Build**: **`PASS`** (0 errors).
+
+#### 8. Final Foundation Verification Statement
+This constitutes the final, authoritative practical verification of the FileMind Pre-Phase-4 foundation. The distribution packaging, runtime sidecar lifecycle, frontend assets, database migrations, document extractors, lexical search, dense search, hybrid RRF fusion, and graceful degradation mechanics are completely verified and frozen.
+
+> [!IMPORTANT]
+> **PRE-PHASE-4 FOUNDATION VERIFIED.**
+> **PHASE 4 NOT STARTED.**
+> **PHASE 5 NOT STARTED.**
+> **NO FURTHER IMPLEMENTATION PERFORMED.**
 
 ---
 

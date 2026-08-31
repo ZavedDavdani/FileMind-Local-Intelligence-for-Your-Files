@@ -77,12 +77,23 @@ def build():
     # Ensure alias executable filemind-backend.exe exists in onedir
     shutil.copyfile(built_exe, os.path.join(built_dir, "filemind-backend.exe"))
 
-    # Copy onedir into src-tauri/binaries/
+    # Copy onedir into src-tauri/binaries/filemind-backend-dir/
     tauri_bin_dir = os.path.join(BINARIES_DIR, "filemind-backend-dir")
     if os.path.exists(tauri_bin_dir):
         shutil.rmtree(tauri_bin_dir)
     shutil.copytree(built_dir, tauri_bin_dir)
     print(f"Synced onedir bundle to: {tauri_bin_dir}")
+
+    # Verify ONEDIR bundle integrity
+    tauri_exe = os.path.join(tauri_bin_dir, "filemind-backend-dir.exe")
+    if not os.path.exists(tauri_exe):
+        raise RuntimeError(f"PyInstaller bundle is incomplete: {tauri_exe} not found")
+    print(f"Verified ONEDIR executable: {tauri_exe}")
+
+    internal_python = os.path.join(tauri_bin_dir, "_internal", "python311.dll")
+    if not os.path.exists(internal_python):
+        raise RuntimeError(f"PyInstaller bundle is incomplete: {internal_python} not found")
+    print(f"Verified ONEDIR Python runtime: {internal_python}")
 
     # Copy top-level alias executables for Tauri lookup
     for name in TARGET_NAMES:
