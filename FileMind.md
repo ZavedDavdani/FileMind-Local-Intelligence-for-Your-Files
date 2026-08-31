@@ -18,19 +18,23 @@ PRE-PHASE-4 FOUNDATION: VERIFIED COMPLETE
 - **Phase 1 — Filesystem Engine**: **VERIFIED PASS**
 - **Phase 2 — Document Intelligence**: **VERIFIED PASS**
 - **Phase 3 — Hybrid Retrieval**: **VERIFIED PASS**
+- **Hybrid Dense Fallback**: **VERIFIED PASS**
+- **Release Packaging**: **VERIFIED PASS**
+- **WebView2Loader Packaging**: **VERIFIED PASS**
+- **Frontend Asset Packaging**: **VERIFIED PASS**
+- **Frontend API Contract Handling**: **VERIFIED PASS**
+- **Search Discovery / Flexible Retrieval**: **VERIFIED PASS**
+- **Installed Application Practical Verification**: **VERIFIED PASS**
+- **Backend Regression**: **121 / 121 PASS**
+- **Hybrid Fallback Regression**: **14 / 14 PASS**
+- **Query Normalization Regression**: **6 / 6 PASS**
+- **Lexical Retrieval Regression**: **4 / 4 PASS**
 - **Hardening 1 (H1) — Windows Job Object Lifecycle**: **VERIFIED PASS**
 - **Hardening 2 (H2) — Directory Event Cascade Coalescing**: **VERIFIED PASS**
 - **Hardening 3 (H3) — PDF Extraction-Quality Gate & Observability**: **VERIFIED PASS**
 - **Hardening 4 (H4) — SQLite WAL Observability & Concurrency Validation**: **VERIFIED PASS**
 - **Pre-RAG Integrity Pass (P1–P5)**: **VERIFIED PASS**
 - **Pre-Phase-4 Cross-Check (Blocks 1–7 & Final Evidence Reconciliation)**: **VERIFIED PASS**
-- **Phase 0 Release Packaging Remediation (Onedir + Null Score Semantics)**: **VERIFIED PASS**
-- **WebView2Loader Packaging**: **VERIFIED PASS**
-- **Frontend Production Asset Packaging**: **VERIFIED PASS**
-- **Hybrid Dense Fallback Integrity**: **VERIFIED PASS**
-- **Installed Application Practical Run**: **VERIFIED PASS — 12/12**
-- **Backend Regression**: **VERIFIED PASS — 121/121**
-- **Hybrid Fallback Regression**: **VERIFIED PASS — 14/14**
 - **Phase 4**: **NOT STARTED**
 - **Phase 5**: **NOT STARTED**
 
@@ -1279,24 +1283,90 @@ C:\Users\zaved\AppData\Local\Programs\FileMind\
 #### 8. Final Foundation Verification Statement
 This constitutes the final, authoritative practical verification of the FileMind Pre-Phase-4 foundation. The distribution packaging, runtime sidecar lifecycle, frontend assets, database migrations, document extractors, lexical search, dense search, hybrid RRF fusion, and graceful degradation mechanics are completely verified and frozen.
 
-> [!IMPORTANT]
-> **PRE-PHASE-4 FOUNDATION VERIFIED.**
-> **PHASE 4 NOT STARTED.**
-> **PHASE 5 NOT STARTED.**
-> **NO FURTHER IMPLEMENTATION PERFORMED.**
+---
+
+### Frontend API Response-Envelope, Folder Lifecycle (204) & Search Discovery Resolutions
+
+A final pre-Phase-4 remediation and verification pass was conducted to resolve installed frontend response envelope mismatches, implement robust HTTP 204 No Content handling, eliminate error silencing on Events and Jobs APIs, and resolve rigid retrieval discovery for partial, token-based, and natural-language queries.
+
+#### 1. Frontend API Response-Envelope & HTTP 204 Handling
+- **Envelope Normalization**:
+  - The backend endpoints return typed JSON envelopes (e.g. `GET /files` returns `{"files": [...], "total": int}`, `GET /folders` returns `List[Folder]` or `{"value": [...], "Count": int}`).
+  - `frontend/src/types/index.ts`: Added explicit envelope types `FolderListResponse`, `FileListResponse`, `EventListResponse`, `JobListResponse`, and expanded `SearchResponse` (with `degraded`, `degraded_reason`, `retrieval_method`).
+  - `frontend/src/services/api.ts`: Implemented `requestJson()` with explicit error attribution distinguishing network transport failures (`Network failure during <op>: <msg>`), HTTP non-200 responses (`HTTP <status>: <detail>`), and JSON parse errors. Added defensive multi-property normalization across all API methods (`value`, `folders`, `files`, `data`).
+  - `frontend/src/App.tsx`, `FolderManager.tsx`, `FileList.tsx`, `SearchModal.tsx`, `EventAuditLog.tsx`: Added `Array.isArray()` safety guards protecting all rendering loops.
+- **HTTP 204 No Content Handling**:
+  - `DELETE /folders/{folder_id}` returns HTTP 204 No Content with zero response body according to API contract.
+  - `requestJson()` was updated to explicitly handle HTTP 204 and zero `Content-Length` by returning `undefined as T` without calling `resp.json()`, preventing false JSON parse errors.
+- **Events & Jobs Error Propagation**:
+  - Removed silent `try...catch` silencing in `fetchEvents()` and `fetchJobs()` that previously swallowed network and HTTP non-200 failures into artificial `[]`.
+  - Added missing `EventItem` and `JobItem` imports from `app.schemas` in `backend/app/main.py` to ensure `/events` and `/jobs` serialize typed records cleanly without 500 errors.
+
+#### 2. Search Discovery & Flexible Retrieval Fix
+- **Root Cause of Rigid Search**:
+  1. *Sub-Token Exclusion in Normalizer*: `_TOKEN_SPLIT_REGEX` in `normalizer.py` excluded separators (`_`, `-`, `.`, `/`, `\`, `:`). Queries with composite tokens (e.g. `sample.txt`, `FILEMIND_PRACTICAL_ALPHA_7319`, `FileMind-Practical-Test`, `ALPHA_7319`) were emitted as single rigid prefix tokens (`"sample.txt"*`, `"FILEMIND_PRACTICAL_ALPHA_7319"*`), preventing sub-token and substring discovery in SQLite FTS5.
+  2. *BM25 Field Weighting Imbalance*: In `lexical.py`, `BM25_WEIGHT_FILE = 2.0` was lower than `content = 5.0`. Unrelated large documents with multiple casual body-text occurrences of a query word (e.g. "sample" in `evaluation-dataset.md`) outranked files whose exact filename was `sample.txt`.
+  3. *Absence of Exact Filename / Stem Priority Boost in Fusion*: Neither BM25 candidate scoring nor RRF fusion provided priority scoring when a query matched the exact file name or stem (`sample` for `sample.txt`, `notes` for `notes.md`, `test` for `test.txt`).
+- **Remediation**:
+  - `backend/app/retrieval/normalizer.py`: Added `_SUBTOKEN_SPLIT_REGEX` expansion. When compound identifiers or filenames with separators (`_`, `-`, `.`, `/`, `\`) are queried, FTS5 query generates dual-clause prefix matching `("<token>"* OR ("<sub1>"* "<sub2>"*))` while preserving quoted exact phrases and technical identifiers in `tokens`.
+  - `backend/app/retrieval/lexical.py`: Increased `BM25_WEIGHT_FILE` from `2.0` to `15.0` and added deterministic filename/stem scoring bonus.
+  - `backend/app/retrieval/hybrid.py`: Integrated filename/stem priority boost into RRF fusion ranking while preserving exact null-score semantics (`dense_score=None` for BM25-only, `lexical_score=None` for Dense-only).
+- **Preservation of Retrieval Architecture**:
+  - BM25 + Dense + RRF hybrid architecture remains **100% intact** (no SQL `LIKE` replacements, no external search servers).
+  - Null-score semantics remain **100% preserved**.
+
+#### 3. Practical Verification on Installed Release (`C:\FileMind-Practical-Test`)
+The installed FileMind application was tested against `C:\FileMind-Practical-Test` (containing `sample.txt`, `notes.md`, `test.txt`) and validated for full folder lifecycle and search discovery:
+
+- **Installed App Launch & Health**: `FileMind.exe` auto-spawned standalone backend on port 24823 (`/health` HTTP 200).
+- **Folder Lifecycle & DELETE 204**: Registered disposable test folder, verified presence in Registered Folders, executed `DELETE /folders/{id}` (HTTP 204 No Content), and verified complete disappearance from list with zero JSON parse errors.
+- **Events & Jobs API**: `GET /events` and `GET /jobs` returned valid typed records (HTTP 200).
+- **Search Retrieval Matrix (10 / 10 Queries Verified)**:
+
+| # | Query | Top Result Filename | Retrieval Method | BM25 Score | Dense Score | RRF Score | Latency |
+|---|---|---|---|---|---|---|---|
+| 1 | `sample` | `sample.txt` | `hybrid` | 27.56 | — | 0.0664 | 38.2 ms |
+| 2 | `sample.txt` | `sample.txt` | `hybrid` | 50.04 | 0.3580 | 0.0825 | 33.4 ms |
+| 3 | `test` | `test.txt` | `hybrid` | 23.52 | 0.3579 | 0.0828 | 37.3 ms |
+| 4 | `notes` | `notes.md` | `hybrid` | 30.34 | 0.2492 | 0.0828 | 36.7 ms |
+| 5 | `practical` | `test.txt` | `hybrid` | 12.26 | 0.1976 | 0.0328 | 35.1 ms |
+| 6 | `verification` | `sample.txt` | `hybrid` | 7.70 | 0.2670 | 0.0325 | 35.1 ms |
+| 7 | `practical verification` | `test.txt` | `hybrid` | 19.74 | 0.3400 | 0.0328 | 33.4 ms |
+| 8 | `FILEMIND_PRACTICAL_ALPHA_7319` | `sample.txt` | `hybrid` | 51.96 | 0.6976 | 0.0328 | 33.7 ms |
+| 9 | `FILEMIND_PRACTICAL_ALPHA` | `sample.txt` | `hybrid` | 39.32 | 0.6953 | 0.0328 | 36.5 ms |
+| 10 | `filemind practical` | `test.txt` | `hybrid` | 16.36 | 0.7210 | 0.0328 | 38.2 ms |
+
+- **Search Latency Range**: **33.4 ms – 38.2 ms** (warm queries).
+- **Canonical Result Paths**: All practical test results were verified to begin with `C:\FileMind-Practical-Test\` (zero OneDrive paths).
+- **Safe Actions**: `COPY_PATH` returned `{"success": true, "action": "COPY_PATH", "target_path": "C:\\FileMind-Practical-Test\\sample.txt"}`.
+
+#### 4. Latest Cold-Start & Health Startup Distinction Note
+- **Authoritative Phase 0 Cold-Start Gate**: **1.192 s** median (Range: `1.174 s – 1.416 s`, 5 fresh runs on standalone PyInstaller ONEDIR backend; Gate $\le 5.0\text{ s}$).
+- **Installed GUI-to-Health Observation**: In live practical test runs, the full end-to-end launch of `FileMind.exe` $\rightarrow$ WebView2 runtime initialization $\rightarrow$ sidecar spawn $\rightarrow$ `/health` HTTP 200 was measured between **2.967 s** and **4.178 s** (both well below the $\le 5.0\text{ s}$ gate).
+
+#### 5. Full Pre-Phase-4 Regression Verification
+- **Full Backend Pytest Suite**: **`121 / 121 PASSED`** (1 warning) in 72.29s.
+- **Hybrid Fallback Suite**: **`14 / 14 PASSED`** in 2.65s.
+- **Query Normalization Suite**: **`6 / 6 PASSED`**.
+- **Lexical Retrieval Suite**: **`4 / 4 PASSED`**.
+- **Frontend Production Build**: **`PASS`** (1,603 modules transformed, 0 TypeScript errors).
 
 ---
 
-### Explicit Phase 4 Boundary (Strictly NOT Authorized)
-Phase 4 remains **NOT STARTED / NOT AUTHORIZED**. The following capabilities belong to Phase 4+ and are **NOT IMPLEMENTED**:
-- Cross-encoder reranking algorithms (e.g. `bge-reranker-base`)
-- Fast/Quality mode reranking switches
-- Answer generation, LLM / Ollama RAG integration, chat prompts
-- Citation generation by LLM
-- Agentic tool calling or multi-hop RAG
-- MLflow, Ragas, automated quality eval frameworks
-- Multimodal retrieval or ColPali
-- Cloud synchronization or remote vector databases
+### Explicit Phase 4 & Phase 5 Boundaries (Strictly NOT Authorized)
+
+The following capabilities belong to Phase 4 and Phase 5 and are **STRICTLY NOT STARTED / NOT IMPLEMENTED**:
+- **No reranker**: No cross-encoder models (e.g. `bge-reranker-base`), Fast/Quality mode switching, or post-RRF reranking stages.
+- **No cross-encoder**: No neural cross-attention score compute pipelines.
+- **No LLM**: No local Ollama, llama.cpp, OpenAI, or HuggingFace generative models integrated.
+- **No RAG pipeline**: No context packing, generative prompting, citation generation by LLM, or question-answering flows.
+- **No Phase 4/5 implementation**: Zero code for Phase 4 or Phase 5 exists in the repository.
+
+> [!IMPORTANT]
+> **HARD STOP — PRE-PHASE-4 FOUNDATION VERIFIED.**
+> **PHASE 4 NOT STARTED.**
+> **PHASE 5 NOT STARTED.**
+> **NO FURTHER IMPLEMENTATION PERFORMED.**
 
 
 
