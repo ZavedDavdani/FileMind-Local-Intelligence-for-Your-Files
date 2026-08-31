@@ -230,6 +230,9 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
         use std::os::windows::process::CommandExt;
         
         let mut cmd = Command::new(&exe_path);
+        if let Some(parent) = exe_path.parent() {
+            cmd.current_dir(parent);
+        }
         #[cfg(target_os = "windows")]
         {
             const CREATE_NO_WINDOW: u32 = 0x08000000;

@@ -34,8 +34,9 @@ def build():
         "-m",
         "PyInstaller",
         "--clean",
-        "--onefile",
-        "--name", "filemind-backend",
+        "--noconfirm",
+        "--onedir",
+        "--name", "filemind-backend-dir",
         "--hidden-import", "uvicorn.logging",
         "--hidden-import", "uvicorn.loops",
         "--hidden-import", "uvicorn.loops.auto",
@@ -57,6 +58,8 @@ def build():
         "--collect-all", "docx",
         "--collect-all", "pptx",
         "--collect-all", "openpyxl",
+        "--collect-all", "fastembed",
+        "--collect-all", "sqlite_vec",
         "--distpath", DIST_DIR,
         "--workpath", BUILD_DIR,
         "--specpath", ROOT_DIR,
@@ -66,29 +69,37 @@ def build():
     print(f"Executing: {' '.join(pyinstaller_cmd)}")
     subprocess.check_call(pyinstaller_cmd)
 
-    built_exe = os.path.join(DIST_DIR, "filemind-backend.exe")
+    built_dir = os.path.join(DIST_DIR, "filemind-backend-dir")
+    built_exe = os.path.join(built_dir, "filemind-backend-dir.exe")
     if not os.path.exists(built_exe):
         raise RuntimeError(f"Build failed: {built_exe} not found")
 
-    exe_size_mb = os.path.getsize(built_exe) / (1024 * 1024)
-    print(f"Successfully generated standalone binary: {built_exe} ({exe_size_mb:.2f} MB)")
+    # Ensure alias executable filemind-backend.exe exists in onedir
+    shutil.copyfile(built_exe, os.path.join(built_dir, "filemind-backend.exe"))
 
-    # Copy to target names in src-tauri/binaries/
+    # Copy onedir into src-tauri/binaries/
+    tauri_bin_dir = os.path.join(BINARIES_DIR, "filemind-backend-dir")
+    if os.path.exists(tauri_bin_dir):
+        shutil.rmtree(tauri_bin_dir)
+    shutil.copytree(built_dir, tauri_bin_dir)
+    print(f"Synced onedir bundle to: {tauri_bin_dir}")
+
+    # Copy top-level alias executables for Tauri lookup
     for name in TARGET_NAMES:
         dest = os.path.join(BINARIES_DIR, name)
         shutil.copyfile(built_exe, dest)
-        print(f"Copied binary to: {dest}")
+        print(f"Copied binary stub to: {dest}")
 
-    # Self-test the standalone binary
-    print("\nVerifying standalone executable execution & /health check...")
-    proc = subprocess.Popen([built_exe], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Self-test the onedir executable
+    print("\nVerifying onedir executable execution & /health check...")
+    proc = subprocess.Popen([built_exe], cwd=built_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     healthy = False
     start_t = time.perf_counter()
     health_latency = None
 
     try:
-        for _ in range(25):  # Poll up to 5 seconds
-            time.sleep(0.2)
+        for _ in range(50):  # Poll up to 5 seconds
+            time.sleep(0.1)
             try:
                 with urllib.request.urlopen("http://127.0.0.1:24823/health", timeout=1) as resp:
                     if resp.status == 200:
@@ -112,10 +123,6 @@ def build():
         raise RuntimeError("Standalone backend self-test FAILED to respond to /health within 5 seconds")
 
     print("\nBackend Packaging SUCCESS!")
-    return {
-        "binary_size_mb": round(exe_size_mb, 2),
-        "health_latency_ms": health_latency,
-    }
 
 
 if __name__ == "__main__":

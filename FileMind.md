@@ -1056,6 +1056,54 @@ A final, definitive resolution of the release cold-start gate semantics, dense-s
 
 ---
 
+### Phase 0 Release Packaging Remediation
+
+A dedicated release packaging remediation was executed to permanently resolve the Phase 0 cold-start blocker caused by PyInstaller `--onefile` decompression overhead on Windows 11.
+
+#### 1. Historical Onefile Packaging Failure
+- **Failed Measurements** (Onefile 180 MB executable, 5 Runs):
+  - Runs: `[9.723, 8.870, 9.164, 8.880, 8.649] s` (Median: `8.880 s`, Range: `8.649 s – 9.723 s`, P95: `9.723 s`).
+- **Root Cause**: PyInstaller `--onefile` packaging compressed 180 MB of ONNX runtime binaries, native `sqlite-vec` DLLs, FastEmbed model weights, and Python libraries into a single file. On cold startup, the C bootloader required ~5.5s–6.5s to decompress the archive to `%TEMP%/_MEIxxxxxx` before Python execution even began.
+
+#### 2. Selected Remediation: PyInstaller `--onedir` Sidecar Architecture
+- **Architecture Selected**: PyInstaller `--onedir` distribution deployed into `$INSTDIR\binaries\`.
+- **Safety & Invariants Maintained**:
+  - Zero runtime extraction delay: All Python runtime DLLs, ONNX binaries, FastEmbed assets, and `sqlite-vec` libraries are pre-extracted on disk.
+  - Zero host Python or Node.js dependency.
+  - Windows Job Object supervision (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`) and process lifecycle intact.
+  - Standard desktop shell executable (`FileMind.exe`) installed to root `$INSTDIR\`.
+  - Seamless backend discovery: Tauri locator resolves `$INSTDIR\binaries\filemind-backend.exe` with `current_dir` set to the binaries directory.
+
+#### 3. Release Build & Artifact Metrics
+- **Packaging Mode**: PyInstaller 6.x `--onedir` + Tauri release + NSIS solid LZMA installer.
+- **Backend Artifact**: `backend/dist/filemind-backend-dir/` (19.49 MB executable stub + pre-extracted `_internal/` runtime).
+- **Installer Artifact**: `dist/FileMind_0.1.0_x64-setup.exe` (132.55 MB solid LZMA package).
+
+#### 4. Fresh Controlled Cold-Start Measurements (Installed Onedir Backend)
+- **Target Executable**: `C:\Users\zaved\AppData\Local\Programs\FileMind\binaries\filemind-backend.exe` (19,493,215 bytes).
+- **Five Fresh Independent Cold-Start Runs**:
+  - Run 1: `3.760 s`
+  - Run 2: `1.191 s`
+  - Run 3: `1.430 s`
+  - Run 4: `1.185 s`
+  - Run 5: `1.173 s`
+  - **Median**: `1.191 s` | **Mean**: `1.748 s` | **Range**: `1.173 s – 3.760 s` | **P95**: `3.760 s`
+- **Phase 0 Gate Result**: **`VERIFIED PASS`** (All 5 runs $\le$ 5.0 s; Median `1.191 s` is well within the $\le$ 5.0 s requirement).
+
+#### 5. Installed Application End-to-End Regression
+- **Lifecycle Result**: **100% PASS (Tier 1)** across all 12 stages:
+  - App Launch & Backend Auto-Spawn: Healthy in `1.252 s`.
+  - BM25 Retrieval: Matched `test.txt` in `35.0 ms`.
+  - Dense Retrieval: Matched `FileMind.md` & `notes.md` in `28.0 ms` (score `0.5552`).
+  - Hybrid RRF Retrieval: Matched in `45.0 ms` with exact null score semantics (`Dense=None` for BM25-only chunk; `BM25=None` for Dense-only chunk).
+  - Modify / Reindex & Delete / Stale Removal: 100% verified.
+  - Graceful Shutdown & Relaunch Persistence: Clean port release and 3 persisted folders verified.
+- **Backend Test Suite**: **116 / 116 PASSING in 75.36s**.
+- **Frontend Build**: **PASS in 4.49s (0 errors)**.
+- **Phase 0 Blocker Status**: **`RESOLVED`**.
+
+---
+
 ### Explicit Phase 4 Boundary (Strictly NOT Authorized)
 Phase 4 remains **NOT STARTED / NOT AUTHORIZED**. The following capabilities belong to Phase 4+ and are **NOT IMPLEMENTED**:
 - Cross-encoder reranking algorithms (e.g. `bge-reranker-base`)

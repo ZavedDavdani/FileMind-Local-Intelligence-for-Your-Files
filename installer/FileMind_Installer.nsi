@@ -42,13 +42,12 @@ Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
 
-  ; Bundled Standalone Python FastAPI Backend (unpacked sidecar directory)
+  ; Tauri Shell Executable
+  File "..\src-tauri\target\release\FileMind.exe"
+
+  ; Bundled Standalone Python FastAPI Backend (unpacked sidecar onedir)
   SetOutPath "$INSTDIR\binaries"
   File /r "..\backend\dist\filemind-backend-dir\*.*"
-  
-  ; Root fallback binary
-  SetOutPath "$INSTDIR"
-  File "..\src-tauri\binaries\filemind-backend.exe"
   
   ; Bundled Frontend Distribution Assets
   SetOutPath "$INSTDIR\frontend"
@@ -60,15 +59,15 @@ Section "MainSection" SEC01
 
   ; Create Shortcuts
   CreateDirectory "$SMPROGRAMS\FileMind"
-  CreateShortcut "$SMPROGRAMS\FileMind\FileMind Backend.lnk" "$INSTDIR\filemind-backend.exe" "" "$INSTDIR\icon.ico" 0
+  CreateShortcut "$SMPROGRAMS\FileMind\FileMind.lnk" "$INSTDIR\FileMind.exe" "" "$INSTDIR\icon.ico" 0
   CreateShortcut "$SMPROGRAMS\FileMind\Uninstall FileMind.lnk" "$INSTDIR\Uninstall.exe"
-  CreateShortcut "$DESKTOP\FileMind.lnk" "$INSTDIR\filemind-backend.exe" "" "$INSTDIR\icon.ico" 0
+  CreateShortcut "$DESKTOP\FileMind.lnk" "$INSTDIR\FileMind.exe" "" "$INSTDIR\icon.ico" 0
 
   ; Write Uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   ; Registry keys for Add/Remove Programs
-  WriteRegStr HKCU "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\filemind-backend.exe"
+  WriteRegStr HKCU "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\FileMind.exe"
   WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
   WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\icon.ico"
@@ -77,19 +76,22 @@ Section "MainSection" SEC01
 SectionEnd
 
 Section "Uninstall"
-  ; Terminate running backend if any
+  ; Terminate running processes if any
+  nsExec::Exec 'taskkill /F /IM FileMind.exe'
   nsExec::Exec 'taskkill /F /IM filemind-backend.exe'
+  nsExec::Exec 'taskkill /F /IM filemind-backend-dir.exe'
   Sleep 500
 
   ; Remove shortcuts
-  Delete "$SMPROGRAMS\FileMind\FileMind Backend.lnk"
+  Delete "$SMPROGRAMS\FileMind\FileMind.lnk"
   Delete "$SMPROGRAMS\FileMind\Uninstall FileMind.lnk"
   RMDir "$SMPROGRAMS\FileMind"
   Delete "$DESKTOP\FileMind.lnk"
 
   ; Remove installed files
+  RMDir /r "$INSTDIR\binaries"
   RMDir /r "$INSTDIR\frontend"
-  Delete "$INSTDIR\filemind-backend.exe"
+  Delete "$INSTDIR\FileMind.exe"
   Delete "$INSTDIR\icon.ico"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
