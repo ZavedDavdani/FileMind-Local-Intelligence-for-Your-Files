@@ -1104,6 +1104,46 @@ A dedicated release packaging remediation was executed to permanently resolve th
 
 ---
 
+### WebView2Loader Release Packaging Fix
+
+An installed-application runtime startup failure was identified and resolved where `FileMind.exe` failed to launch on clean Windows environments with the system dialog error: `"The code execution cannot proceed because WebView2Loader.dll was not found."`
+
+#### 1. Root Cause Analysis
+- **Build Output**: The Rust Tauri build generates `WebView2Loader.dll` (160,320 bytes) into `src-tauri/target/release/WebView2Loader.dll` as required by Microsoft Edge WebView2 (`wry`/`tao`).
+- **Packaging Flaw**: The NSIS installer script (`installer/FileMind_Installer.nsi`) packaged `FileMind.exe`, `binaries\*.*`, and `frontend\*.*`, but omitted the adjacent `WebView2Loader.dll`.
+- **Installed Failure**: Windows PE dynamic loader searched for `WebView2Loader.dll` in `$INSTDIR` (next to `FileMind.exe`), failed to locate it, and blocked executable launch before frontend or backend supervisor execution began.
+
+#### 2. Packaging Correction
+- **NSIS Installation Section**: Explicitly added `File "..\src-tauri\target\release\WebView2Loader.dll"` into `$INSTDIR`.
+- **NSIS Uninstallation Section**: Added `Delete "$INSTDIR\WebView2Loader.dll"` for pristine uninstallation.
+- **Architectural Preservation**: Retained zero host Python/Node dependencies, `--onedir` sidecar architecture, and Win32 Job Object supervisor.
+
+#### 3. Bundle & Installed Verification
+- **Release Source Path**: `C:\dev\FileMind\src-tauri\target\release\WebView2Loader.dll` (160,320 bytes).
+- **Installer Package**: `dist/FileMind_0.1.0_x64-setup.exe` (132.66 MB).
+- **Installed DLL Path**: `C:\Users\zaved\AppData\Local\Programs\FileMind\WebView2Loader.dll` (`Test-Path` verified **`True`**).
+
+#### 4. Installed GUI Application Launch & Cold-Start Results
+- **Direct GUI Execution**: Running `C:\Users\zaved\AppData\Local\Programs\FileMind\FileMind.exe` directly opens the native application window with zero DLL errors.
+- **Auto-Spawned Child Processes**: Verified process tree containing `FileMind.exe`, `msedgewebview2.exe` (Edge WebView2 rendering pipeline), and `filemind-backend-dir.exe` (FastAPI sidecar).
+- **First Health Response**: `/health` HTTP 200 returned in **4.518 s** from GUI cold invocation.
+- **Authoritative Backend Startup (5 Fresh Runs)**:
+  - Runs: `[1.416, 1.192, 1.174, 1.186, 1.194] s`
+  - **Median**: `1.192 s` | **Mean**: `1.232 s` | **Range**: `1.174 s – 1.416 s` | **P95**: `1.416 s` ($\le$ 5.0 s gate PASSED).
+
+#### 5. Installed UI End-to-End Smoke Test & Regression
+- **12-Step Lifecycle Test**: **PASS (Tier 1)**:
+  - BM25 Retrieval: Matched `test.txt` in `1.433 ms` (Score `15.041`).
+  - Dense Retrieval: Matched in `27.43 ms` (Score `0.5552`).
+  - Hybrid RRF Retrieval: Matched in `26.89 ms` with exact null score semantics (`Dense=None` for BM25-only chunk; `BM25=None` for Dense-only chunk).
+  - Modify / Reindex & Delete / Stale Removal: Verified.
+  - Shutdown & Relaunch Persistence: Clean port release and 3 persisted folders verified.
+- **Backend Test Suite**: **116 / 116 PASSING in 78.84s**.
+- **Frontend Production Build**: **PASS in 48.96s (0 errors)**.
+- **Release Status**: **`VERIFIED PASS`**.
+
+---
+
 ### Explicit Phase 4 Boundary (Strictly NOT Authorized)
 Phase 4 remains **NOT STARTED / NOT AUTHORIZED**. The following capabilities belong to Phase 4+ and are **NOT IMPLEMENTED**:
 - Cross-encoder reranking algorithms (e.g. `bge-reranker-base`)

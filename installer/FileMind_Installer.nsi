@@ -42,8 +42,10 @@ Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
 
-  ; Tauri Shell Executable
+  ; Tauri Shell Executable & Runtime Libraries
+  SetOutPath "$INSTDIR"
   File "..\src-tauri\target\release\FileMind.exe"
+  File "..\src-tauri\target\release\WebView2Loader.dll"
 
   ; Bundled Standalone Python FastAPI Backend (unpacked sidecar onedir)
   SetOutPath "$INSTDIR\binaries"
@@ -92,6 +94,7 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\binaries"
   RMDir /r "$INSTDIR\frontend"
   Delete "$INSTDIR\FileMind.exe"
+  Delete "$INSTDIR\WebView2Loader.dll"
   Delete "$INSTDIR\icon.ico"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
