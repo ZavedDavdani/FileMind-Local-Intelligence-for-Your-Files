@@ -235,3 +235,89 @@ def test_schema_serialization_contract(fallback_test_setup):
         assert validated.degraded is True
         assert validated.retrieval_method == "bm25_fallback"
         assert len(validated.results) > 0
+
+
+def test_sqlite_vec_table_missing_triggers_degraded_fallback(fallback_test_setup):
+    """Test 11: When sqlite-vec table is corrupted/dropped, error propagates and triggers degraded fallback."""
+    db, _ = fallback_test_setup
+    with db.session() as conn:
+        conn.execute("DROP TABLE chunk_vectors;")
+        vec_store = SqliteVecStore(conn, dimension=384)
+        conn.execute("DROP TABLE chunk_vectors;")
+
+        retriever = HybridRetriever(db_conn=conn, vector_store=vec_store)
+        resp = retriever.search("storage engine", mode="hybrid")
+
+        assert resp["degraded"] is True
+        assert "no such table: chunk_vectors" in resp["degraded_reason"]
+        assert resp["retrieval_method"] == "bm25_fallback"
+        assert len(resp["results"]) > 0
+        assert resp["results"][0]["rrf_score"] is None
+        assert resp["results"][0]["dense_score"] is None
+
+
+def test_vector_dimension_mismatch_triggers_degraded_fallback(fallback_test_setup):
+    """Test 12: Invalid query vector dimension raises ValueError and triggers degraded fallback."""
+    db, _ = fallback_test_setup
+    with db.session() as conn:
+        mock_engine = mock.MagicMock()
+        mock_engine.dimension = 384
+        mock_engine.embed_query.return_value = [0.1] * 128  # Wrong dimension (128 != 384)
+
+        retriever = HybridRetriever(db_conn=conn, embedding_engine=mock_engine)
+        resp = retriever.search("storage engine", mode="hybrid")
+
+        assert resp["degraded"] is True
+        assert "query_vector dimension mismatch" in resp["degraded_reason"]
+        assert resp["retrieval_method"] == "bm25_fallback"
+
+
+def test_empty_query_vector_triggers_degraded_fallback(fallback_test_setup):
+    """Test 13: Empty query vector raises ValueError and triggers degraded fallback."""
+    db, _ = fallback_test_setup
+    with db.session() as conn:
+        mock_engine = mock.MagicMock()
+        mock_engine.dimension = 384
+        mock_engine.embed_query.return_value = []  # Empty vector
+
+        retriever = HybridRetriever(db_conn=conn, embedding_engine=mock_engine)
+        resp = retriever.search("storage engine", mode="hybrid")
+
+        assert resp["degraded"] is True
+        assert "query_vector cannot be empty" in resp["degraded_reason"]
+        assert resp["retrieval_method"] == "bm25_fallback"
+
+
+def test_malformed_dense_candidates_handled_gracefully(fallback_test_setup):
+    """Test 14: Malformed dense candidates (missing chunk_id or non-dict) are dropped without crashing."""
+    db, _ = fallback_test_setup
+    with db.session() as conn:
+        mock_vec_store = mock.MagicMock()
+        mock_vec_store.search.return_value = [
+            "invalid_non_dict_string",
+            {"no_chunk_id": True, "score": 0.9},
+            {"chunk_id": "chk_arch_core", "score": 0.85, "content": "Core SQLite storage engine specifications and indexing."},
+        ]
+
+        retriever = HybridRetriever(db_conn=conn, vector_store=mock_vec_store)
+        resp = retriever.search("storage engine", mode="hybrid")
+
+        assert resp["degraded"] is False
+        assert resp["retrieval_method"] == "hybrid"
+        assert len(resp["results"]) > 0
+        assert resp["results"][0]["chunk_id"] == "chk_arch_core"
+
+
+def test_valid_empty_filter_does_not_falsely_degrade(fallback_test_setup):
+    """Test 15: A valid query with restrictive filter returning 0 dense hits is NOT marked degraded."""
+    db, _ = fallback_test_setup
+    with db.session() as conn:
+        retriever = HybridRetriever(db_conn=conn)
+        # Filter on non-existent extension (.pdf) when only .md exists
+        resp = retriever.search("storage engine", mode="hybrid", filters={"extension": ".pdf"})
+
+        assert resp["degraded"] is False
+        assert resp["degraded_reason"] is None
+        assert resp["retrieval_method"] == "hybrid"
+        assert resp["total_found"] == 0
+        assert resp["results"] == []

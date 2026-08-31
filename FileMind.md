@@ -1148,6 +1148,44 @@ An installed-application runtime startup failure was identified and resolved whe
 
 ---
 
+### Hybrid Dense Fallback Integrity
+
+A deep source audit and verification pass was conducted on hybrid retrieval vector failure modes, successful-but-empty dense returns, and graceful degradation mechanics.
+
+#### 1. Analysis of Dense Retrieval Failure vs. Valid Zero Matches
+- **Dense Subsystem Failures**:
+  - `SqliteVecStore` SQLite / table / extension errors.
+  - `EmbeddingEngine` model load, ONNX runtime, or inference exceptions.
+  - Empty or dimension-mismatched query vectors (`len(q_vector) != 384`).
+  - Corrupted or malformed candidate records returned by vector store backends.
+  - *Contract*: These represent true subsystem errors. `SqliteVecStore.search()` propagates the exception to `HybridRetriever`, which triggers explicit fallback: `degraded = True`, `degraded_reason = "dense_retrieval_unavailable: ..."`, `retrieval_method = "bm25_fallback"`, `rrf_score = None`, `dense_score = None`.
+- **Valid Zero Dense Matches**:
+  - Empty database: 0 documents indexed in the vector table (`count() == 0`).
+  - Restrictive metadata filter: Query executed successfully, but 0 vectors matched the user's specific `folder_id` or `extension` filter.
+  - *Contract*: These represent valid zero-match queries under filter. The dense subsystem executed normally with 0 errors. `degraded` remains `False`, `degraded_reason` remains `None`, and `retrieval_method` remains `"hybrid"`.
+
+#### 2. Previous Vulnerability & Applied Fixes
+- **Vulnerability**: `SqliteVecStore.search()` previously caught SQLite errors with an internal `try...except Exception` that logged the error and returned `[]`. This caused internal vector store failures (such as missing/corrupted tables) to be masked as successful zero-match queries, preventing `HybridRetriever` from activating `degraded=True` and `bm25_fallback`.
+- **Fixes Applied**:
+  1. `SqliteVecStore.search()` (`backend/app/retrieval/vector_store.py`): Propagates internal database/extension exceptions directly to `HybridRetriever.search()`. Validates query vectors and raises `ValueError` on empty vector or dimension mismatch.
+  2. `HybridRetriever.search()` (`backend/app/retrieval/hybrid.py`): Catches all vector store exceptions, cleanly activates `degraded=True` and `retrieval_method="bm25_fallback"`, and filters out malformed candidate dictionaries defensively without crashing.
+
+#### 3. Automated Test Coverage
+- **Fallback Test Suite**: `backend/tests/test_hybrid_fallback.py` expanded to 14 comprehensive tests:
+  - Normal hybrid operation with RRF score fusion.
+  - Mocked vector store exception $\rightarrow$ graceful BM25 fallback with `degraded=True`.
+  - No fabricated dense or RRF scores during fallback.
+  - Provenance preservation and deterministic ranking order.
+  - Clean `SearchResponse` schema serialization.
+  - Corrupted / dropped `chunk_vectors` table error propagation and fallback.
+  - Vector dimension mismatch and empty vector validation.
+  - Malformed candidate resilience (non-dict or missing `chunk_id`).
+  - Valid empty filter non-degradation verification.
+- **Full Backend Test Suite**: **121 / 121 tests passing (100%) in 71.91s**.
+- **Evidence Tier**: **Tier 1 (Directly Executed & Verified)**.
+
+---
+
 ### Explicit Phase 4 Boundary (Strictly NOT Authorized)
 Phase 4 remains **NOT STARTED / NOT AUTHORIZED**. The following capabilities belong to Phase 4+ and are **NOT IMPLEMENTED**:
 - Cross-encoder reranking algorithms (e.g. `bge-reranker-base`)

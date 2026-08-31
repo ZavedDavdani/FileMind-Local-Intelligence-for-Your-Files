@@ -169,13 +169,19 @@ class HybridRetriever:
                 q_vector = self.embedding_engine.embed_query(norm_q.normalized_query)
                 latencies["query_embedding"] = round((time.perf_counter() - t0) * 1000.0, 3)
 
-                t0 = time.perf_counter()
-                dense_candidates = self.vector_store.search(
+                raw_dense = self.vector_store.search(
                     q_vector,
                     top_k=self.candidate_pool_size if mode == "hybrid" else top_k,
                     filters=filters,
                 )
                 latencies["dense_search"] = round((time.perf_counter() - t0) * 1000.0, 3)
+
+                dense_candidates = []
+                for cand in (raw_dense or []):
+                    if isinstance(cand, dict) and cand.get("chunk_id") is not None and "score" in cand:
+                        dense_candidates.append(cand)
+                    else:
+                        logger.warning("Dropping malformed dense candidate: %s", cand)
             except Exception as dense_exc:
                 if mode == "dense":
                     raise

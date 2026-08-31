@@ -137,8 +137,10 @@ class SqliteVecStore(BaseVectorStore):
         top_k: int = 50,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        if not query_vector or len(query_vector) != self.dimension:
-            return []
+        if not query_vector:
+            raise ValueError("query_vector cannot be empty")
+        if len(query_vector) != self.dimension:
+            raise ValueError(f"query_vector dimension mismatch: expected {self.dimension}, got {len(query_vector)}")
 
         packed_q = self._pack_vector(query_vector)
         filters = filters or {}
@@ -154,12 +156,8 @@ class SqliteVecStore(BaseVectorStore):
           AND k = ?
         ORDER BY distance ASC;
         """
-        try:
-            cursor = self.conn.execute(vec_sql, (packed_q, fetch_k))
-            vec_rows = cursor.fetchall()
-        except Exception as exc:
-            logger.error("sqlite-vec search error: %s", str(exc))
-            return []
+        cursor = self.conn.execute(vec_sql, (packed_q, fetch_k))
+        vec_rows = cursor.fetchall()
 
         if not vec_rows:
             return []
