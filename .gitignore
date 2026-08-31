@@ -29,6 +29,7 @@ build/
 dist/
 backend/build/
 backend/dist/
+*.spec
 *.spec.bak
 
 # SQLite Databases & temporary transaction journals

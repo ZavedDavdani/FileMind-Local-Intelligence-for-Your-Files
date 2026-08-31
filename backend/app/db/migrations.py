@@ -156,6 +156,22 @@ INSERT INTO chunks_fts (rowid, content, h1_parent, h2_parent, section, source_fi
 SELECT rowid, content, COALESCE(h1_parent, ''), COALESCE(h2_parent, ''), COALESCE(section, ''), source_file, chunk_id, file_id FROM chunks;
 """
 
+MIGRATION_V4_SQL = """
+-- Phase 3 trigger hardening: Ensure FTS5 delete/update triggers use standard DELETE syntax
+DROP TRIGGER IF EXISTS trg_chunks_ad;
+DROP TRIGGER IF EXISTS trg_chunks_au;
+
+CREATE TRIGGER IF NOT EXISTS trg_chunks_ad AFTER DELETE ON chunks BEGIN
+    DELETE FROM chunks_fts WHERE rowid = old.rowid;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_chunks_au AFTER UPDATE ON chunks BEGIN
+    DELETE FROM chunks_fts WHERE rowid = old.rowid;
+    INSERT INTO chunks_fts (rowid, content, h1_parent, h2_parent, section, source_file, chunk_id, file_id)
+    VALUES (new.rowid, new.content, COALESCE(new.h1_parent, ''), COALESCE(new.h2_parent, ''), COALESCE(new.section, ''), new.source_file, new.chunk_id, new.file_id);
+END;
+"""
+
 
 def apply_migrations(conn: sqlite3.Connection) -> int:
     """Applies all pending database migrations in order."""
@@ -189,6 +205,11 @@ def apply_migrations(conn: sqlite3.Connection) -> int:
         cursor.executescript(MIGRATION_V3_SQL)
         cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (3);")
         current_version = 3
+
+    if current_version < 4:
+        cursor.executescript(MIGRATION_V4_SQL)
+        cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (4);")
+        current_version = 4
 
     return current_version
 

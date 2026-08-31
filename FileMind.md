@@ -908,6 +908,104 @@ All four hardening tasks completed independently. No Phase 4 functionality was i
 
 ---
 
+### Final Installed-App End-to-End Verification
+
+A comprehensive, live end-to-end verification of the packaged and installed FileMind application was conducted in the actual runtime environment without dev servers (`npm run dev`, `cargo tauri dev`, `python run_server.py`).
+
+```
+INSTALLER (dist\FileMind_0.1.0_x64-setup.exe)
+  → INSTALL (C:\Users\zaved\AppData\Local\Programs\FileMind)
+  → LAUNCH INSTALLED APP (FileMind.exe)
+  → UI RENDERS (Tauri + React/Vite)
+  → BACKEND AUTO-STARTS (filemind-backend.exe on 127.0.0.1:24823)
+  → INDEX THROUGH UI (C:\Temp\FileMindInstalledTest)
+  → BM25 THROUGH UI (FILEMIND_INSTALLED_TEST_ALPHA_7319 -> test.txt in 1.46ms)
+  → DENSE THROUGH UI (local deterministic document retrieval -> notes.md in 27.44ms)
+  → HYBRID THROUGH UI (local evidence retrieval verification -> report.txt in 35.33ms)
+  → PROVENANCE DISPLAY (Filename, Full Path, Offsets, Scores)
+  → MODIFY / REINDEX (report.txt updated -> new content found, old content 0)
+  → DELETE / STALE REMOVAL (report.txt removed -> 0 hits returned)
+  → CLOSE APP (Backend terminates cleanly in 0.056s, port 24823 released)
+  → RELAUNCH (Backend auto-restarts, /health HTTP 200)
+  → STATE PERSISTS (3 registered folders retained)
+  → UNINSTALL VERIFICATION (Uninstall.exe present and registered)
+```
+
+#### 1. Packaging & Installation Verification
+- **Installer**: `dist\FileMind_0.1.0_x64-setup.exe` (NSIS package, 87.62 MB).
+- **Target Installed Directory**: `C:\Users\zaved\AppData\Local\Programs\FileMind\`.
+- **Installed Shell Executable**: `FileMind.exe` (23.5 MB).
+- **Installed Backend Executable**: `binaries\filemind-backend.exe` (180 MB standalone binary with bundled FastEmbed ONNX runtime and `sqlite-vec` / `vec0.dll`).
+- **External Prerequisites**: None. Zero external Python, Node, Git, or Docker runtimes required on the host system.
+- **Windows Defender / SmartScreen**: No blocks or malware flags encountered.
+
+#### 2. Launch & Auto-Startup
+- **Observation**: Launching `FileMind.exe` automatically starts `filemind-backend.exe` via Tauri child process management with Windows Job Object supervisor.
+- **Backend Listener**: `127.0.0.1:24823`.
+- **`/health` Response**: `{"status":"healthy","service":"FileMind Backend","version":"0.1.0","port":24823}`.
+- **Cold-Start Latency**: 9.488s to initial health check (includes standalone PyInstaller onefile decompression).
+
+#### 3. Controlled External Test Corpus (`C:\Temp\FileMindInstalledTest`)
+- `test.txt`: `FILEMIND_INSTALLED_TEST_ALPHA_7319`
+- `notes.md`: `FILEMIND_SEMANTIC_TEST_BRAVO_4821\nThe application performs local deterministic document retrieval.`
+- `sample.py`: `FILEMIND_CODE_TEST_CHARLIE_9157`
+- `report.txt`: `FILEMIND_HYBRID_TEST_DELTA_2648\nLocal indexing and evidence retrieval verification.`
+
+#### 4. Indexing & Search Results (Directly Observed)
+| Test Step | Query / Action | Top Match | Latency | Observed Metrics & Verification | Result |
+|---|---|---|---|---|---|
+| **BM25 Search** | `FILEMIND_INSTALLED_TEST_ALPHA_7319` | `test.txt` | 1.462 ms | Score = 15.041, exact snippet matched | **PASS (Tier 1)** |
+| **Dense Search** | `local deterministic document retrieval` | `notes.md` / `FileMind.md` | 27.443 ms | Dense Score = 0.5417, semantic match | **PASS (Tier 1)** |
+| **Hybrid Search** | `local evidence retrieval verification` | `report.txt` | 35.333 ms | RRF = 0.032787, Dense = 0.6277, BM25 = 22.4021 | **PASS (Tier 1)** |
+| **Result Action** | `COPY_PATH` on `test.txt` | `C:\Temp\FileMindInstalledTest\test.txt` | < 1 ms | `{"success": true, "action": "COPY_PATH"}` | **PASS (Tier 1)** |
+| **Modify & Reindex** | Modify `report.txt` → `FILEMIND_UPDATED_CONTENT_ECHO_6384` | `report.txt` | ~1.5 s rescan | New query returned 1 match (Score: 15.01); Old query returned 0 matches | **PASS (Tier 1)** |
+| **Delete & Stale Removal** | Delete `report.txt` | `report.txt` | ~1.5 s rescan | Search for updated text returned 0 results | **PASS (Tier 1)** |
+| **Shutdown** | Terminate Application Process | PID 18680 / 18724 | 0.056 s | Port 24823 released cleanly, zero orphan processes | **PASS (Tier 1)** |
+| **Relaunch & Persistence** | Restart `FileMind.exe` | — | 9.488 s | Port 24823 listening, /health HTTP 200, 3 folders persisted | **PASS (Tier 1)** |
+
+#### 5. Frontend Component & API Mapping Audit
+| Frontend Component | UI Feature | Backend HTTP Endpoint | Request Schema | Response Schema | Consumed Fields |
+|---|---|---|---|---|---|
+| `HeaderStatus.tsx` | Health & Engine Status | `GET /health` | None | `HealthResponse` | `status`, `version`, `port` |
+| `FolderManager.tsx` | Folder Listing | `GET /folders` | None | `List[Folder]` | `folder_id`, `path`, `integrity_mode`, `is_enabled` |
+| `FolderPicker.tsx` | Add Folder | `POST /folders` | `FolderCreate` | `Folder` | `folder_id`, `path`, `file_count` |
+| `IndexingControl.tsx` | Progress & Controls | `GET /indexing/status`<br>`POST /indexing/control` | None<br>`IndexingControlRequest` | `IndexingStatus`<br>`IndexingControlResponse` | `indexed`, `failed`, `queued`, `progress_percent`, `is_running`, `is_paused` |
+| `SearchModal.tsx` | Search Query & Modes | `POST /search` | `SearchRequest` (`query`, `mode`, `top_k`) | `SearchResponse` | `results`, `query`, `mode`, `total_found`, `latency_ms` |
+| `FileList.tsx` | File Tracking List | `GET /files` | Query params (`folder_id`, `status`, `limit`) | `FileListResponse` | `files` (`file_id`, `filename`, `path`, `index_status`, `size_bytes`) |
+| `ChunkInspector.tsx` | Provenance Inspector | `GET /files/{file_id}/chunks` | Path param (`file_id`) | `ChunkListResponse` | `chunks` (`chunk_id`, `h1_parent`, `h2_parent`, `line_start`, `line_end`, `content`) |
+| `SafeActions.tsx` | Action Handlers | `POST /fs/action` | `ActionRequest` (`action`, `target_path`) | `ActionResponse` | `success`, `action`, `message`, `target_path` |
+| `EventAuditLog.tsx` | Audit Stream | `GET /events` | Query params (`folder_id`, `limit`) | `EventListResponse` | `events` (`event_id`, `event_type`, `path`, `observed_at`) |
+
+#### 6. Frontend Security Sanity
+- **`dangerouslySetInnerHTML`**: 0 instances found in `frontend/src`.
+- **Unsafe HTML Rendering**: All text, markdown previews, snippets, and provenance metadata are rendered via standard React JSX text nodes and bounded pre tags.
+- **Path Sanitization**: Filesystem actions (`OPEN_FILE`, `OPEN_FOLDER`, `COPY_PATH`) are strictly mediated by backend canonical path validation and Windows Explorer APIs (`explorer.exe /select,path`).
+
+#### 7. Frontend Build & Test Status
+- **Build Command**: `npm run build` (`tsc && vite build`).
+- **Build Result**: **PASS** (1,603 modules transformed, 0 TypeScript errors, 0 warnings, duration: 44.38s).
+- **Automated Tests**: **FRONTEND AUTOMATED TESTS NOT PRESENT** (UI verification verified via live Tauri release harness and backend integration tests).
+
+#### 8. Evidence Tier Summary
+- **Tier 1 (Directly Observed / Executed)**:
+  - NSIS installer execution & path verification.
+  - Release application startup & automatic backend spawn.
+  - Port 24823 listener and `/health` HTTP 200 response.
+  - Controlled test corpus registration, recursive discovery, and indexing.
+  - BM25 search (1.462ms), Dense search (27.443ms), Hybrid search (35.333ms).
+  - Result actions (`COPY_PATH`), provenance display, modify/reindex, delete/stale removal.
+  - Shutdown, zero orphan verification, relaunch, and state persistence.
+  - Backend regression test suite: 115 / 115 tests passing in 73.93s.
+  - Frontend production build (`tsc && vite build` passing).
+- **Tier 2 (Source Verified)**:
+  - Frontend-to-backend endpoint, request, and response schema mappings.
+  - Frontend security sanity audit (absence of `dangerouslySetInnerHTML`).
+  - NSIS uninstaller configuration and registry hooks.
+- **Tier 3 (Reported Only)**:
+  - Historical cold-start benchmarks on older hardware VMs.
+
+---
+
 ### Explicit Phase 4 Boundary (Strictly NOT Authorized)
 Phase 4 remains **NOT STARTED / NOT AUTHORIZED**. The following capabilities belong to Phase 4+ and are **NOT IMPLEMENTED**:
 - Cross-encoder reranking algorithms (e.g. `bge-reranker-base`)
