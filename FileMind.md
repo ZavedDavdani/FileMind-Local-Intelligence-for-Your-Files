@@ -24,6 +24,7 @@
 - **Phase 0 Release Packaging Remediation (Onedir + Null Score Semantics)**: **COMPLETE / PASS**
 - **WebView2Loader Release Packaging Fix**: **COMPLETE / PASS**
 - **Installed End-to-End Release Application**: **COMPLETE / PASS**
+- **Hybrid Dense Fallback Integrity Hardening**: **COMPLETE / PASS**
 - **Foundation + Retrieval + Hardening**: **FROZEN & VERIFIED READY FOR PHASE 4**
 - **Phase 4 — Reranking & Cross-Encoders**: **NOT STARTED / NOT AUTHORIZED**
 - **Phase 5 — Local & Cloud RAG Pipeline**: **NOT STARTED / NOT AUTHORIZED**
@@ -999,7 +1000,7 @@ INSTALLER (dist\FileMind_0.1.0_x64-setup.exe)
   - BM25 search (1.433ms), Dense search (27.432ms), Hybrid search (26.886ms).
   - Result actions (`COPY_PATH`), provenance display, modify/reindex, delete/stale removal.
   - Shutdown, zero orphan verification, relaunch, and state persistence.
-  - Backend regression test suite: 116 / 116 tests passing in 78.84s.
+  - Backend regression test suite: 121 / 121 tests passing in 71.91s.
   - Frontend production build (`tsc && vite build` passing).
 - **Tier 2 (Source Verified)**:
   - Frontend-to-backend endpoint, request, and response schema mappings.
@@ -1055,7 +1056,7 @@ A final, definitive resolution of the release cold-start gate semantics, dense-s
 
 #### 4. Foundation Status & Regression Verification
 - **Folder Deletion Regression**: **PASS** (`backend/tests/test_folder_deletion_regression.py` 100% passing).
-- **Backend Test Suite**: **PASS** (`116 / 116 tests passed in 74.27s`).
+- **Backend Test Suite**: **PASS** (`121 / 121 tests passed in 71.91s`).
 - **Frontend Production Build**: **PASS** (`tsc && vite build` completed with 0 errors).
 
 ---
@@ -1102,7 +1103,7 @@ A dedicated release packaging remediation was executed to permanently resolve th
   - Hybrid RRF Retrieval: Matched in `45.0 ms` with exact null score semantics (`Dense=None` for BM25-only chunk; `BM25=None` for Dense-only chunk).
   - Modify / Reindex & Delete / Stale Removal: 100% verified.
   - Graceful Shutdown & Relaunch Persistence: Clean port release and 3 persisted folders verified.
-- **Backend Test Suite**: **116 / 116 PASSING in 75.36s**.
+- **Backend Test Suite**: **121 / 121 PASSING in 71.91s**.
 - **Frontend Build**: **PASS in 4.49s (0 errors)**.
 - **Phase 0 Blocker Status**: **`RESOLVED`**.
 
