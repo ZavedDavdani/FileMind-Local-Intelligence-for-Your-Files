@@ -21,6 +21,9 @@
 - **Hardening 4 (H4) — SQLite WAL Observability & Concurrency Validation**: **COMPLETE / PASS**
 - **Pre-RAG Integrity Pass (P1–P5)**: **COMPLETE / PASS**
 - **Pre-Phase-4 Cross-Check (Blocks 1–7 & Final Evidence Reconciliation)**: **COMPLETE / PASS**
+- **Phase 0 Release Packaging Remediation (Onedir + Null Score Semantics)**: **COMPLETE / PASS**
+- **WebView2Loader Release Packaging Fix**: **COMPLETE / PASS**
+- **Installed End-to-End Release Application**: **COMPLETE / PASS**
 - **Foundation + Retrieval + Hardening**: **FROZEN & VERIFIED READY FOR PHASE 4**
 - **Phase 4 — Reranking & Cross-Encoders**: **NOT STARTED / NOT AUTHORIZED**
 - **Phase 5 — Local & Cloud RAG Pipeline**: **NOT STARTED / NOT AUTHORIZED**
@@ -29,19 +32,20 @@
 
 ### Phase 0: Distribution Feasibility Baseline & Startup Trend
 - **Status**: **COMPLETE / PASS**. See `docs/phase-0/validation-report.md`.
-- **Packaged Architecture**: Tauri + React/TypeScript + PyInstaller `--onedir` Python/FastAPI sidecar with deferred parser imports.
-- **Installer Artifact**: `dist/FileMind_0.1.0_x64-setup.exe` (**87.62 MB**; requirement `< 500 MB`).
+- **Packaged Architecture**: Tauri + React/TypeScript + PyInstaller `--onedir` Python/FastAPI sidecar + bundled `WebView2Loader.dll` runtime library.
+- **Installer Artifact**: `dist/FileMind_0.1.0_x64-setup.exe` (**132.66 MB**; requirement `< 500 MB`).
 - **Windows Defender**: Clean scan, 0 malware/PUA flags.
-- **Uninstall**: Clean process termination, 0 orphan processes or files.
+- **Uninstall**: Clean process termination, 0 orphan processes, complete removal of `$INSTDIR`.
 - **Packaged Cold-Start Progression & Authoritative Baseline**:
-  - **Original Phase 0 Historical Baseline**: **3.247 s** median (Range: 3.120 s – 3.390 s)
+  - **Original Phase 0 Historical Baseline (Small Dev Binary)**: **3.247 s** median (Range: 3.120 s – 3.390 s)
   - **Post-Phase-1 Historical Baseline**: **3.705 s** median (Range: 3.475 s – 3.710 s)
-  - **Pre-Remediation Onefile Regression (Temporary)**: **10.140 s** median (Range: 8.429 s – 12.965 s; caused by runtime on-the-fly extraction of 50 MB compressed archive to `%TEMP%/_MEIxxxx` on every launch)
-  - **Remediated Current Authoritative Baseline (5 Runs)**: **0.971 s** median (Range: **0.964 s – 0.974 s**; Runs: 0.974s, 0.964s, 0.971s, 0.971s, 0.966s)
+  - **Pre-Remediation Onefile Regression (180 MB Compressed Binary)**: **8.880 s** median (Range: 8.649 s – 9.723 s; caused by runtime on-the-fly archive extraction to `%TEMP%/_MEIxxxx` on every launch)
+  - **Remediated Current Authoritative Installed Baseline (5 Runs, Onedir Sidecar)**: **1.192 s** median (Range: **1.174 s – 1.416 s**; Runs: 1.416s, 1.192s, 1.174s, 1.186s, 1.194s; P95: **1.416 s**)
+  - **Direct GUI Cold Startup (FileMind.exe Launch → Edge WebView2 → /health 200)**: **4.518 s**
   - **Standalone `/health` Loopback Roundtrip (Active Server)**: **17.64 ms** median (Range: 4.20 ms – 20.80 ms)
   - **Current Phase 0 Gate Requirement**: `≤ 5.0 s`
-  - **Current Headroom Below Gate**: **4.029 s** (**PASS**)
-  - *Engineering Note on Packaging Remediation*: The previous `--onefile` cold-start regression was remediated by adopting the PyInstaller `--onedir` unpacked sidecar layout installed directly by NSIS into `$INSTDIR\binaries\` alongside deferred lazy imports in `ParserRegistry`. The 0.971 s measurement is the CURRENT authoritative packaged baseline going into Phase 3.
+  - **Current Headroom Below Gate**: **3.808 s** (**PASS**)
+  - *Engineering Note on Packaging Remediation*: The PyInstaller `--onefile` runtime decompression bottleneck was resolved by adopting an unpacked `--onedir` sidecar architecture in `$INSTDIR\binaries\` alongside explicit inclusion of `WebView2Loader.dll` in `$INSTDIR\`. The 1.192 s measurement is the CURRENT authoritative packaged baseline going into Phase 4.
 
 ---
 
@@ -960,8 +964,8 @@ INSTALLER (dist\FileMind_0.1.0_x64-setup.exe)
 | **Result Action** | `COPY_PATH` on `test.txt` | `C:\Temp\FileMindInstalledTest\test.txt` | < 1 ms | `{"success": true, "action": "COPY_PATH"}` | **PASS (Tier 1)** |
 | **Modify & Reindex** | Modify `report.txt` → `FILEMIND_UPDATED_CONTENT_ECHO_6384` | `report.txt` | ~1.5 s rescan | New query returned 1 match (Score: 15.01); Old query returned 0 matches | **PASS (Tier 1)** |
 | **Delete & Stale Removal** | Delete `report.txt` | `report.txt` | ~1.5 s rescan | Search for updated text returned 0 results | **PASS (Tier 1)** |
-| **Shutdown** | Terminate Application Process | PID 18680 / 18724 | 0.056 s | Port 24823 released cleanly, zero orphan processes | **PASS (Tier 1)** |
-| **Relaunch & Persistence** | Restart `FileMind.exe` | — | 9.488 s | Port 24823 listening, /health HTTP 200, 3 folders persisted | **PASS (Tier 1)** |
+| **Shutdown** | Terminate Application Process | PID 18680 / 18724 | 0.045 s | Port 24823 released cleanly, zero orphan processes | **PASS (Tier 1)** |
+| **Relaunch & Persistence** | Restart `FileMind.exe` | — | 1.252 s | Port 24823 listening, /health HTTP 200, 3 folders persisted | **PASS (Tier 1)** |
 
 #### 5. Frontend Component & API Mapping Audit
 | Frontend Component | UI Feature | Backend HTTP Endpoint | Request Schema | Response Schema | Consumed Fields |
@@ -983,7 +987,7 @@ INSTALLER (dist\FileMind_0.1.0_x64-setup.exe)
 
 #### 7. Frontend Build & Test Status
 - **Build Command**: `npm run build` (`tsc && vite build`).
-- **Build Result**: **PASS** (1,603 modules transformed, 0 TypeScript errors, 0 warnings, duration: 44.38s).
+- **Build Result**: **PASS** (1,603 modules transformed, 0 TypeScript errors, 0 warnings, duration: 48.96s).
 - **Automated Tests**: **FRONTEND AUTOMATED TESTS NOT PRESENT** (UI verification verified via live Tauri release harness and backend integration tests).
 
 #### 8. Evidence Tier Summary
@@ -992,10 +996,10 @@ INSTALLER (dist\FileMind_0.1.0_x64-setup.exe)
   - Release application startup & automatic backend spawn.
   - Port 24823 listener and `/health` HTTP 200 response.
   - Controlled test corpus registration, recursive discovery, and indexing.
-  - BM25 search (1.462ms), Dense search (27.443ms), Hybrid search (35.333ms).
+  - BM25 search (1.433ms), Dense search (27.432ms), Hybrid search (26.886ms).
   - Result actions (`COPY_PATH`), provenance display, modify/reindex, delete/stale removal.
   - Shutdown, zero orphan verification, relaunch, and state persistence.
-  - Backend regression test suite: 115 / 115 tests passing in 73.93s.
+  - Backend regression test suite: 116 / 116 tests passing in 78.84s.
   - Frontend production build (`tsc && vite build` passing).
 - **Tier 2 (Source Verified)**:
   - Frontend-to-backend endpoint, request, and response schema mappings.
