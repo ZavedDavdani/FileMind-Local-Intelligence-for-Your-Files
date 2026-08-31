@@ -249,6 +249,7 @@ class HybridRetriever:
 
             all_chunk_ids = set(lex_ranks.keys()).union(set(dense_ranks.keys()))
             scored_candidates = []
+            q_raw_lower = (norm_q.raw_query or "").lower().strip()
 
             for cid in all_chunk_ids:
                 lex_rank, lex_item = lex_ranks.get(cid, (None, None))
@@ -264,6 +265,16 @@ class HybridRetriever:
                 base_item = lex_item or dense_item
                 lex_score = lex_item["score"] if lex_item else None
                 dense_score = dense_item["score"] if dense_item else None
+
+                # Exact filename and stem boost for RRF priority
+                sf = (base_item.get("source_file") or "").lower()
+                stem = sf.rsplit(".", 1)[0] if "." in sf else sf
+                if q_raw_lower == sf or q_raw_lower == stem:
+                    rrf_score += 0.05
+                elif any(tok.lower() == stem for tok in norm_q.tokens if len(tok) >= 2):
+                    rrf_score += 0.02
+                elif any(tok.lower() == sf for tok in norm_q.tokens if len(tok) >= 2):
+                    rrf_score += 0.03
 
                 scored_candidates.append({
                     "chunk_id": cid,

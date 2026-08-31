@@ -51,13 +51,14 @@ export function App() {
         fetchFiles(undefined, statusFilter || undefined, 100),
         fetchEvents(undefined, 20),
       ]);
-      setFolders(foldersData);
+      setFolders(Array.isArray(foldersData) ? foldersData : []);
       setIndexingStatus(statusData);
-      setFiles(filesData.files);
-      setEvents(eventsData);
+      setFiles(Array.isArray(filesData?.files) ? filesData.files : []);
+      setEvents(Array.isArray(eventsData) ? eventsData : []);
       setLastSyncTime(new Date().toISOString());
       setErrorBanner(null);
     } catch (err: unknown) {
+      console.error("[App] refreshAll error:", err);
       const msg = err instanceof Error ? err.message : "Sync error";
       setErrorBanner(msg);
     }

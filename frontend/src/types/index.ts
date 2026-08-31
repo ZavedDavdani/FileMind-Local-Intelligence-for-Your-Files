@@ -164,6 +164,34 @@ export interface SearchResultItem {
   metadata?: Record<string, any>;
 }
 
+export interface FolderListResponse {
+  value?: Folder[];
+  folders?: Folder[];
+  Count?: number;
+  total?: number;
+}
+
+export interface FileListResponse {
+  total: number;
+  files: FileItem[];
+  value?: FileItem[];
+  Count?: number;
+}
+
+export interface EventListResponse {
+  total?: number;
+  events?: EventItem[];
+  value?: EventItem[];
+  Count?: number;
+}
+
+export interface JobListResponse {
+  total?: number;
+  jobs?: JobItem[];
+  value?: JobItem[];
+  Count?: number;
+}
+
 export interface SearchLatencyBreakdown {
   normalization: number;
   lexical_search: number;
@@ -175,10 +203,13 @@ export interface SearchLatencyBreakdown {
 
 export interface SearchResponse {
   query: string;
-  mode: "hybrid" | "bm25" | "dense";
+  mode: "hybrid" | "bm25" | "dense" | string;
   total_found: number;
   latency_breakdown_ms: SearchLatencyBreakdown;
   results: SearchResultItem[];
+  degraded?: boolean;
+  degraded_reason?: string | null;
+  retrieval_method?: string | null;
 }
 
 export interface SearchRequest {

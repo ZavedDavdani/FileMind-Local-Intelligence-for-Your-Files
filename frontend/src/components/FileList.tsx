@@ -91,7 +91,7 @@ function getStatusBadge(status: IndexStatus) {
 }
 
 export function FileList({
-  files,
+  files = [],
   isLoading,
   statusFilter,
   onStatusFilterChange,
@@ -100,6 +100,8 @@ export function FileList({
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [inspectingFile, setInspectingFile] = useState<{ id: string; name: string } | null>(null);
+
+  const safeFiles = Array.isArray(files) ? files : [];
 
   const handleAction = async (action: "OPEN_FILE" | "OPEN_FOLDER" | "COPY_PATH", path: string) => {
     try {
@@ -119,7 +121,7 @@ export function FileList({
     }
   };
 
-  const filteredFiles = files.filter((f) => {
+  const filteredFiles = safeFiles.filter((f) => {
     const matchesSearch =
       f.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
       f.relative_path.toLowerCase().includes(searchQuery.toLowerCase()) ||

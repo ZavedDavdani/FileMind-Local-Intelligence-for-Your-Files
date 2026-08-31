@@ -15,7 +15,7 @@ BM25_WEIGHT_CONTENT = 5.0
 BM25_WEIGHT_H1 = 2.0
 BM25_WEIGHT_H2 = 1.5
 BM25_WEIGHT_SECTION = 1.0
-BM25_WEIGHT_FILE = 2.0
+BM25_WEIGHT_FILE = 15.0
 
 
 class LexicalRetriever:
@@ -113,15 +113,25 @@ class LexicalRetriever:
             logger.warning("FTS5 query execution warning: %s for query: %s", str(err), norm_q.fts5_query)
             return []
 
+        q_raw_lower = (norm_q.raw_query or "").lower().strip()
+
         results = []
         for rank, row in enumerate(rows, start=1):
             d = dict(row) if isinstance(row, sqlite3.Row) else {
                 col[0]: row[i] for i, col in enumerate(cursor.description)
             }
-            # Convert raw BM25 score (negative) to a positive normalized relevance score
             raw_score = d["raw_bm25_score"]
-            # BM25 is unbounded negative where more negative is better match
             positive_score = round(abs(raw_score), 4)
+
+            # Filename relevance bonus for exact filename or stem matches
+            sf = (d.get("source_file") or "").lower()
+            stem = sf.rsplit(".", 1)[0] if "." in sf else sf
+            if q_raw_lower == sf or q_raw_lower == stem:
+                positive_score += 20.0
+            elif any(tok.lower() == stem for tok in norm_q.tokens if len(tok) >= 2):
+                positive_score += 10.0
+            elif any(tok.lower() == sf for tok in norm_q.tokens if len(tok) >= 2):
+                positive_score += 15.0
 
             try:
                 meta = json.loads(d.get("metadata_json") or "{}")
@@ -149,5 +159,10 @@ class LexicalRetriever:
                 "content_hash": d["content_hash"],
                 "metadata": meta,
             })
+
+        # Re-sort by score DESC, then chunk_id ASC for deterministic ranking
+        results.sort(key=lambda x: (-x["score"], x["chunk_id"]))
+        for rank, res in enumerate(results, start=1):
+            res["rank"] = rank
 
         return results

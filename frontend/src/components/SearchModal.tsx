@@ -192,7 +192,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
           {/* Metadata Filters */}
           <div className="flex items-center gap-2">
-            {folders.length > 0 && (
+            {Array.isArray(folders) && folders.length > 0 && (
               <select
                 value={selectedFolder}
                 onChange={(e) => setSelectedFolder(e.target.value)}

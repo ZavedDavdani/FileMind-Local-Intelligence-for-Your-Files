@@ -38,8 +38,9 @@ function getEventBadge(type: string) {
   }
 }
 
-export function EventAuditLog({ events }: EventAuditLogProps) {
+export function EventAuditLog({ events = [] }: EventAuditLogProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const safeEvents = Array.isArray(events) ? events : [];
 
   return (
     <div className="bg-dark-800/40 border border-dark-700/60 rounded-xl overflow-hidden text-xs">
@@ -51,7 +52,7 @@ export function EventAuditLog({ events }: EventAuditLogProps) {
           <History className="w-4 h-4 text-indigo-400" />
           <span>Filesystem Event Audit Trail</span>
           <span className="bg-dark-700 px-1.5 py-0.5 rounded text-[10px] text-slate-400 font-mono">
-            {events.length}
+            {safeEvents.length}
           </span>
         </div>
         {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -59,10 +60,10 @@ export function EventAuditLog({ events }: EventAuditLogProps) {
 
       {isOpen && (
         <div className="max-h-48 overflow-y-auto border-t border-dark-700/60 divide-y divide-dark-700/40 p-2 font-mono text-[11px]">
-          {events.length === 0 && (
+          {safeEvents.length === 0 && (
             <div className="p-4 text-center text-slate-500">No events observed yet.</div>
           )}
-          {events.map((ev) => (
+          {safeEvents.map((ev) => (
             <div key={ev.event_id} className="py-1.5 px-2 flex items-center justify-between hover:bg-dark-700/20">
               <div className="flex items-center space-x-2.5 min-w-0 flex-1 pr-4">
                 {getEventBadge(ev.event_type)}

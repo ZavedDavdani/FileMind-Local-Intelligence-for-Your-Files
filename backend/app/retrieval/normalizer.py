@@ -29,6 +29,7 @@ _PHRASE_REGEX = re.compile(r'"([^"]+)"')
 _WHITESPACE_REGEX = re.compile(r"\s+")
 # Identifiers allowed characters (alphanumeric, underscore, hyphen, dot, colon, slash)
 _TOKEN_SPLIT_REGEX = re.compile(r'[^\w\-\.:/]+')
+_SUBTOKEN_SPLIT_REGEX = re.compile(r'[\s_\-\./\\:,;]+')
 # FTS5 special operators that should be quoted if appearing as standalone terms
 _FTS5_KEYWORDS = {"AND", "OR", "NOT", "NEAR"}
 
@@ -107,8 +108,13 @@ def normalize_query(raw_query: Optional[str]) -> NormalizedQuery:
         else:
             # Escape internal double quotes
             safe_t = t.replace('"', '""')
-            # Use term OR prefix search term*
-            if len(safe_t) >= 2 and not safe_t.endswith("*"):
+            subparts = [s.replace('"', '""') for s in _SUBTOKEN_SPLIT_REGEX.split(t) if s.strip()]
+            # If the token contains multiple sub-parts (e.g. sample.txt or FILEMIND_PRACTICAL),
+            # support both composite prefix matching and constituent sub-tokens in FTS5
+            if len(subparts) > 1:
+                sub_expr = " ".join(f'"{s}"*' if len(s) >= 2 else f'"{s}"' for s in subparts)
+                fts_parts.append(f'("{safe_t}"* OR ({sub_expr}))')
+            elif len(safe_t) >= 2 and not safe_t.endswith("*"):
                 fts_parts.append(f'"{safe_t}"*')
             else:
                 fts_parts.append(f'"{safe_t}"')

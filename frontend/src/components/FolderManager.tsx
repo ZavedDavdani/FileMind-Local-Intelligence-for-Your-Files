@@ -20,7 +20,7 @@ interface FolderManagerProps {
 }
 
 export function FolderManager({
-  folders,
+  folders = [],
   onAddFolder,
   onUpdateFolder,
   onDeleteFolder,
@@ -33,6 +33,8 @@ export function FolderManager({
   const [newMode, setNewMode] = useState<IntegrityMode>("NORMAL");
   const [newExclusions, setNewExclusions] = useState("*.tmp, *.log");
   const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
+
+  const safeFolders = Array.isArray(folders) ? folders : [];
 
   const handleSelectViaTauri = async () => {
     try {
@@ -72,7 +74,7 @@ export function FolderManager({
           <FolderIcon className="w-5 h-5 text-indigo-400" />
           <h2 className="text-sm font-semibold text-white">Registered Folders</h2>
           <span className="text-xs bg-dark-700 px-2 py-0.5 rounded-full text-slate-300 font-mono">
-            {folders.length}
+            {safeFolders.length}
           </span>
         </div>
 
@@ -191,13 +193,13 @@ export function FolderManager({
 
       {/* Folders List */}
       <div className="space-y-2.5">
-        {folders.length === 0 && !showAddForm && (
+        {safeFolders.length === 0 && !showAddForm && (
           <div className="py-6 text-center border border-dashed border-dark-600/70 rounded-xl text-slate-400 text-xs">
             No folders registered yet. Click <span className="text-indigo-400 font-medium">Add Folder</span> to begin tracking.
           </div>
         )}
 
-        {folders.map((f) => {
+        {safeFolders.map((f) => {
           const isExpanded = expandedFolderId === f.folder_id;
 
           return (
