@@ -145,10 +145,15 @@ class SqliteVecStore(BaseVectorStore):
         packed_q = self._pack_vector(query_vector)
         filters = filters or {}
 
-        # Fetch extra candidate matches from vec0 to allow for metadata filtering
-        fetch_k = top_k * 5 if filters else top_k
+        total_vectors = self.count()
+        if total_vectors == 0:
+            return []
 
-        # 1. Retrieve candidates from vec0
+        # When no filters are active, query top_k directly
+        has_filters = any(filters.get(k) for k in ("folder_id", "extension", "file_id", "source_path"))
+        fetch_k = top_k if not has_filters else min(total_vectors, max(top_k * 2, 20))
+
+        # 1. Retrieve candidates from vec0 (adaptively if filtered)
         vec_sql = """
         SELECT chunk_id, distance
         FROM chunk_vectors
@@ -156,70 +161,85 @@ class SqliteVecStore(BaseVectorStore):
           AND k = ?
         ORDER BY distance ASC;
         """
-        cursor = self.conn.execute(vec_sql, (packed_q, fetch_k))
-        vec_rows = cursor.fetchall()
 
-        if not vec_rows:
-            return []
-
-        # 2. Join with chunks and files table for provenance and metadata filtering
-        chunk_distances = {r[0]: float(r[1]) for r in vec_rows}
-        chunk_ids = list(chunk_distances.keys())
-        placeholders = ",".join(["?"] * len(chunk_ids))
-
-        where_clauses = [f"c.chunk_id IN ({placeholders})"]
-        params: List[Any] = list(chunk_ids)
-
-        if filters.get("folder_id"):
-            where_clauses.append("f.folder_id = ?")
-            params.append(filters["folder_id"])
-
-        if filters.get("extension"):
-            ext = filters["extension"].lower()
-            if not ext.startswith("."):
-                ext = f".{ext}"
-            where_clauses.append("LOWER(f.extension) = ?")
-            params.append(ext)
-
-        if filters.get("file_id"):
-            where_clauses.append("c.file_id = ?")
-            params.append(filters["file_id"])
-
-        if filters.get("source_path"):
-            where_clauses.append("c.source_path = ?")
-            params.append(filters["source_path"])
-
-        where_clauses.append("f.index_status != 'MISSING'")
-
-        where_sql = " AND ".join(where_clauses)
-        sql = f"""
-        SELECT 
-            c.chunk_id,
-            c.file_id,
-            c.source_file,
-            c.source_path,
-            c.page,
-            c.section,
-            c.h1_parent,
-            c.h2_parent,
-            c.line_start,
-            c.line_end,
-            c.char_start,
-            c.char_end,
-            c.content_hash,
-            c.chunk_index,
-            c.content,
-            c.metadata_json
-        FROM chunks c
-        JOIN files f ON f.file_id = c.file_id
-        WHERE {where_sql};
-        """
-
-        cur = self.conn.execute(sql, params)
         matched_chunks = {}
-        for r in cur.fetchall():
-            d = dict(r) if isinstance(r, sqlite3.Row) else {col[0]: r[i] for i, col in enumerate(cur.description)}
-            matched_chunks[d["chunk_id"]] = d
+        chunk_distances = {}
+        chunk_ids = []
+
+        while True:
+            cursor = self.conn.execute(vec_sql, (packed_q, fetch_k))
+            vec_rows = cursor.fetchall()
+            if not vec_rows:
+                return []
+
+            chunk_distances = {r[0]: float(r[1]) for r in vec_rows}
+            chunk_ids = list(chunk_distances.keys())
+            placeholders = ",".join(["?"] * len(chunk_ids))
+
+            where_clauses = [f"c.chunk_id IN ({placeholders})"]
+            params: List[Any] = list(chunk_ids)
+
+            if filters.get("folder_id"):
+                where_clauses.append("f.folder_id = ?")
+                params.append(filters["folder_id"])
+
+            if filters.get("extension"):
+                ext = filters["extension"].lower()
+                if not ext.startswith("."):
+                    ext = f".{ext}"
+                where_clauses.append("LOWER(f.extension) = ?")
+                params.append(ext)
+
+            if filters.get("file_id"):
+                where_clauses.append("c.file_id = ?")
+                params.append(filters["file_id"])
+
+            if filters.get("source_path"):
+                where_clauses.append("c.source_path = ?")
+                params.append(filters["source_path"])
+
+            where_clauses.append("f.index_status != 'MISSING'")
+
+            where_sql = " AND ".join(where_clauses)
+            sql = f"""
+            SELECT
+                c.chunk_id,
+                c.file_id,
+                c.source_file,
+                c.source_path,
+                c.page,
+                c.section,
+                c.h1_parent,
+                c.h2_parent,
+                c.line_start,
+                c.line_end,
+                c.char_start,
+                c.char_end,
+                c.content_hash,
+                c.chunk_index,
+                c.content,
+                c.metadata_json
+            FROM chunks c
+            JOIN files f ON f.file_id = c.file_id
+            WHERE {where_sql};
+            """
+
+            cur = self.conn.execute(sql, params)
+            matched_chunks = {}
+            for r in cur.fetchall():
+                d = dict(r) if isinstance(r, sqlite3.Row) else {col[0]: r[i] for i, col in enumerate(cur.description)}
+                matched_chunks[d["chunk_id"]] = d
+
+            # Unfiltered query needs only 1 iteration
+            if not has_filters:
+                break
+
+            # If enough valid filtered candidates gathered, or all vectors exhausted, stop
+            if len(matched_chunks) >= top_k or len(vec_rows) < fetch_k or fetch_k >= total_vectors:
+                break
+
+            # Adaptively expand fetch_k
+            fetch_k = min(total_vectors, max(fetch_k * 2, fetch_k + top_k * 5))
 
         # 3. Sort by vector distance ASC, then chunk_id ASC
         sorted_ids = sorted(
@@ -264,7 +284,11 @@ class SqliteVecStore(BaseVectorStore):
 
 
 class LanceDBVectorStore(BaseVectorStore):
-    """LanceDB embedded columnar vector store implementation."""
+    """LanceDB embedded columnar vector store implementation.
+
+    Status: Benchmark / Experimental vector store backend.
+    Production default is SqliteVecStore.
+    """
 
     def __init__(self, db_path: str, table_name: str = "chunk_vectors", dimension: int = 384):
         self.db_path = db_path
@@ -283,14 +307,32 @@ class LanceDBVectorStore(BaseVectorStore):
             pa.field("file_id", pa.string()),
             pa.field("vector", pa.list_(pa.float32(), self.dimension)),
         ])
-        if self.table_name not in self._db.table_names():
+        if hasattr(self._db, "list_tables"):
+            try:
+                tables = self._db.list_tables()
+            except Exception:
+                tables = self._db.table_names()
+        else:
+            tables = self._db.table_names()
+
+        if self.table_name not in tables:
             self._table = self._db.create_table(self.table_name, schema=schema)
         else:
             self._table = self._db.open_table(self.table_name)
 
+    @staticmethod
+    def _escape_sql_literal(val: str) -> str:
+        """Escape single quotes in strings for safe SQL/DataFusion filter predicates."""
+        return val.replace("'", "''")
+
     def upsert_vectors(self, records: List[Dict[str, Any]]) -> int:
         if not records:
             return 0
+        # Deduplicate existing chunk_ids to ensure true upsert semantics
+        chunk_ids = [r["chunk_id"] for r in records if "chunk_id" in r]
+        if chunk_ids:
+            self.delete_by_chunk_ids(chunk_ids)
+
         data = []
         for r in records:
             data.append({
@@ -307,9 +349,25 @@ class LanceDBVectorStore(BaseVectorStore):
         top_k: int = 50,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        if not query_vector:
+        if not query_vector or self._table.count_rows() == 0:
             return []
-        query_res = self._table.search(query_vector).limit(top_k).to_list()
+
+        query = self._table.search(query_vector)
+
+        if filters:
+            unsupported = [k for k in filters.keys() if k != "file_id"]
+            if unsupported:
+                raise ValueError(
+                    f"LanceDBVectorStore only supports 'file_id' filter; unsupported filter(s): {sorted(unsupported)}"
+                )
+            if filters.get("file_id"):
+                safe_fid = self._escape_sql_literal(str(filters["file_id"]))
+                query = query.where(f"file_id = '{safe_fid}'")
+
+        query_res = query.limit(top_k).to_list()
+        # Sort deterministically by distance ASC, then chunk_id ASC
+        query_res.sort(key=lambda r: (r.get("_distance", 0.0), r.get("chunk_id", "")))
+
         results = []
         for rank, r in enumerate(query_res, start=1):
             dist = r.get("_distance", 0.0)
@@ -325,15 +383,23 @@ class LanceDBVectorStore(BaseVectorStore):
         return results
 
     def delete_by_chunk_ids(self, chunk_ids: List[str]) -> int:
-        if not chunk_ids:
+        if not chunk_ids or self._table.count_rows() == 0:
             return 0
-        expr = "chunk_id IN (" + ",".join([f"'{cid}'" for cid in chunk_ids]) + ")"
+        count_before = self._table.count_rows()
+        safe_ids = [f"'{self._escape_sql_literal(str(cid))}'" for cid in chunk_ids]
+        expr = f"chunk_id IN ({','.join(safe_ids)})"
         self._table.delete(expr)
-        return len(chunk_ids)
+        count_after = self._table.count_rows()
+        return count_before - count_after
 
     def delete_by_file_id(self, file_id: str) -> int:
-        self._table.delete(f"file_id = '{file_id}'")
-        return 1
+        if not file_id or self._table.count_rows() == 0:
+            return 0
+        count_before = self._table.count_rows()
+        safe_fid = self._escape_sql_literal(str(file_id))
+        self._table.delete(f"file_id = '{safe_fid}'")
+        count_after = self._table.count_rows()
+        return count_before - count_after
 
     def count(self) -> int:
         return self._table.count_rows()
@@ -344,8 +410,8 @@ class MemoryCosineStore(BaseVectorStore):
 
     def __init__(self, dimension: int = 384):
         self.dimension = dimension
-        self.chunk_ids = []
-        self.file_ids = []
+        self.chunk_ids: List[str] = []
+        self.file_ids: List[str] = []
         self.vectors = np.empty((0, dimension), dtype=np.float32)
 
     def initialize(self):
@@ -361,7 +427,6 @@ class MemoryCosineStore(BaseVectorStore):
         new_vecs = np.array([r["embedding"] for r in records], dtype=np.float32)
 
         # Remove existing IDs if present
-        existing_indices = {cid: idx for idx, cid in enumerate(self.chunk_ids)}
         keep_mask = [cid not in set(new_cids) for cid in self.chunk_ids]
         if not all(keep_mask):
             self.chunk_ids = [cid for cid, keep in zip(self.chunk_ids, keep_mask) if keep]
@@ -384,6 +449,17 @@ class MemoryCosineStore(BaseVectorStore):
     ) -> List[Dict[str, Any]]:
         if len(self.vectors) == 0 or not query_vector:
             return []
+
+        # Validate and apply filters
+        filter_file_id = None
+        if filters:
+            unsupported = [k for k in filters.keys() if k != "file_id"]
+            if unsupported:
+                raise ValueError(
+                    f"MemoryCosineStore only supports 'file_id' filter; unsupported filter(s): {sorted(unsupported)}"
+                )
+            filter_file_id = filters.get("file_id")
+
         q_vec = np.array(query_vector, dtype=np.float32)
         q_norm = np.linalg.norm(q_vec)
         if q_norm > 0:
@@ -391,7 +467,18 @@ class MemoryCosineStore(BaseVectorStore):
 
         # Cosine similarities = dot product of normalized vectors
         sims = np.dot(self.vectors, q_vec)
-        top_indices = np.argsort(-sims)[:top_k]
+
+        if filter_file_id is not None:
+            candidate_indices = [
+                idx for idx, fid in enumerate(self.file_ids) if fid == filter_file_id
+            ]
+            if not candidate_indices:
+                return []
+            candidate_sims = sims[candidate_indices]
+            sorted_order = np.argsort(-candidate_sims)[:top_k]
+            top_indices = [candidate_indices[i] for i in sorted_order]
+        else:
+            top_indices = np.argsort(-sims)[:top_k]
 
         results = []
         for rank, idx in enumerate(top_indices, start=1):

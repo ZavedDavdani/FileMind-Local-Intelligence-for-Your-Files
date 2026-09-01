@@ -18,6 +18,40 @@ import {
 const BACKEND_BASE_URL = "http://127.0.0.1:24823";
 
 /**
+ * Helper to ensure a response is a non-null, non-array object.
+ */
+function isObject(val: unknown): val is Record<string, any> {
+  return typeof val === "object" && val !== null && !Array.isArray(val);
+}
+
+/**
+ * Extracts an array of items from direct arrays or verified envelope formats.
+ * Throws a descriptive contract error if the response shape is unexpected.
+ */
+function extractArrayFromEnvelope<T>(
+  data: unknown,
+  arrayKey: string,
+  endpointLabel: string
+): T[] {
+  if (Array.isArray(data)) {
+    return data as T[];
+  }
+  if (isObject(data)) {
+    if (Array.isArray(data[arrayKey])) {
+      return data[arrayKey] as T[];
+    }
+    if (Array.isArray(data.value)) {
+      return data.value as T[];
+    }
+    if (Array.isArray(data.items)) {
+      return data.items as T[];
+    }
+  }
+  console.error(`[API Contract Error] Invalid ${endpointLabel} response shape:`, data);
+  throw new Error(`Invalid ${endpointLabel} response shape`);
+}
+
+/**
  * Helper to perform HTTP JSON requests with clear error attribution.
  */
 async function requestJson<T>(
@@ -93,7 +127,7 @@ export async function checkBackendHealth(timeoutMs = 3000): Promise<HealthRespon
   const id = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const data = await requestJson<any>(
+    const data = await requestJson<unknown>(
       `${BACKEND_BASE_URL}/health`,
       {
         method: "GET",
@@ -103,11 +137,16 @@ export async function checkBackendHealth(timeoutMs = 3000): Promise<HealthRespon
       "Health check"
     );
 
+    if (!isObject(data)) {
+      console.error("[API Contract Error] Invalid /health response shape:", data);
+      throw new Error("Invalid /health response shape");
+    }
+
     return {
-      status: data?.status || "healthy",
-      service: data?.service || "FileMind Backend",
-      version: data?.version || "0.1.0",
-      port: data?.port || 24823,
+      status: typeof data.status === "string" ? data.status : "healthy",
+      service: typeof data.service === "string" ? data.service : "FileMind Backend",
+      version: typeof data.version === "string" ? data.version : "0.1.0",
+      port: typeof data.port === "number" ? data.port : 24823,
     };
   } finally {
     clearTimeout(id);
@@ -118,23 +157,13 @@ export async function checkBackendHealth(timeoutMs = 3000): Promise<HealthRespon
  * Folders Management API
  */
 export async function fetchFolders(): Promise<Folder[]> {
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/folders`,
     { method: "GET" },
     "Fetch registered folders"
   );
 
-  const folders: Folder[] = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.value)
-    ? data.value
-    : Array.isArray(data?.folders)
-    ? data.folders
-    : Array.isArray(data?.data)
-    ? data.data
-    : [];
-
-  return folders;
+  return extractArrayFromEnvelope<Folder>(data, "folders", "/folders");
 }
 
 export async function createFolder(
@@ -160,7 +189,12 @@ export async function createFolder(
     "Register folder"
   );
 
-  return data?.folder || data?.value || data;
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid POST /folders response shape:", data);
+    throw new Error("Invalid POST /folders response shape");
+  }
+
+  return (data?.folder || data?.value || data) as Folder;
 }
 
 export async function updateFolder(
@@ -177,7 +211,12 @@ export async function updateFolder(
     "Update folder"
   );
 
-  return data?.folder || data?.value || data;
+  if (!isObject(data)) {
+    console.error(`[API Contract Error] Invalid PATCH /folders/${folderId} response shape:`, data);
+    throw new Error(`Invalid PATCH /folders/${folderId} response shape`);
+  }
+
+  return (data?.folder || data?.value || data) as Folder;
 }
 
 export async function deleteFolder(folderId: string): Promise<void> {
@@ -203,81 +242,107 @@ export async function fetchFiles(
   params.append("limit", limit.toString());
   params.append("offset", offset.toString());
 
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/files?${params.toString()}`,
     { method: "GET" },
     "Fetch tracked files"
   );
 
-  let fileList: FileItem[] = [];
-  let totalCount = 0;
-
   if (Array.isArray(data)) {
-    fileList = data;
-    totalCount = data.length;
-  } else if (Array.isArray(data?.files)) {
-    fileList = data.files;
-    totalCount = typeof data.total === "number" ? data.total : data.files.length;
-  } else if (Array.isArray(data?.value)) {
-    fileList = data.value;
-    totalCount =
-      typeof data.Count === "number"
-        ? data.Count
-        : typeof data.total === "number"
-        ? data.total
-        : data.value.length;
-  } else if (Array.isArray(data?.items)) {
-    fileList = data.items;
-    totalCount = typeof data.total === "number" ? data.total : data.items.length;
+    return { total: data.length, files: data as FileItem[] };
   }
 
-  return {
-    total: totalCount,
-    files: fileList,
-  };
+  if (isObject(data)) {
+    if (Array.isArray(data.files)) {
+      return {
+        total: typeof data.total === "number" ? data.total : data.files.length,
+        files: data.files as FileItem[],
+      };
+    }
+    if (Array.isArray(data.value)) {
+      return {
+        total:
+          typeof data.Count === "number"
+            ? data.Count
+            : typeof data.total === "number"
+            ? data.total
+            : data.value.length,
+        files: data.value as FileItem[],
+      };
+    }
+    if (Array.isArray(data.items)) {
+      return {
+        total: typeof data.total === "number" ? data.total : data.items.length,
+        files: data.items as FileItem[],
+      };
+    }
+  }
+
+  console.error("[API Contract Error] Invalid /files response shape:", data);
+  throw new Error("Invalid /files response shape");
 }
 
 /**
  * Phase 2: Document Intelligence API
  */
 export async function fetchFileChunks(fileId: string): Promise<ChunkListResponse> {
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/files/${fileId}/chunks`,
     { method: "GET" },
     `Fetch file chunks (${fileId})`
   );
 
-  const chunks: ChunkItem[] = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.chunks)
-    ? data.chunks
-    : Array.isArray(data?.value)
-    ? data.value
-    : [];
+  if (Array.isArray(data)) {
+    return {
+      total: data.length,
+      file_id: fileId,
+      filename: "",
+      source_path: "",
+      chunks: data as ChunkItem[],
+    };
+  }
 
-  return {
-    total: typeof data?.total === "number" ? data.total : chunks.length,
-    file_id: data?.file_id || fileId,
-    filename: data?.filename || "",
-    source_path: data?.source_path || "",
-    chunks,
-  };
+  if (isObject(data)) {
+    const chunks = Array.isArray(data.chunks)
+      ? (data.chunks as ChunkItem[])
+      : Array.isArray(data.value)
+      ? (data.value as ChunkItem[])
+      : null;
+
+    if (chunks !== null) {
+      return {
+        total: typeof data.total === "number" ? data.total : chunks.length,
+        file_id: typeof data.file_id === "string" ? data.file_id : fileId,
+        filename: typeof data.filename === "string" ? data.filename : "",
+        source_path: typeof data.source_path === "string" ? data.source_path : "",
+        chunks,
+      };
+    }
+  }
+
+  console.error(`[API Contract Error] Invalid /files/${fileId}/chunks response shape:`, data);
+  throw new Error(`Invalid /files/${fileId}/chunks response shape`);
 }
 
 export async function fetchDocumentIntelligenceStats(): Promise<DocumentIntelligenceStats> {
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/intelligence/status`,
     { method: "GET" },
     "Fetch intelligence stats"
   );
 
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /intelligence/status response shape:", data);
+    throw new Error("Invalid /intelligence/status response shape");
+  }
+
   return {
-    total_chunks: data?.total_chunks ?? 0,
-    files_with_chunks: data?.files_with_chunks ?? 0,
-    indexed_files: data?.indexed_files ?? 0,
-    queued_files: data?.queued_files ?? 0,
-    failed_files: data?.failed_files ?? 0,
-    skipped_files: data?.skipped_files ?? 0,
+    total_chunks: typeof data.total_chunks === "number" ? data.total_chunks : 0,
+    files_with_chunks: typeof data.files_with_chunks === "number" ? data.files_with_chunks : 0,
+    indexed_files: typeof data.indexed_files === "number" ? data.indexed_files : 0,
+    queued_files: typeof data.queued_files === "number" ? data.queued_files : 0,
+    failed_files: typeof data.failed_files === "number" ? data.failed_files : 0,
+    skipped_files: typeof data.skipped_files === "number" ? data.skipped_files : 0,
   };
 }
 
@@ -285,27 +350,32 @@ export async function fetchDocumentIntelligenceStats(): Promise<DocumentIntellig
  * Indexing & Control API
  */
 export async function fetchIndexingStatus(): Promise<IndexingStatus> {
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/indexing/status`,
     { method: "GET" },
     "Fetch indexing status"
   );
 
-  const s = data?.status || data;
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /indexing/status response shape:", data);
+    throw new Error("Invalid /indexing/status response shape");
+  }
+
+  const s = isObject(data.status) ? data.status : data;
   return {
-    is_running: Boolean(s?.is_running),
-    is_paused: Boolean(s?.is_paused),
-    total_folders: s?.total_folders ?? 0,
-    total_files: s?.total_files ?? 0,
-    discovered: s?.discovered ?? 0,
-    queued: s?.queued ?? 0,
-    processing: s?.processing ?? 0,
-    indexed: s?.indexed ?? 0,
-    failed: s?.failed ?? 0,
-    skipped: s?.skipped ?? 0,
-    missing: s?.missing ?? 0,
-    progress_percent: s?.progress_percent ?? 0,
-    last_updated: s?.last_updated ?? Date.now() / 1000,
+    is_running: Boolean(s.is_running),
+    is_paused: Boolean(s.is_paused),
+    total_folders: typeof s.total_folders === "number" ? s.total_folders : 0,
+    total_files: typeof s.total_files === "number" ? s.total_files : 0,
+    discovered: typeof s.discovered === "number" ? s.discovered : 0,
+    queued: typeof s.queued === "number" ? s.queued : 0,
+    processing: typeof s.processing === "number" ? s.processing : 0,
+    indexed: typeof s.indexed === "number" ? s.indexed : 0,
+    failed: typeof s.failed === "number" ? s.failed : 0,
+    skipped: typeof s.skipped === "number" ? s.skipped : 0,
+    missing: typeof s.missing === "number" ? s.missing : 0,
+    progress_percent: typeof s.progress_percent === "number" ? s.progress_percent : 0,
+    last_updated: typeof s.last_updated === "number" ? s.last_updated : Date.now() / 1000,
   };
 }
 
@@ -313,7 +383,7 @@ export async function controlIndexing(
   action: "START" | "PAUSE" | "RESUME" | "STOP" | "RESCAN",
   folderId?: string
 ): Promise<IndexingStatus> {
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/indexing/control`,
     {
       method: "POST",
@@ -323,21 +393,26 @@ export async function controlIndexing(
     `Indexing control (${action})`
   );
 
-  const s = data?.status || data;
+  if (!isObject(data)) {
+    console.error(`[API Contract Error] Invalid /indexing/control (${action}) response shape:`, data);
+    throw new Error(`Invalid /indexing/control response shape`);
+  }
+
+  const s = isObject(data.status) ? data.status : data;
   return {
-    is_running: Boolean(s?.is_running),
-    is_paused: Boolean(s?.is_paused),
-    total_folders: s?.total_folders ?? 0,
-    total_files: s?.total_files ?? 0,
-    discovered: s?.discovered ?? 0,
-    queued: s?.queued ?? 0,
-    processing: s?.processing ?? 0,
-    indexed: s?.indexed ?? 0,
-    failed: s?.failed ?? 0,
-    skipped: s?.skipped ?? 0,
-    missing: s?.missing ?? 0,
-    progress_percent: s?.progress_percent ?? 0,
-    last_updated: s?.last_updated ?? Date.now() / 1000,
+    is_running: Boolean(s.is_running),
+    is_paused: Boolean(s.is_paused),
+    total_folders: typeof s.total_folders === "number" ? s.total_folders : 0,
+    total_files: typeof s.total_files === "number" ? s.total_files : 0,
+    discovered: typeof s.discovered === "number" ? s.discovered : 0,
+    queued: typeof s.queued === "number" ? s.queued : 0,
+    processing: typeof s.processing === "number" ? s.processing : 0,
+    indexed: typeof s.indexed === "number" ? s.indexed : 0,
+    failed: typeof s.failed === "number" ? s.failed : 0,
+    skipped: typeof s.skipped === "number" ? s.skipped : 0,
+    missing: typeof s.missing === "number" ? s.missing : 0,
+    progress_percent: typeof s.progress_percent === "number" ? s.progress_percent : 0,
+    last_updated: typeof s.last_updated === "number" ? s.last_updated : Date.now() / 1000,
   };
 }
 
@@ -349,21 +424,13 @@ export async function fetchEvents(folderId?: string, limit = 50): Promise<EventI
   if (folderId) params.append("folder_id", folderId);
   params.append("limit", limit.toString());
 
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/events?${params.toString()}`,
     { method: "GET" },
     "Fetch events"
   );
 
-  const events: EventItem[] = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.events)
-    ? data.events
-    : Array.isArray(data?.value)
-    ? data.value
-    : [];
-
-  return events;
+  return extractArrayFromEnvelope<EventItem>(data, "events", "/events");
 }
 
 export async function fetchJobs(status?: string, limit = 50): Promise<JobItem[]> {
@@ -371,21 +438,13 @@ export async function fetchJobs(status?: string, limit = 50): Promise<JobItem[]>
   if (status) params.append("status", status);
   params.append("limit", limit.toString());
 
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/jobs?${params.toString()}`,
     { method: "GET" },
     "Fetch jobs"
   );
 
-  const jobs: JobItem[] = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.jobs)
-    ? data.jobs
-    : Array.isArray(data?.value)
-    ? data.value
-    : [];
-
-  return jobs;
+  return extractArrayFromEnvelope<JobItem>(data, "jobs", "/jobs");
 }
 
 /**
@@ -395,7 +454,7 @@ export async function executeSafeAction(
   action: "OPEN_FILE" | "OPEN_FOLDER" | "COPY_PATH",
   targetPath: string
 ): Promise<ActionResponse> {
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/fs/action`,
     {
       method: "POST",
@@ -405,11 +464,16 @@ export async function executeSafeAction(
     `Execute filesystem action (${action})`
   );
 
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /fs/action response shape:", data);
+    throw new Error("Invalid /fs/action response shape");
+  }
+
   return {
-    success: Boolean(data?.success),
-    action: data?.action || action,
-    target_path: data?.target_path || targetPath,
-    message: data?.message || "Action executed successfully",
+    success: Boolean(data.success),
+    action: typeof data.action === "string" ? data.action : action,
+    target_path: typeof data.target_path === "string" ? data.target_path : targetPath,
+    message: typeof data.message === "string" ? data.message : "Action executed successfully",
   };
 }
 
@@ -419,7 +483,7 @@ export async function executeSafeAction(
 export async function searchEvidence(
   request: SearchRequest
 ): Promise<SearchResponse> {
-  const data = await requestJson<any>(
+  const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/search`,
     {
       method: "POST",
@@ -429,31 +493,56 @@ export async function searchEvidence(
     "Search evidence"
   );
 
-  const results: SearchResultItem[] = Array.isArray(data?.results)
-    ? data.results
-    : Array.isArray(data?.value)
-    ? data.value
-    : Array.isArray(data)
-    ? data
-    : [];
+  let results: SearchResultItem[] | null = null;
+  let totalFound: number | null = null;
+  let latencies: any = null;
+  let queryStr = request.query;
+  let modeStr: "hybrid" | "bm25" | "dense" | string = request.mode || "hybrid";
+  let degraded = false;
+  let degradedReason: string | null = null;
+  let retrievalMethod: string | null = null;
+
+  if (Array.isArray(data)) {
+    results = data as SearchResultItem[];
+    totalFound = data.length;
+  } else if (isObject(data)) {
+    if (Array.isArray(data.results)) {
+      results = data.results as SearchResultItem[];
+    } else if (Array.isArray(data.value)) {
+      results = data.value as SearchResultItem[];
+    }
+
+    if (results !== null) {
+      totalFound = typeof data.total_found === "number" ? data.total_found : results.length;
+      latencies = data.latency_breakdown_ms;
+      if (typeof data.query === "string") queryStr = data.query;
+      if (typeof data.mode === "string") modeStr = data.mode;
+      degraded = Boolean(data.degraded);
+      degradedReason = typeof data.degraded_reason === "string" ? data.degraded_reason : null;
+      retrievalMethod = typeof data.retrieval_method === "string" ? data.retrieval_method : null;
+    }
+  }
+
+  if (results === null) {
+    console.error("[API Contract Error] Invalid /search response shape:", data);
+    throw new Error("Invalid /search response shape");
+  }
 
   return {
-    query: data?.query || request.query,
-    mode: data?.mode || request.mode || "hybrid",
-    total_found:
-      typeof data?.total_found === "number" ? data.total_found : results.length,
+    query: queryStr,
+    mode: modeStr,
+    total_found: totalFound ?? results.length,
     latency_breakdown_ms: {
-      normalization: data?.latency_breakdown_ms?.normalization ?? 0,
-      lexical_search: data?.latency_breakdown_ms?.lexical_search ?? 0,
-      query_embedding: data?.latency_breakdown_ms?.query_embedding ?? 0,
-      dense_search: data?.latency_breakdown_ms?.dense_search ?? 0,
-      rrf_fusion: data?.latency_breakdown_ms?.rrf_fusion ?? 0,
-      total_request: data?.latency_breakdown_ms?.total_request ?? 0,
+      normalization: latencies?.normalization ?? 0,
+      lexical_search: latencies?.lexical_search ?? 0,
+      query_embedding: latencies?.query_embedding ?? 0,
+      dense_search: latencies?.dense_search ?? 0,
+      rrf_fusion: latencies?.rrf_fusion ?? 0,
+      total_request: latencies?.total_request ?? 0,
     },
     results,
-    degraded: Boolean(data?.degraded),
-    degraded_reason: data?.degraded_reason ?? null,
-    retrieval_method: data?.retrieval_method ?? null,
+    degraded,
+    degraded_reason: degradedReason,
+    retrieval_method: retrievalMethod,
   };
 }
-

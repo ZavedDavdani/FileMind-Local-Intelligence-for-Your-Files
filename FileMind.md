@@ -14,29 +14,50 @@
 
 PRE-PHASE-4 FOUNDATION: VERIFIED COMPLETE
 
-- **Phase 0 — Release Cold Start**: **VERIFIED PASS**
-- **Phase 1 — Filesystem Engine**: **VERIFIED PASS**
-- **Phase 2 — Document Intelligence**: **VERIFIED PASS**
-- **Phase 3 — Hybrid Retrieval**: **VERIFIED PASS**
-- **Hybrid Dense Fallback**: **VERIFIED PASS**
-- **Release Packaging**: **VERIFIED PASS**
-- **WebView2Loader Packaging**: **VERIFIED PASS**
-- **Frontend Asset Packaging**: **VERIFIED PASS**
-- **Frontend API Contract Handling**: **VERIFIED PASS**
-- **Search Discovery / Flexible Retrieval**: **VERIFIED PASS**
-- **Installed Application Practical Verification**: **VERIFIED PASS**
-- **Backend Regression**: **121 / 121 PASS**
-- **Hybrid Fallback Regression**: **14 / 14 PASS**
-- **Query Normalization Regression**: **6 / 6 PASS**
-- **Lexical Retrieval Regression**: **4 / 4 PASS**
-- **Hardening 1 (H1) — Windows Job Object Lifecycle**: **VERIFIED PASS**
-- **Hardening 2 (H2) — Directory Event Cascade Coalescing**: **VERIFIED PASS**
-- **Hardening 3 (H3) — PDF Extraction-Quality Gate & Observability**: **VERIFIED PASS**
-- **Hardening 4 (H4) — SQLite WAL Observability & Concurrency Validation**: **VERIFIED PASS**
-- **Pre-RAG Integrity Pass (P1–P5)**: **VERIFIED PASS**
-- **Pre-Phase-4 Cross-Check (Blocks 1–7 & Final Evidence Reconciliation)**: **VERIFIED PASS**
-- **Phase 4**: **NOT STARTED**
-- **Phase 5**: **NOT STARTED**
+Phase 0 — Release / Packaging:
+VERIFIED PASS
+
+Phase 1 — Filesystem Engine:
+VERIFIED PASS
+
+Phase 2 — Document Intelligence:
+VERIFIED PASS
+
+Phase 3 — Hybrid Retrieval:
+VERIFIED PASS
+
+Hybrid Dense Fallback:
+VERIFIED PASS
+
+Lexical Failure Integrity:
+VERIFIED PASS
+
+Retrieval Search Discovery:
+VERIFIED PASS
+
+Filesystem Action Security:
+VERIFIED PASS
+
+Frontend API Contract Handling:
+VERIFIED PASS
+
+Frontend Asset Packaging:
+VERIFIED PASS
+
+Installed Application Practical Verification:
+VERIFIED PASS
+
+Full Backend Regression:
+175 / 175 PASS
+
+Hybrid Fallback Regression:
+14 / 14 PASS
+
+Phase 4:
+NOT STARTED
+
+Phase 5:
+NOT STARTED
 
 ---
 
@@ -1275,81 +1296,155 @@ C:\Users\zaved\AppData\Local\Programs\FileMind\
 11. **Graceful Shutdown**: App process tree terminated in **0.047 s**, port 24823 cleanly released.
 12. **Relaunch Persistence**: Relaunched `FileMind.exe` restored all 3 persisted folders and auto-spawned healthy backend.
 
-#### 7. Automated Regression Suite Verification
-- **Hybrid Fallback Hardening Suite** (`backend/tests/test_hybrid_fallback.py`): **`14 / 14 PASS`** in 3.88s.
-- **Full Backend Regression Suite** (`backend/tests/`): **`121 / 121 PASS`** (1 warning) in 76.88s.
-- **Frontend Production Build**: **`PASS`** (0 errors).
+### Final Pre-Phase-4 Foundation Hardening, Bug-Fix Batches & Authoritative Release Verification
 
-#### 8. Final Foundation Verification Statement
-This constitutes the final, authoritative practical verification of the FileMind Pre-Phase-4 foundation. The distribution packaging, runtime sidecar lifecycle, frontend assets, database migrations, document extractors, lexical search, dense search, hybrid RRF fusion, and graceful degradation mechanics are completely verified and frozen.
+A comprehensive pre-Phase-4 hardening audit was conducted, resolving all 12 verified pre-Phase-4 defects across Batches 1, 2, and 3, culminating in the authoritative release verification of the packaged, standalone Windows desktop application.
+
+#### 1. The 12 Pre-Phase-4 Defects & Final Audit Status (All 12 VERIFIED PASS)
+
+1. **Bug A — FastEmbed Model-Load Stall / Timeout Guard**:
+   - *Status*: **VERIFIED PASS**
+   - *Files*: `backend/app/retrieval/embeddings.py`, `backend/app/engine/worker.py`
+   - *Remediation*: Implemented a 15-second bounded initialization timeout using a dedicated single daemon thread and `threading.Event`. On timeout, raises `EmbeddingLoadTimeoutError` and activates deterministic BM25 fallback without wedging worker threads or accumulating stalled task queues.
+2. **Bug B — `/fs/action` Registered-Folder Containment Security**:
+   - *Status*: **VERIFIED PASS**
+   - *Files*: `backend/app/main.py`
+   - *Remediation*: Scoped all desktop actions (`COPY_PATH`, `OPEN_FILE`, `OPEN_FOLDER`) to currently registered FileMind folders. Out-of-scope files, sibling prefix collisions (`C:\Folder-FAKE\file.txt`), and directory traversals (`..`) strictly return HTTP 403 Forbidden.
+3. **Bug #1 — Lexical FTS5 / SQLite Error Propagation**:
+   - *Status*: **VERIFIED PASS**
+   - *Files*: `backend/app/retrieval/lexical.py`, `backend/app/retrieval/hybrid.py`
+   - *Remediation*: Removed `except sqlite3.OperationalError: return []` in `LexicalRetriever.search()`. In BM25 mode, real operational errors (table missing, corrupted index, lock failure) propagate as real subsystem failures; in Hybrid mode, lexical errors trigger explicit degradation (`degraded=True`, `degraded_reason="lexical_retrieval_unavailable: ...", retrieval_method="dense_fallback"`) without fabricating scores. Legitimate zero-match queries remain clean non-errors (`degraded=False`).
+4. **Bug #2 — Hybrid Latency Breakdown Timing Independence**:
+   - *Status*: **VERIFIED PASS**
+   - *Files*: `backend/app/retrieval/hybrid.py`
+   - *Remediation*: Reset `t0 = time.perf_counter()` immediately prior to `self.vector_store.search()`. Stage latencies (`normalization`, `lexical_search`, `query_embedding`, `dense_search`, `rrf_fusion`, `total_request`) are fully isolated with zero double-counting.
+5. **Bug #3 — Dense Filtered Retrieval Completeness**:
+   - *Status*: **VERIFIED PASS**
+   - *Files*: `backend/app/retrieval/vector_store.py`
+   - *Remediation*: Implemented an adaptive candidate pool expansion loop in `SqliteVecStore.search()` ensuring all valid matches up to `top_k` are retrieved even when matching vectors are sparse.
+6. **Bug #4 — `MemoryCosineStore` Filter Enforcement**:
+   - *Status*: **VERIFIED PASS**
+   - *Files*: `backend/app/retrieval/vector_store.py`
+   - *Remediation*: Added `file_id` filtering support to `MemoryCosineStore`; unsupported filter keys explicitly raise a controlled `ValueError` rather than silently ignoring user constraints.
+7. **Bug #5 — `LanceDBVectorStore` Contract Parity & Security**:
+   - *Status*: **VERIFIED PASS**
+   - *Files*: `backend/app/retrieval/vector_store.py`
+   - *Remediation*: Documented as Benchmark / Experimental backend. Implemented true upsert deduplication on `chunk_id` before addition, SQL literal escaping (`' -> ''`) defending against injection with hyphenated/quoted identifiers, accurate deletion counts (`count_before - count_after`), and distance/chunk_id deterministic ordering.
+8. **Bug #6 — Frontend Response-Envelope Contract Validation**:
+   - *Status*: **VERIFIED PASS**
+   - *Files*: `frontend/src/services/api.ts`
+   - *Remediation*: Implemented strict response contract validation. Valid empty payloads (`[]`, `{ value: [] }`, `{ files: [] }`) resolve cleanly; invalid malformed payloads (`{ foo: "bar" }`, `{ value: "not-an-array" }`, `null`) log `[API Contract Error]` and throw `new Error("Invalid <endpoint> response shape")`, preventing fake empty UI states.
+9. **Bug #7 — Filename & Stem Ranking Calibration**:
+   - *Status*: **VERIFIED PASS**
+   - *Files*: `backend/app/retrieval/hybrid.py`
+   - *Remediation*: Calibrated conditional exact-stem promotion (RRF Lexical Rank $\le 3 \implies +0.0200$; tail $\implies +0.0050$; full token match $+0.0080$; stem token match $+0.0050$) ensuring single-word and compound queries accurately promote filenames without allowing weak tail matches to override dual-arm relevance.
+10. **Bug #8 — Query Token Deduplication**:
+    - *Status*: **VERIFIED PASS**
+    - *Files*: `backend/app/retrieval/normalizer.py`
+    - *Remediation*: Added order-preserving first-seen token deduplication in `normalize_query()`, eliminating redundant BM25 and dense token weighting while maintaining quoted phrases, technical identifiers, and FTS5 syntax safety.
+11. **Bug #9 — Multi-Extension Filename Stem Handling**:
+    - *Status*: **VERIFIED PASS**
+    - *Files*: `backend/app/retrieval/lexical.py`
+    - *Remediation*: Implemented `extract_filename_stems(source_file: str) -> Tuple[str, str]` extracting both direct stem and root stem (e.g. `archive.tar.gz` $\to$ `archive.tar` and `archive`).
+12. **Bug #10 — Snippet Word-Boundary Matching**:
+    - *Status*: **VERIFIED PASS**
+    - *Files*: `backend/app/retrieval/hybrid.py`
+    - *Remediation*: Updated `generate_real_snippet()` with lookaround boundary regex delimiters `(?:\b|\W)`, preferring true word and identifier boundaries over arbitrary substring fragments.
 
 ---
 
-### Frontend API Response-Envelope, Folder Lifecycle (204) & Search Discovery Resolutions
+#### 2. Batch Execution & Verification Summary
 
-A final pre-Phase-4 remediation and verification pass was conducted to resolve installed frontend response envelope mismatches, implement robust HTTP 204 No Content handling, eliminate error silencing on Events and Jobs APIs, and resolve rigid retrieval discovery for partial, token-based, and natural-language queries.
+- **Batch 1 (Embedding Reliability & Filesystem Security)**: **VERIFIED PASS**
+  - FastEmbed bounded 15s timeout with daemon thread isolation.
+  - Registered-folder containment on `/fs/action` returning HTTP 403.
+- **Batch 2 (Retrieval Correctness, Ranking & Query Quality)**: **VERIFIED PASS**
+  - Adaptive dense candidate expansion.
+  - Calibrated conditional exact-stem promotion.
+  - Query token deduplication.
+  - Multi-extension stem extraction.
+  - Word-boundary snippet generation.
+- **Batch 3 (API Contracts, Observability & Vector Store Parity)**: **VERIFIED PASS**
+  - Latency stage timing independence.
+  - `MemoryCosineStore` filter enforcement and error raising.
+  - `LanceDBVectorStore` deduplication, safe SQL escaping, and accurate counts.
+  - Frontend response envelope validation preventing fake empty states.
+- **Bug #1 Final Verification (Lexical Subsystem Failure Integrity)**: **VERIFIED PASS**
+  - Lexical FTS5 failures no longer become fake zero results.
+  - Subsystem failures are clearly distinguishable from legitimate zero matches.
+  - Hybrid degradation behavior is explicit (`dense_fallback` or `bm25_fallback`).
 
-#### 1. Frontend API Response-Envelope & HTTP 204 Handling
-- **Envelope Normalization**:
-  - The backend endpoints return typed JSON envelopes (e.g. `GET /files` returns `{"files": [...], "total": int}`, `GET /folders` returns `List[Folder]` or `{"value": [...], "Count": int}`).
-  - `frontend/src/types/index.ts`: Added explicit envelope types `FolderListResponse`, `FileListResponse`, `EventListResponse`, `JobListResponse`, and expanded `SearchResponse` (with `degraded`, `degraded_reason`, `retrieval_method`).
-  - `frontend/src/services/api.ts`: Implemented `requestJson()` with explicit error attribution distinguishing network transport failures (`Network failure during <op>: <msg>`), HTTP non-200 responses (`HTTP <status>: <detail>`), and JSON parse errors. Added defensive multi-property normalization across all API methods (`value`, `folders`, `files`, `data`).
-  - `frontend/src/App.tsx`, `FolderManager.tsx`, `FileList.tsx`, `SearchModal.tsx`, `EventAuditLog.tsx`: Added `Array.isArray()` safety guards protecting all rendering loops.
-- **HTTP 204 No Content Handling**:
-  - `DELETE /folders/{folder_id}` returns HTTP 204 No Content with zero response body according to API contract.
-  - `requestJson()` was updated to explicitly handle HTTP 204 and zero `Content-Length` by returning `undefined as T` without calling `resp.json()`, preventing false JSON parse errors.
-- **Events & Jobs Error Propagation**:
-  - Removed silent `try...catch` silencing in `fetchEvents()` and `fetchJobs()` that previously swallowed network and HTTP non-200 failures into artificial `[]`.
-  - Added missing `EventItem` and `JobItem` imports from `app.schemas` in `backend/app/main.py` to ensure `/events` and `/jobs` serialize typed records cleanly without 500 errors.
+---
 
-#### 2. Search Discovery & Flexible Retrieval Fix
-- **Root Cause of Rigid Search**:
-  1. *Sub-Token Exclusion in Normalizer*: `_TOKEN_SPLIT_REGEX` in `normalizer.py` excluded separators (`_`, `-`, `.`, `/`, `\`, `:`). Queries with composite tokens (e.g. `sample.txt`, `FILEMIND_PRACTICAL_ALPHA_7319`, `FileMind-Practical-Test`, `ALPHA_7319`) were emitted as single rigid prefix tokens (`"sample.txt"*`, `"FILEMIND_PRACTICAL_ALPHA_7319"*`), preventing sub-token and substring discovery in SQLite FTS5.
-  2. *BM25 Field Weighting Imbalance*: In `lexical.py`, `BM25_WEIGHT_FILE = 2.0` was lower than `content = 5.0`. Unrelated large documents with multiple casual body-text occurrences of a query word (e.g. "sample" in `evaluation-dataset.md`) outranked files whose exact filename was `sample.txt`.
-  3. *Absence of Exact Filename / Stem Priority Boost in Fusion*: Neither BM25 candidate scoring nor RRF fusion provided priority scoring when a query matched the exact file name or stem (`sample` for `sample.txt`, `notes` for `notes.md`, `test` for `test.txt`).
-- **Remediation**:
-  - `backend/app/retrieval/normalizer.py`: Added `_SUBTOKEN_SPLIT_REGEX` expansion. When compound identifiers or filenames with separators (`_`, `-`, `.`, `/`, `\`) are queried, FTS5 query generates dual-clause prefix matching `("<token>"* OR ("<sub1>"* "<sub2>"*))` while preserving quoted exact phrases and technical identifiers in `tokens`.
-  - `backend/app/retrieval/lexical.py`: Increased `BM25_WEIGHT_FILE` from `2.0` to `15.0` and added deterministic filename/stem scoring bonus.
-  - `backend/app/retrieval/hybrid.py`: Integrated filename/stem priority boost into RRF fusion ranking while preserving exact null-score semantics (`dense_score=None` for BM25-only, `lexical_score=None` for Dense-only).
-- **Preservation of Retrieval Architecture**:
-  - BM25 + Dense + RRF hybrid architecture remains **100% intact** (no SQL `LIKE` replacements, no external search servers).
-  - Null-score semantics remain **100% preserved**.
+#### 3. Authoritative Release Verification on Installed Application (`C:\FileMind-Practical-Test`)
 
-#### 3. Practical Verification on Installed Release (`C:\FileMind-Practical-Test`)
-The installed FileMind application was tested against `C:\FileMind-Practical-Test` (containing `sample.txt`, `notes.md`, `test.txt`) and validated for full folder lifecycle and search discovery:
+The packaged Windows application was freshly rebuilt, packaged via Tauri into NSIS and MSI installers, cleanly installed on Windows 11, and tested against practical target directory `C:\FileMind-Practical-Test`:
 
-- **Installed App Launch & Health**: `FileMind.exe` auto-spawned standalone backend on port 24823 (`/health` HTTP 200).
-- **Folder Lifecycle & DELETE 204**: Registered disposable test folder, verified presence in Registered Folders, executed `DELETE /folders/{id}` (HTTP 204 No Content), and verified complete disappearance from list with zero JSON parse errors.
-- **Events & Jobs API**: `GET /events` and `GET /jobs` returned valid typed records (HTTP 200).
-- **Search Retrieval Matrix (10 / 10 Queries Verified)**:
+- **Standalone ONEDIR Backend**: PyInstaller onedir layout located at `$INSTDIR\binaries\filemind-backend-dir\` with `filemind-backend-dir.exe` and embedded `_internal\python311.dll`.
+- **Tauri Supervisor Auto-Spawn**: Launching `FileMind.exe` auto-spawns `filemind-backend-dir.exe` within a Windows Job Object with orphan process protection (`KILL_ON_JOB_CLOSE`).
+- **WebView2 Frontend Rendering**: Loads production `dist/index.html` via local relative asset paths (`./assets/`, `./favicon.svg`) with 0 errors.
+- **Backend Health**: `GET http://127.0.0.1:24823/health` returns HTTP 200 OK `{"status": "healthy", "service": "FileMind Backend", "version": "0.1.0", "port": 24823}`.
+- **Populated Views**: Registered Folders (6 folders), Tracked Files (`sample.txt`, `test.txt`, `notes.md`), Events, and Jobs all populate seamlessly through response envelope adapters.
+- **Filesystem Action Security**:
+  - In-scope `COPY_PATH` $\to$ HTTP 200 `{"success": true, "message": "Canonical path validated successfully"}`.
+  - Out-of-scope `COPY_PATH` (`C:\Windows\System32\notepad.exe`) $\to$ **HTTP 403 Forbidden**.
+  - Out-of-scope `OPEN_FILE` (`C:\Windows\win.ini`) $\to$ **HTTP 403 Forbidden**.
+  - Prefix collision (`C:\FileMind-Practical-Test-FAKE\file.txt`) $\to$ **HTTP 403 Forbidden**.
+  - Directory traversal (`C:\FileMind-Practical-Test\..\Windows\System32\cmd.exe`) $\to$ **HTTP 403 Forbidden**.
+- **Practical Search Matrix (10 / 10 Queries Verified)**:
 
-| # | Query | Top Result Filename | Retrieval Method | BM25 Score | Dense Score | RRF Score | Latency |
-|---|---|---|---|---|---|---|---|
-| 1 | `sample` | `sample.txt` | `hybrid` | 27.56 | — | 0.0664 | 38.2 ms |
-| 2 | `sample.txt` | `sample.txt` | `hybrid` | 50.04 | 0.3580 | 0.0825 | 33.4 ms |
-| 3 | `test` | `test.txt` | `hybrid` | 23.52 | 0.3579 | 0.0828 | 37.3 ms |
-| 4 | `notes` | `notes.md` | `hybrid` | 30.34 | 0.2492 | 0.0828 | 36.7 ms |
-| 5 | `practical` | `test.txt` | `hybrid` | 12.26 | 0.1976 | 0.0328 | 35.1 ms |
-| 6 | `verification` | `sample.txt` | `hybrid` | 7.70 | 0.2670 | 0.0325 | 35.1 ms |
-| 7 | `practical verification` | `test.txt` | `hybrid` | 19.74 | 0.3400 | 0.0328 | 33.4 ms |
-| 8 | `FILEMIND_PRACTICAL_ALPHA_7319` | `sample.txt` | `hybrid` | 51.96 | 0.6976 | 0.0328 | 33.7 ms |
-| 9 | `FILEMIND_PRACTICAL_ALPHA` | `sample.txt` | `hybrid` | 39.32 | 0.6953 | 0.0328 | 36.5 ms |
-| 10 | `filemind practical` | `test.txt` | `hybrid` | 16.36 | 0.7210 | 0.0328 | 38.2 ms |
+| # | Practical Query | Observed Top Match | Expected Top Match | Observed Score | Retrieval Method | Status |
+|---|---|---|---|---|---|---|
+| 1 | `sample` | `sample.txt` | `sample.txt` | 0.052522 | Hybrid (BM25+Dense+RRF) | **PASS** |
+| 2 | `sample.txt` | `sample.txt` | `sample.txt` | 0.052522 | Hybrid (BM25+Dense+RRF) | **PASS** |
+| 3 | `test` | `test.txt` | `test.txt` | 0.052787 | Hybrid (BM25+Dense+RRF) | **PASS** |
+| 4 | `notes` | `notes.md` | `notes.md` | 0.052787 | Hybrid (BM25+Dense+RRF) | **PASS** |
+| 5 | `practical` | `test.txt` | `test.txt` | 0.032787 | Hybrid (BM25+Dense+RRF) | **PASS** |
+| 6 | `verification` | `sample.txt` | `sample.txt` | 0.032522 | Hybrid (BM25+Dense+RRF) | **PASS** |
+| 7 | `practical verification` | `test.txt` | `test.txt` | 0.032787 | Hybrid (BM25+Dense+RRF) | **PASS** |
+| 8 | `FILEMIND_PRACTICAL_ALPHA` | `sample.txt` | `sample.txt` | 0.032787 | Hybrid (BM25+Dense+RRF) | **PASS** |
+| 9 | `FILEMIND_PRACTICAL_ALPHA_7319` | `sample.txt` | `sample.txt` | 0.032787 | Hybrid (BM25+Dense+RRF) | **PASS** |
+| 10 | `filemind practical` | `test.txt` | `test.txt` | 0.032787 | Hybrid (BM25+Dense+RRF) | **PASS** |
 
-- **Search Latency Range**: **33.4 ms – 38.2 ms** (warm queries).
-- **Canonical Result Paths**: All practical test results were verified to begin with `C:\FileMind-Practical-Test\` (zero OneDrive paths).
-- **Safe Actions**: `COPY_PATH` returned `{"success": true, "action": "COPY_PATH", "target_path": "C:\\FileMind-Practical-Test\\sample.txt"}`.
+- **Retrieval Modes**:
+  - BM25 Mode: `sample` $\to$ `sample.txt` (score: 12.5579, method: `bm25`).
+  - Dense Mode: `semantic retrieval` $\to$ `notes.md` (score: 0.5730, method: `dense`).
+  - Hybrid Mode: `hybrid verification` $\to$ `test.txt` (score: 0.032522, method: `hybrid`).
+- **Lifecycle & Persistence**:
+  - Closing `FileMind.exe` cleanly terminates backend and releases port 24823.
+  - Relaunching `FileMind.exe` auto-spawns backend, responds HTTP 200 on `/health`, persists all registered folders and indexed chunks, and immediately serves search queries.
 
-#### 4. Latest Cold-Start & Health Startup Distinction Note
-- **Authoritative Phase 0 Cold-Start Gate**: **1.192 s** median (Range: `1.174 s – 1.416 s`, 5 fresh runs on standalone PyInstaller ONEDIR backend; Gate $\le 5.0\text{ s}$).
-- **Installed GUI-to-Health Observation**: In live practical test runs, the full end-to-end launch of `FileMind.exe` $\rightarrow$ WebView2 runtime initialization $\rightarrow$ sidecar spawn $\rightarrow$ `/health` HTTP 200 was measured between **2.967 s** and **4.178 s** (both well below the $\le 5.0\text{ s}$ gate).
+---
 
-#### 5. Full Pre-Phase-4 Regression Verification
-- **Full Backend Pytest Suite**: **`121 / 121 PASSED`** (1 warning) in 72.29s.
-- **Hybrid Fallback Suite**: **`14 / 14 PASSED`** in 2.65s.
-- **Query Normalization Suite**: **`6 / 6 PASSED`**.
-- **Lexical Retrieval Suite**: **`4 / 4 PASSED`**.
+#### 4. Authoritative Final Test State
+
+- **Full Backend Pytest Regression**: **`175 / 175 PASSED`** (0 failed, 1 benign third-party deprecation warning) in 81.31s.
+- **Hybrid Fallback Regression**: **`14 / 14 PASSED`** in 2.21s.
 - **Frontend Production Build**: **`PASS`** (1,603 modules transformed, 0 TypeScript errors).
+- **Test Suite Progression**:
+  - Original Pre-RAG Baseline: `114 tests`
+  - Pre-Phase-4 Freeze Baseline: `121 tests`
+  - Post-Batch 1 & 2 Hardening: `161 tests`
+  - Post-Batch 3 Hardening: `169 tests`
+  - Post-Bug #1 Verification: **`175 tests`**
+
+---
+
+#### 5. Architectural Invariants (100% Preserved)
+
+- **Retrieval Pipeline**: BM25 + Dense + RRF hybrid retrieval remains **100% intact**.
+  - No SQL `LIKE` replacements.
+  - No external search servers.
+  - No rerankers.
+  - No cross-encoders.
+  - No LLM / generative models.
+  - No RAG pipelines.
+- **Null-Score Semantics**:
+  - `BM25-only` $\implies$ `dense_score = None`, `rrf_score = None`.
+  - `Dense-only` $\implies$ `lexical_score = None`, `rrf_score = None`.
+  - `Degraded Hybrid (bm25_fallback)` $\implies$ `dense_score = None`, `rrf_score = None`, `retrieval_method = "bm25_fallback"`.
+  - `Degraded Hybrid (dense_fallback)` $\implies$ `lexical_score = None`, `rrf_score = None`, `retrieval_method = "dense_fallback"`.
+- **Database Schema**: SQLite WAL tables (`folders`, `files`, `chunks`, `indexing_jobs`, `file_events`, `chunks_fts`, `sqlite-vec` `vec_chunks`) preserved without schema resets or data corruption.
 
 ---
 
@@ -1363,11 +1458,11 @@ The following capabilities belong to Phase 4 and Phase 5 and are **STRICTLY NOT 
 - **No Phase 4/5 implementation**: Zero code for Phase 4 or Phase 5 exists in the repository.
 
 > [!IMPORTANT]
-> **HARD STOP — PRE-PHASE-4 FOUNDATION VERIFIED.**
+> **HARD STOP — PRE-PHASE-4 FOUNDATION VERIFIED COMPLETE.**
+> **ALL 12 PRE-PHASE-4 DEFECTS RESOLVED & VERIFIED PASS.**
+> **FULL BACKEND REGRESSION: 175 / 175 PASS.**
 > **PHASE 4 NOT STARTED.**
 > **PHASE 5 NOT STARTED.**
-> **NO FURTHER IMPLEMENTATION PERFORMED.**
-
 
 
 ---

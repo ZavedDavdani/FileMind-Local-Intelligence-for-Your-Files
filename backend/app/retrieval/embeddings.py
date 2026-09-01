@@ -5,16 +5,35 @@ Supports:
 - BAAI/bge-small-en-v1.5 (dim=384, default recommended candidate)
 - sentence-transformers/all-MiniLM-L6-v2 (dim=384)
 - nomic-ai/nomic-embed-text-v1.5 (dim=768)
+
+Thread-lifetime contract (Batch 1 hardening):
+- Model initialization runs in exactly ONE daemon thread at a time.
+- Callers block for up to `load_timeout` seconds, then receive
+  EmbeddingLoadTimeoutError and the BM25 fallback path activates.
+- The daemon thread is NOT killable from Python (language constraint), but:
+    * There is at most 1 such thread alive at any moment.
+    * It terminates when FastEmbed's internal retry schedule expires (~40 s max).
+    * It is a daemon thread and therefore dies with the process.
+    * No task queue accumulates — subsequent callers share the same daemon thread
+      and the same threading.Event rather than queuing additional work items.
+- This replaces the previous ThreadPoolExecutor design, which (a) could not
+  cancel a running thread via future.cancel() and (b) accumulated queued tasks
+  while the single worker was blocked.
 """
 
 import logging
 import threading
-from typing import List, Optional, Union
+from typing import List, Optional
 import numpy as np
 
 logger = logging.getLogger("FileMind.Retrieval.Embeddings")
 
 DEFAULT_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Maximum seconds to wait for model initialization before raising.
+# FastEmbed's internal HTTP-retry schedule: 3 s -> 9 s -> 27 s ≈ 39 s total.
+# During normal operation the model is already cached locally and loads in < 2 s.
+EMBEDDING_LOAD_TIMEOUT_SECONDS = 15.0
 
 MODEL_DIMENSIONS = {
     "BAAI/bge-small-en-v1.5": 384,
@@ -23,29 +42,113 @@ MODEL_DIMENSIONS = {
 }
 
 
-class EmbeddingEngine:
-    """Manages local embedding model inference with deferred lazy loading."""
+class EmbeddingLoadTimeoutError(RuntimeError):
+    """Raised when the embedding model cannot be loaded within the configured timeout."""
+    pass
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME):
+
+class EmbeddingEngine:
+    """Manages local embedding model inference with deferred lazy loading.
+
+    Initialization is guarded by a single bounded daemon thread and a
+    threading.Event so that:
+    - Thread count never exceeds 1 (no accumulation).
+    - No task queue accumulates (all callers share one Event).
+    - Callers that exceed load_timeout receive EmbeddingLoadTimeoutError
+      immediately; the background thread continues to its natural end (~40 s)
+      but is the ONLY such thread and dies at process exit.
+    - If the background thread eventually succeeds (network recovered before
+      40 s), _model is set and all subsequent callers use the O(1) fast-path.
+    """
+
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, load_timeout: float = EMBEDDING_LOAD_TIMEOUT_SECONDS):
         self.model_name = model_name
         self.dimension = MODEL_DIMENSIONS.get(model_name, 384)
+        self.load_timeout = load_timeout
         self._model = None
         self._lock = threading.Lock()
+        # Single init-thread state — no executor, no task queue.
+        self._init_thread: Optional[threading.Thread] = None
+        self._init_done = threading.Event()   # set when _run_init finishes (success or fail)
+        self._init_error: Optional[Exception] = None
 
-    def _ensure_loaded(self):
-        """Deferred lazy loading of the underlying ONNX model."""
+    def _run_init(self) -> None:
+        """Daemon thread: loads the FastEmbed model and signals _init_done.
+
+        _model is written before _init_done.set() so that any thread waking
+        from _init_done.wait() observes a fully-initialised model (GIL + Event
+        provide the required happens-before).
+        """
+        try:
+            from fastembed import TextEmbedding
+            logger.info(
+                "Embedding init thread starting: %s (daemon=True, bounded to ~40 s max)",
+                self.model_name,
+            )
+            model = TextEmbedding(model_name=self.model_name)
+            self._model = model          # visible to all waiters after _init_done.set()
+            self._init_error = None
+            logger.info("Embedding init thread succeeded: %s", self.model_name)
+        except Exception as exc:
+            self._init_error = exc
+            logger.error("Embedding init thread failed: %s: %s", self.model_name, exc)
+        finally:
+            self._init_done.set()        # always release all waiters
+
+    def _ensure_loaded(self) -> None:
+        """Deferred lazy loading with a single bounded daemon thread.
+
+        Algorithm:
+        1. Fast-path: if _model is already set, return immediately (no lock).
+        2. Acquire lock:
+           a. Re-check _model (double-checked locking).
+           b. If no alive init thread: clear event, start a new daemon thread.
+           c. (If a thread is already running: all callers share the same thread.)
+        3. Release lock; wait on _init_done up to load_timeout.
+        4. On timeout: raise EmbeddingLoadTimeoutError without blocking further.
+        5. On init failure: propagate the exception.
+        """
+        # --- Fast-path (no lock required) ---
         if self._model is not None:
             return
+
         with self._lock:
-            if self._model is None:
-                try:
-                    from fastembed import TextEmbedding
-                    logger.info("Initializing local embedding model: %s", self.model_name)
-                    self._model = TextEmbedding(model_name=self.model_name)
-                    logger.info("Local embedding model loaded successfully: %s", self.model_name)
-                except Exception as exc:
-                    logger.error("Failed to load embedding model %s: %s", self.model_name, str(exc))
-                    raise RuntimeError(f"Embedding model initialization failed: {exc}") from exc
+            if self._model is not None:
+                return
+            # Start a new init thread only if none is already running.
+            if self._init_thread is None or not self._init_thread.is_alive():
+                self._init_done.clear()
+                self._init_error = None
+                self._init_thread = threading.Thread(
+                    target=self._run_init,
+                    name="FileMind-EmbeddingInit",
+                    daemon=True,          # dies with the process
+                )
+                self._init_thread.start()
+                logger.info(
+                    "Embedding init thread launched (timeout: %.1f s)", self.load_timeout
+                )
+            # else: thread is alive, all callers share the same _init_done Event.
+
+        # --- Wait outside the lock so other threads are not serialised here ---
+        completed = self._init_done.wait(timeout=self.load_timeout)
+
+        if not completed:
+            msg = (
+                f"Embedding model initialization timed out after {self.load_timeout:.0f} s "
+                f"({self.model_name}). Dense retrieval unavailable; BM25 fallback active. "
+                f"Background init thread is still running (daemon=True, self-bounded to ~40 s)."
+            )
+            logger.error(msg)
+            raise EmbeddingLoadTimeoutError(msg)
+
+        # Init thread signalled completion — check for error.
+        if self._init_error is not None:
+            err = self._init_error
+            raise RuntimeError(
+                f"Embedding model initialization failed: {err}"
+            ) from err
+        # _model is now set (written by _run_init before _init_done.set()).
 
     def embed_texts(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
         """Generates normalized dense embedding vectors for a list of texts."""

@@ -4,7 +4,7 @@ import json
 import logging
 import sqlite3
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from app.retrieval.normalizer import NormalizedQuery, normalize_query
 
@@ -16,6 +16,25 @@ BM25_WEIGHT_H1 = 2.0
 BM25_WEIGHT_H2 = 1.5
 BM25_WEIGHT_SECTION = 1.0
 BM25_WEIGHT_FILE = 15.0
+
+
+def extract_filename_stems(source_file: str) -> Tuple[str, str]:
+    """
+    Extracts canonical direct stem and root stem from a filename.
+
+    Examples:
+    - 'archive.tar.gz' -> direct: 'archive.tar', root: 'archive'
+    - 'report.final.pdf' -> direct: 'report.final', root: 'report'
+    - 'sample.txt' -> direct: 'sample', root: 'sample'
+    - 'README' -> direct: 'README', root: 'README'
+    - 'archive.tar' -> direct: 'archive', root: 'archive'
+    """
+    if not source_file:
+        return ("", "")
+    sf = source_file.strip()
+    direct_stem = sf.rsplit(".", 1)[0] if "." in sf else sf
+    root_stem = sf.split(".", 1)[0] if "." in sf else sf
+    return (direct_stem, root_stem)
 
 
 class LexicalRetriever:
@@ -106,12 +125,8 @@ class LexicalRetriever:
         LIMIT ?;
         """
 
-        try:
-            cursor = self.conn.execute(sql, params)
-            rows = cursor.fetchall()
-        except sqlite3.OperationalError as err:
-            logger.warning("FTS5 query execution warning: %s for query: %s", str(err), norm_q.fts5_query)
-            return []
+        cursor = self.conn.execute(sql, params)
+        rows = cursor.fetchall()
 
         q_raw_lower = (norm_q.raw_query or "").lower().strip()
 
@@ -125,13 +140,15 @@ class LexicalRetriever:
 
             # Filename relevance bonus for exact filename or stem matches
             sf = (d.get("source_file") or "").lower()
-            stem = sf.rsplit(".", 1)[0] if "." in sf else sf
-            if q_raw_lower == sf or q_raw_lower == stem:
-                positive_score += 20.0
-            elif any(tok.lower() == stem for tok in norm_q.tokens if len(tok) >= 2):
-                positive_score += 10.0
+            direct_stem, root_stem = extract_filename_stems(sf)
+            stems = {direct_stem.lower(), root_stem.lower()}
+
+            if q_raw_lower == sf or q_raw_lower in stems:
+                positive_score += 5.0
             elif any(tok.lower() == sf for tok in norm_q.tokens if len(tok) >= 2):
-                positive_score += 15.0
+                positive_score += 3.0
+            elif any(tok.lower() in stems for tok in norm_q.tokens if len(tok) >= 2):
+                positive_score += 2.0
 
             try:
                 meta = json.loads(d.get("metadata_json") or "{}")

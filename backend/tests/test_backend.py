@@ -100,11 +100,28 @@ def test_enumerate_path_with_null_byte():
 
 
 def test_action_copy_path():
-    """Verify COPY_PATH returns validated canonical absolute path."""
+    """Verify COPY_PATH returns validated canonical absolute path.
+
+    The /fs/action endpoint requires target paths to be within a registered
+    FileMind folder.  This test registers the temp directory via POST /folders
+    and deregisters it after the assertion.
+    """
     with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
         tmp_path = tmp_file.name
 
+    tmp_dir = os.path.dirname(tmp_path)
+    folder_id = None
     try:
+        # Register the temp directory so the scope check passes
+        reg_resp = client.post(
+            "/folders",
+            json={"path": tmp_dir, "recursive": False, "indexing_enabled": False},
+        )
+        assert reg_resp.status_code in (200, 201), (
+            f"Failed to register temp dir: {reg_resp.status_code} {reg_resp.text}"
+        )
+        folder_id = reg_resp.json().get("folder_id")
+
         response = client.post(
             "/fs/action",
             json={"action": "COPY_PATH", "target_path": tmp_path},
@@ -116,6 +133,8 @@ def test_action_copy_path():
         assert data["target_path"] == os.path.normpath(os.path.abspath(tmp_path))
     finally:
         os.unlink(tmp_path)
+        if folder_id:
+            client.delete(f"/folders/{folder_id}")
 
 
 def test_action_nonexistent_path():

@@ -54,25 +54,35 @@ def normalize_query(raw_query: Optional[str]) -> NormalizedQuery:
     if not cleaned:
         return NormalizedQuery(raw_query=raw_query, normalized_query="", is_empty=True)
 
-    # 2. Extract quoted phrases before removing punctuation
+    # 2. Extract quoted phrases before removing punctuation (deduplicated in order)
     raw_phrases = _PHRASE_REGEX.findall(cleaned)
-    phrases = [p.strip() for p in raw_phrases if p.strip()]
+    phrases = []
+    seen_phrases = set()
+    for p in raw_phrases:
+        p_clean = p.strip()
+        if p_clean:
+            p_lower = p_clean.lower()
+            if p_lower not in seen_phrases:
+                seen_phrases.add(p_lower)
+                phrases.append(p_clean)
 
     # 3. Create cleaned text for embedding / dense search
     # Replace quotes and collapse spaces
     dense_text = _PHRASE_REGEX.sub(r" \1 ", cleaned)
     dense_text = _WHITESPACE_REGEX.sub(" ", dense_text).strip()
 
-    # 4. Extract tokens for lexical search
+    # 4. Extract tokens for lexical search (deduplicated in first-seen order)
     # Split by non-identifier characters while preserving hyphens, underscores, dots
     token_candidates = _TOKEN_SPLIT_REGEX.split(dense_text)
     tokens = []
-    seen = set()
+    seen_tokens = set()
     for tok in token_candidates:
         t = tok.strip("._-/: ")
         if t and len(t) >= 1:
-            tokens.append(t)
-            seen.add(t.lower())
+            t_lower = t.lower()
+            if t_lower not in seen_tokens:
+                seen_tokens.add(t_lower)
+                tokens.append(t)
 
     if not tokens and not phrases:
         return NormalizedQuery(
@@ -97,11 +107,17 @@ def normalize_query(raw_query: Optional[str]) -> NormalizedQuery:
     # Remove terms already covered by phrases if pure exact match
     remaining_text = _PHRASE_REGEX.sub("", cleaned)
     rem_tokens = _TOKEN_SPLIT_REGEX.split(remaining_text)
-    
+    seen_fts_tokens = set()
+
     for tok in rem_tokens:
         t = tok.strip("._-/: ")
         if not t:
             continue
+        t_lower = t.lower()
+        if t_lower in seen_fts_tokens:
+            continue
+        seen_fts_tokens.add(t_lower)
+
         # If term is an FTS5 reserved keyword, quote it
         if t.upper() in _FTS5_KEYWORDS:
             fts_parts.append(f'"{t}"')

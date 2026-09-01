@@ -16,7 +16,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from app.retrieval.embeddings import EmbeddingEngine, default_embedding_engine
-from app.retrieval.lexical import LexicalRetriever
+from app.retrieval.lexical import LexicalRetriever, extract_filename_stems
 from app.retrieval.normalizer import NormalizedQuery, normalize_query
 from app.retrieval.vector_store import BaseVectorStore, SqliteVecStore
 
@@ -29,6 +29,8 @@ DEFAULT_CANDIDATE_POOL = 50
 def generate_real_snippet(content: str, query_tokens: List[str], max_chars: int = 240) -> str:
     """
     Generates an authentic snippet from actual chunk content, centered around matching query terms.
+    Prefers word/token boundary matches over interior substrings to avoid false anchors
+    (e.g., 'cat' matching inside 'category').
     Does not fabricate or modify source words.
     """
     if not content:
@@ -41,20 +43,34 @@ def generate_real_snippet(content: str, query_tokens: List[str], max_chars: int 
     if not query_tokens:
         return cleaned_content[:max_chars].strip() + "..."
 
-    # Find earliest match of any query token
-    content_lower = cleaned_content.lower()
+    valid_tokens = [tok for tok in query_tokens if len(tok) >= 2]
+    if not valid_tokens:
+        return cleaned_content[:max_chars].strip() + "..."
+
     best_pos = -1
 
-    for tok in query_tokens:
-        if len(tok) < 2:
-            continue
-        pos = content_lower.find(tok.lower())
-        if pos != -1:
+    # Pass 1: Look for earliest token/word boundary match
+    # Delimiters: start/end of string, whitespace, punctuation, hyphens, underscores, dots, etc.
+    for tok in valid_tokens:
+        pattern = re.compile(r'(?<![a-zA-Z0-9])' + re.escape(tok) + r'(?![a-zA-Z0-9])', re.IGNORECASE)
+        m = pattern.search(cleaned_content)
+        if m:
+            pos = m.start()
             if best_pos == -1 or pos < best_pos:
                 best_pos = pos
 
+    # Pass 2: If no boundary match found (e.g. query token is part of a compound term),
+    # fall back to standard substring search
     if best_pos == -1:
-        # Fall back to start
+        content_lower = cleaned_content.lower()
+        for tok in valid_tokens:
+            pos = content_lower.find(tok.lower())
+            if pos != -1:
+                if best_pos == -1 or pos < best_pos:
+                    best_pos = pos
+
+    # Pass 3: If still no match, fall back to start of content
+    if best_pos == -1:
         return cleaned_content[:max_chars].strip() + "..."
 
     # Window around best match
@@ -150,13 +166,24 @@ class HybridRetriever:
         dense_candidates: List[Dict[str, Any]] = []
 
         # Stage B: BM25 Lexical Retrieval
+        lex_error = None
         if mode in ("hybrid", "bm25"):
             t0 = time.perf_counter()
-            lexical_candidates = self.lexical_retriever.search(
-                norm_q,
-                top_k=self.candidate_pool_size if mode == "hybrid" else top_k,
-                filters=filters,
-            )
+            try:
+                lexical_candidates = self.lexical_retriever.search(
+                    norm_q,
+                    top_k=self.candidate_pool_size if mode == "hybrid" else top_k,
+                    filters=filters,
+                )
+            except Exception as lex_exc:
+                if mode == "bm25":
+                    raise
+                logger.warning(
+                    "Lexical retrieval unavailable during hybrid search; evaluating fallback: %s",
+                    str(lex_exc),
+                )
+                lex_error = lex_exc
+                lexical_candidates = []
             latencies["lexical_search"] = round((time.perf_counter() - t0) * 1000.0, 3)
 
         # Stage C & D: Dense Retrieval (Query Embedding + Vector Search)
@@ -169,6 +196,7 @@ class HybridRetriever:
                 q_vector = self.embedding_engine.embed_query(norm_q.normalized_query)
                 latencies["query_embedding"] = round((time.perf_counter() - t0) * 1000.0, 3)
 
+                t0 = time.perf_counter()
                 raw_dense = self.vector_store.search(
                     q_vector,
                     top_k=self.candidate_pool_size if mode == "hybrid" else top_k,
@@ -193,6 +221,17 @@ class HybridRetriever:
                 degraded_reason = f"dense_retrieval_unavailable: {str(dense_exc)}"
                 dense_candidates = []
 
+        if lex_error is not None:
+            if degraded:
+                # Both lexical and dense failed
+                raise RuntimeError(
+                    f"Both lexical and dense retrieval failed during hybrid search: "
+                    f"lexical={lex_error}, dense={degraded_reason}"
+                )
+            # Lexical failed, but dense succeeded -> graceful degradation to dense fallback
+            degraded = True
+            degraded_reason = f"lexical_retrieval_unavailable: {str(lex_error)}"
+
         # Stage E: Fusion & Ranking
         t0 = time.perf_counter()
         final_results: List[Dict[str, Any]] = []
@@ -212,35 +251,66 @@ class HybridRetriever:
                 final_results.append(r_copy)
 
         elif degraded:
-            # Degraded Hybrid: Direct BM25 Fallback without fabricating dense scores
-            for rank, r in enumerate(lexical_candidates[:top_k], start=1):
-                snippet = generate_real_snippet(r["content"], norm_q.tokens)
-                final_results.append({
-                    "rank": rank,
-                    "chunk_id": r["chunk_id"],
-                    "file_id": r["file_id"],
-                    "score": r["score"],
-                    "rrf_score": None,
-                    "lexical_score": r["score"],
-                    "dense_score": None,
-                    "lexical_rank": rank,
-                    "dense_rank": None,
-                    "retrieval_method": "bm25_fallback",
-                    "source_file": r["source_file"],
-                    "source_path": r["source_path"],
-                    "page": r.get("page"),
-                    "section": r.get("section"),
-                    "h1_parent": r.get("h1_parent"),
-                    "h2_parent": r.get("h2_parent"),
-                    "line_start": r.get("line_start"),
-                    "line_end": r.get("line_end"),
-                    "char_start": r.get("char_start"),
-                    "char_end": r.get("char_end"),
-                    "snippet": snippet,
-                    "content": r["content"],
-                    "content_hash": r["content_hash"],
-                    "metadata": r.get("metadata", {}),
-                })
+            if "lexical_retrieval_unavailable" in (degraded_reason or ""):
+                # Degraded Hybrid: Direct Dense Fallback without fabricating lexical scores
+                for rank, r in enumerate(dense_candidates[:top_k], start=1):
+                    snippet = generate_real_snippet(r["content"], norm_q.tokens)
+                    final_results.append({
+                        "rank": rank,
+                        "chunk_id": r["chunk_id"],
+                        "file_id": r["file_id"],
+                        "score": r["score"],
+                        "rrf_score": None,
+                        "lexical_score": None,
+                        "dense_score": r["score"],
+                        "lexical_rank": None,
+                        "dense_rank": rank,
+                        "retrieval_method": "dense_fallback",
+                        "source_file": r["source_file"],
+                        "source_path": r["source_path"],
+                        "page": r.get("page"),
+                        "section": r.get("section"),
+                        "h1_parent": r.get("h1_parent"),
+                        "h2_parent": r.get("h2_parent"),
+                        "line_start": r.get("line_start"),
+                        "line_end": r.get("line_end"),
+                        "char_start": r.get("char_start"),
+                        "char_end": r.get("char_end"),
+                        "snippet": snippet,
+                        "content": r["content"],
+                        "content_hash": r["content_hash"],
+                        "metadata": r.get("metadata", {}),
+                    })
+            else:
+                # Degraded Hybrid: Direct BM25 Fallback without fabricating dense scores
+                for rank, r in enumerate(lexical_candidates[:top_k], start=1):
+                    snippet = generate_real_snippet(r["content"], norm_q.tokens)
+                    final_results.append({
+                        "rank": rank,
+                        "chunk_id": r["chunk_id"],
+                        "file_id": r["file_id"],
+                        "score": r["score"],
+                        "rrf_score": None,
+                        "lexical_score": r["score"],
+                        "dense_score": None,
+                        "lexical_rank": rank,
+                        "dense_rank": None,
+                        "retrieval_method": "bm25_fallback",
+                        "source_file": r["source_file"],
+                        "source_path": r["source_path"],
+                        "page": r.get("page"),
+                        "section": r.get("section"),
+                        "h1_parent": r.get("h1_parent"),
+                        "h2_parent": r.get("h2_parent"),
+                        "line_start": r.get("line_start"),
+                        "line_end": r.get("line_end"),
+                        "char_start": r.get("char_start"),
+                        "char_end": r.get("char_end"),
+                        "snippet": snippet,
+                        "content": r["content"],
+                        "content_hash": r["content_hash"],
+                        "metadata": r.get("metadata", {}),
+                    })
 
         else:  # Hybrid RRF
             # Map candidate chunk_ids to their ranks and scores
@@ -267,14 +337,22 @@ class HybridRetriever:
                 dense_score = dense_item["score"] if dense_item else None
 
                 # Exact filename and stem boost for RRF priority
+                # Calibrated conditional promotion: top lexical exact-stem matches (lex_rank <= 3)
+                # are boosted to ensure file discovery (e.g. 'sample' -> 'sample.txt'), while lower-ranked
+                # tail candidates receive a smaller boost to preserve dual-arm semantic superiority.
                 sf = (base_item.get("source_file") or "").lower()
-                stem = sf.rsplit(".", 1)[0] if "." in sf else sf
-                if q_raw_lower == sf or q_raw_lower == stem:
-                    rrf_score += 0.05
-                elif any(tok.lower() == stem for tok in norm_q.tokens if len(tok) >= 2):
-                    rrf_score += 0.02
+                direct_stem, root_stem = extract_filename_stems(sf)
+                stems = {direct_stem.lower(), root_stem.lower()}
+
+                if q_raw_lower == sf or q_raw_lower in stems:
+                    if lex_rank is not None and lex_rank <= 3:
+                        rrf_score += 0.0200
+                    else:
+                        rrf_score += 0.0050
                 elif any(tok.lower() == sf for tok in norm_q.tokens if len(tok) >= 2):
-                    rrf_score += 0.03
+                    rrf_score += 0.0080
+                elif any(tok.lower() in stems for tok in norm_q.tokens if len(tok) >= 2):
+                    rrf_score += 0.0050
 
                 scored_candidates.append({
                     "chunk_id": cid,
@@ -329,6 +407,11 @@ class HybridRetriever:
         latencies["rrf_fusion"] = round((time.perf_counter() - t0) * 1000.0, 3)
         latencies["total_request"] = round((time.perf_counter() - t_request_start) * 1000.0, 3)
 
+        if degraded:
+            retrieval_method = "dense_fallback" if "lexical_retrieval_unavailable" in (degraded_reason or "") else "bm25_fallback"
+        else:
+            retrieval_method = mode
+
         return {
             "query": norm_q.raw_query,
             "mode": mode,
@@ -337,5 +420,5 @@ class HybridRetriever:
             "results": final_results,
             "degraded": degraded,
             "degraded_reason": degraded_reason,
-            "retrieval_method": "bm25_fallback" if degraded else mode,
+            "retrieval_method": retrieval_method,
         }

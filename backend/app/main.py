@@ -288,7 +288,14 @@ def list_jobs(status_filter: Optional[str] = Query(None, alias="status"), limit:
 
 @app.post("/fs/action", response_model=ActionResponse, tags=["Filesystem"])
 def execute_safe_action(payload: ActionRequest) -> ActionResponse:
-    """Execute allowlisted, safe, deterministic desktop filesystem actions."""
+    """Execute allowlisted, safe, deterministic desktop filesystem actions.
+
+    Security boundary: the target path MUST resolve inside at least one currently
+    registered FileMind folder.  This prevents arbitrary filesystem access even
+    when the API is reachable locally.
+    """
+    from app.core.security import is_path_within_root
+
     try:
         target_path = normalize_path(payload.target_path)
     except Exception as exc:
@@ -299,6 +306,37 @@ def execute_safe_action(payload: ActionRequest) -> ActionResponse:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Target path does not exist: {target_path}",
         )
+
+    # -----------------------------------------------------------------------
+    # Registered-folder scope check
+    # -----------------------------------------------------------------------
+    # For OPEN_FOLDER on a file path, the OS opens the file's containing
+    # directory (existing semantics: explorer /select,<file>).  The scope check
+    # must pass for the file itself (or its parent dir) to be within a
+    # registered folder — we check the canonical file path, which implicitly
+    # covers its parent.
+    with db_manager.session() as _scope_conn:
+        _scope_repo = Repository(_scope_conn)
+        registered_folders = _scope_repo.list_folders()
+
+    allowed = False
+    for rf in registered_folders:
+        rf_path = rf.get("path", "")
+        if not rf_path:
+            continue
+        try:
+            if is_path_within_root(target_path, rf_path):
+                allowed = True
+                break
+        except Exception:
+            continue
+
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: target path is outside all registered FileMind folders.",
+        )
+    # -----------------------------------------------------------------------
 
     action = payload.action
 
