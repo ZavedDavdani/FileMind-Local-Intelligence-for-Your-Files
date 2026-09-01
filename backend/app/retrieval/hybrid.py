@@ -15,9 +15,11 @@ import sqlite3
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from app.core.config import DEFAULT_RERANK_POOL
 from app.retrieval.embeddings import EmbeddingEngine, default_embedding_engine
 from app.retrieval.lexical import LexicalRetriever, extract_filename_stems
 from app.retrieval.normalizer import NormalizedQuery, normalize_query
+from app.retrieval.reranker import Reranker, default_reranker
 from app.retrieval.vector_store import BaseVectorStore, SqliteVecStore
 
 logger = logging.getLogger("FileMind.Retrieval.Hybrid")
@@ -88,6 +90,9 @@ def generate_real_snippet(content: str, query_tokens: List[str], max_chars: int 
     return f"{prefix}{snippet}{suffix}"
 
 
+_DEFAULT_RERANKER = object()
+
+
 class HybridRetriever:
     """Combines lexical and dense retrieval using Reciprocal Rank Fusion (RRF)."""
 
@@ -96,8 +101,10 @@ class HybridRetriever:
         db_conn: sqlite3.Connection,
         embedding_engine: Optional[EmbeddingEngine] = None,
         vector_store: Optional[BaseVectorStore] = None,
+        reranker: Any = _DEFAULT_RERANKER,
         rrf_k: int = DEFAULT_RRF_K,
         candidate_pool_size: int = DEFAULT_CANDIDATE_POOL,
+        rerank_candidate_pool_size: int = DEFAULT_RERANK_POOL,
     ):
         self.conn = db_conn
         self.embedding_engine = embedding_engine or default_embedding_engine
@@ -105,8 +112,10 @@ class HybridRetriever:
             db_conn, dimension=self.embedding_engine.dimension
         )
         self.lexical_retriever = LexicalRetriever(db_conn)
+        self.reranker = default_reranker if reranker is _DEFAULT_RERANKER else reranker
         self.rrf_k = rrf_k
         self.candidate_pool_size = candidate_pool_size
+        self.rerank_candidate_pool_size = rerank_candidate_pool_size
 
     def search(
         self,
@@ -141,6 +150,7 @@ class HybridRetriever:
             "query_embedding": 0.0,
             "dense_search": 0.0,
             "rrf_fusion": 0.0,
+            "reranker_inference": 0.0,
             "total_request": 0.0,
         }
 
@@ -240,6 +250,13 @@ class HybridRetriever:
             for rank, r in enumerate(lexical_candidates[:top_k], start=1):
                 r_copy = dict(r)
                 r_copy["rank"] = rank
+                r_copy["reranker_score"] = None
+                r_copy["rrf_score"] = None
+                r_copy["dense_score"] = None
+                r_copy["dense_rank"] = None
+                r_copy["lexical_score"] = r.get("score")
+                r_copy["lexical_rank"] = rank
+                r_copy["retrieval_method"] = "bm25"
                 r_copy["snippet"] = generate_real_snippet(r_copy["content"], norm_q.tokens)
                 final_results.append(r_copy)
 
@@ -247,6 +264,13 @@ class HybridRetriever:
             for rank, r in enumerate(dense_candidates[:top_k], start=1):
                 r_copy = dict(r)
                 r_copy["rank"] = rank
+                r_copy["reranker_score"] = None
+                r_copy["rrf_score"] = None
+                r_copy["lexical_score"] = None
+                r_copy["lexical_rank"] = None
+                r_copy["dense_score"] = r.get("score")
+                r_copy["dense_rank"] = rank
+                r_copy["retrieval_method"] = "dense"
                 r_copy["snippet"] = generate_real_snippet(r_copy["content"], norm_q.tokens)
                 final_results.append(r_copy)
 
@@ -260,6 +284,7 @@ class HybridRetriever:
                         "chunk_id": r["chunk_id"],
                         "file_id": r["file_id"],
                         "score": r["score"],
+                        "reranker_score": None,
                         "rrf_score": None,
                         "lexical_score": None,
                         "dense_score": r["score"],
@@ -290,6 +315,7 @@ class HybridRetriever:
                         "chunk_id": r["chunk_id"],
                         "file_id": r["file_id"],
                         "score": r["score"],
+                        "reranker_score": None,
                         "rrf_score": None,
                         "lexical_score": r["score"],
                         "dense_score": None,
@@ -312,7 +338,7 @@ class HybridRetriever:
                         "metadata": r.get("metadata", {}),
                     })
 
-        else:  # Hybrid RRF
+        else:  # Hybrid RRF + Phase 4 Cross-Encoder Reranker
             # Map candidate chunk_ids to their ranks and scores
             lex_ranks = {r["chunk_id"]: (rank, r) for rank, r in enumerate(lexical_candidates, start=1)}
             dense_ranks = {r["chunk_id"]: (rank, r) for rank, r in enumerate(dense_candidates, start=1)}
@@ -374,22 +400,30 @@ class HybridRetriever:
                 )
             )
 
-            for rank, cand in enumerate(scored_candidates[:top_k], start=1):
+            latencies["rrf_fusion"] = round((time.perf_counter() - t0) * 1000.0, 3)
+
+            # Stage F: Cross-Encoder Reranking
+            candidates_to_rerank = scored_candidates[:self.rerank_candidate_pool_size]
+            pre_rerank_items: List[Dict[str, Any]] = []
+
+            for rank, cand in enumerate(candidates_to_rerank, start=1):
                 item = cand["item"]
-                snippet = generate_real_snippet(item["content"], norm_q.tokens)
-                final_results.append({
+                item_content = item.get("content", "")
+                snippet = generate_real_snippet(item_content, norm_q.tokens)
+                pre_rerank_items.append({
                     "rank": rank,
-                    "chunk_id": item["chunk_id"],
-                    "file_id": item["file_id"],
+                    "chunk_id": item.get("chunk_id", cand["chunk_id"]),
+                    "file_id": item.get("file_id", ""),
                     "score": cand["rrf_score"],
+                    "reranker_score": None,
                     "rrf_score": cand["rrf_score"],
                     "lexical_score": cand["lexical_score"],
                     "dense_score": cand["dense_score"],
                     "lexical_rank": cand["lexical_rank"],
                     "dense_rank": cand["dense_rank"],
                     "retrieval_method": "hybrid",
-                    "source_file": item["source_file"],
-                    "source_path": item["source_path"],
+                    "source_file": item.get("source_file", ""),
+                    "source_path": item.get("source_path", ""),
                     "page": item.get("page"),
                     "section": item.get("section"),
                     "h1_parent": item.get("h1_parent"),
@@ -399,16 +433,41 @@ class HybridRetriever:
                     "char_start": item.get("char_start"),
                     "char_end": item.get("char_end"),
                     "snippet": snippet,
-                    "content": item["content"],
-                    "content_hash": item["content_hash"],
+                    "content": item_content,
+                    "content_hash": item.get("content_hash", ""),
                     "metadata": item.get("metadata", {}),
                 })
 
-        latencies["rrf_fusion"] = round((time.perf_counter() - t0) * 1000.0, 3)
+            if pre_rerank_items and self.reranker is not None:
+                t_rerank = time.perf_counter()
+                try:
+                    final_results = self.reranker.rerank(
+                        query=norm_q.raw_query,
+                        candidates=pre_rerank_items,
+                        top_k=top_k,
+                    )
+                    latencies["reranker_inference"] = round((time.perf_counter() - t_rerank) * 1000.0, 3)
+                except Exception as rerank_exc:
+                    logger.warning(
+                        "Reranker unavailable during hybrid search; degrading to RRF ranking: %s",
+                        str(rerank_exc),
+                    )
+                    degraded = True
+                    degraded_reason = f"reranker_unavailable: {str(rerank_exc)}"
+                    latencies["reranker_inference"] = round((time.perf_counter() - t_rerank) * 1000.0, 3)
+                    final_results = pre_rerank_items[:top_k]
+            else:
+                final_results = pre_rerank_items[:top_k]
+
         latencies["total_request"] = round((time.perf_counter() - t_request_start) * 1000.0, 3)
 
         if degraded:
-            retrieval_method = "dense_fallback" if "lexical_retrieval_unavailable" in (degraded_reason or "") else "bm25_fallback"
+            if "lexical_retrieval_unavailable" in (degraded_reason or ""):
+                retrieval_method = "dense_fallback"
+            elif "dense_retrieval_unavailable" in (degraded_reason or ""):
+                retrieval_method = "bm25_fallback"
+            else:
+                retrieval_method = "hybrid"
         else:
             retrieval_method = mode
 

@@ -38,6 +38,9 @@
     "externalBin": [
       "binaries/filemind-backend"
     ],
+    "resources": [
+      "binaries/filemind-backend-dir/**/*"
+    ],
     "windows": {
       "nsis": {
         "installMode": "currentUser",

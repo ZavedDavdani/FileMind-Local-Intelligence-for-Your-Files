@@ -325,6 +325,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 font-mono text-[11px]">
+                      {r.reranker_score !== null && r.reranker_score !== undefined && (
+                        <span className="text-purple-400 bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-800/40" title="Cross-Encoder Relevance Score">
+                          Rerank: {r.reranker_score.toFixed(3)}
+                        </span>
+                      )}
                       {r.rrf_score !== null && r.rrf_score !== undefined && (
                         <span className="text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
                           RRF: {r.rrf_score.toFixed(4)}

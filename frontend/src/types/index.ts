@@ -142,12 +142,13 @@ export interface SearchResultItem {
   chunk_id: string;
   file_id: string;
   score: number;
+  reranker_score?: number | null;
   rrf_score?: number | null;
   lexical_score?: number | null;
   dense_score?: number | null;
   lexical_rank?: number | null;
   dense_rank?: number | null;
-  retrieval_method: "hybrid" | "bm25" | "dense";
+  retrieval_method: "hybrid" | "bm25" | "dense" | string;
   source_file: string;
   source_path: string;
   page?: number | null;
@@ -198,6 +199,7 @@ export interface SearchLatencyBreakdown {
   query_embedding: number;
   dense_search: number;
   rrf_fusion: number;
+  reranker_inference?: number;
   total_request: number;
 }
 

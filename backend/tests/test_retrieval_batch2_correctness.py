@@ -262,6 +262,7 @@ def test_bug7_adversarial_1_exact_filename_vs_strong_dense_match():
         conn,
         embedding_engine=MockEmbeddingEngine(),
         vector_store=MockVectorStore(dense_candidates),
+        reranker=None,
     )
     retriever.lexical_retriever = MockLexicalRetriever(lex_candidates)
 
@@ -285,6 +286,7 @@ def test_bug7_adversarial_2_exact_filename_vs_strong_bm25_content_match():
         vector_store=MockVectorStore([
             {"chunk_id": "c_content", "file_id": "f_content", "score": 0.92, "source_file": "deep_analysis.pdf", "source_path": "/docs/deep.pdf", "content": "Testing methodology.", "content_hash": "h1"},
         ]),
+        reranker=None,
     )
     lex_candidates = [
         {"chunk_id": "c_content", "file_id": "f_content", "score": 25.0, "source_file": "deep_analysis.pdf", "source_path": "/docs/deep.pdf", "content": "Testing methodology.", "content_hash": "h1"},
@@ -315,6 +317,7 @@ def test_bug7_adversarial_3_exact_filename_plus_strong_content_match():
             {"chunk_id": "c_target", "file_id": "f_target", "score": 0.90, "source_file": "sample.txt", "source_path": "/docs/sample.txt", "content": "Sample file content.", "content_hash": "h1"},
             {"chunk_id": "c_other", "file_id": "f_other", "score": 0.89, "source_file": "other.txt", "source_path": "/docs/other.txt", "content": "Sample file reference.", "content_hash": "h2"},
         ]),
+        reranker=None,
     )
     retriever.lexical_retriever = MockLexicalRetriever([
         {"chunk_id": "c_target", "file_id": "f_target", "score": 15.0, "source_file": "sample.txt", "source_path": "/docs/sample.txt", "content": "Sample file content.", "content_hash": "h1"},
@@ -336,6 +339,7 @@ def test_bug7_adversarial_4_partial_filename_vs_unrelated_content_match():
             {"chunk_id": "c1", "file_id": "f1", "score": 0.85, "source_file": "FILEMIND_PRACTICAL_ALPHA.txt", "source_path": "/p.txt", "content": "alpha notes", "content_hash": "h1"},
             {"chunk_id": "c2", "file_id": "f2", "score": 0.84, "source_file": "unrelated.txt", "source_path": "/u.txt", "content": "practical test", "content_hash": "h2"},
         ]),
+        reranker=None,
     )
     retriever.lexical_retriever = MockLexicalRetriever([
         {"chunk_id": "c1", "file_id": "f1", "score": 10.0, "source_file": "FILEMIND_PRACTICAL_ALPHA.txt", "source_path": "/p.txt", "content": "alpha notes", "content_hash": "h1"},
@@ -373,6 +377,7 @@ def test_bug7_adversarial_5_weak_filename_in_single_retrieval_arm():
         conn,
         embedding_engine=MockEmbeddingEngine(),
         vector_store=MockVectorStore(dense_candidates),
+        reranker=None,
     )
     retriever.lexical_retriever = MockLexicalRetriever(lex_candidates)
 
@@ -394,6 +399,7 @@ def test_bug7_adversarial_6_filename_in_both_retrieval_arms():
             {"chunk_id": "c_both", "file_id": "f_both", "score": 0.95, "source_file": "notes.md", "source_path": "/n.md", "content": "daily notes", "content_hash": "h1"},
             {"chunk_id": "c_other", "file_id": "f_other", "score": 0.80, "source_file": "other.md", "source_path": "/o.md", "content": "some notes", "content_hash": "h2"},
         ]),
+        reranker=None,
     )
     retriever.lexical_retriever = MockLexicalRetriever([
         {"chunk_id": "c_both", "file_id": "f_both", "score": 15.0, "source_file": "notes.md", "source_path": "/n.md", "content": "daily notes", "content_hash": "h1"},
@@ -419,6 +425,7 @@ def test_bug7_exact_stem_discovery_restores_intended_filename_priority():
         vector_store=MockVectorStore([
             {"chunk_id": "c_dense_only", "file_id": "f_dense", "score": 0.95, "source_file": "Copy of WEEK 04.pdf", "source_path": "/doc.pdf", "content": "sampling distributions", "content_hash": "h1"},
         ]),
+        reranker=None,
     )
     retriever.lexical_retriever = MockLexicalRetriever([
         {"chunk_id": "c_exact_file", "file_id": "f_exact", "score": 15.0, "source_file": "sample.txt", "source_path": "/sample.txt", "content": "sample verification test", "content_hash": "h2"},

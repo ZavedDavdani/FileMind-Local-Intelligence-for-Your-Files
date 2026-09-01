@@ -262,6 +262,7 @@ class SearchResultItem(BaseModel):
     chunk_id: str
     file_id: str
     score: float
+    reranker_score: Optional[float] = None
     rrf_score: Optional[float] = None
     lexical_score: Optional[float] = None
     dense_score: Optional[float] = None

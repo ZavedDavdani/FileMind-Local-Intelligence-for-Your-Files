@@ -128,8 +128,7 @@ def normalize_query(raw_query: Optional[str]) -> NormalizedQuery:
             # If the token contains multiple sub-parts (e.g. sample.txt or FILEMIND_PRACTICAL),
             # support both composite prefix matching and constituent sub-tokens in FTS5
             if len(subparts) > 1:
-                sub_expr = " ".join(f'"{s}"*' if len(s) >= 2 else f'"{s}"' for s in subparts)
-                fts_parts.append(f'("{safe_t}"* OR ({sub_expr}))')
+                fts_parts.append(f'"{safe_t}"')
             elif len(safe_t) >= 2 and not safe_t.endswith("*"):
                 fts_parts.append(f'"{safe_t}"*')
             else:

@@ -48,13 +48,13 @@ Installed Application Practical Verification:
 VERIFIED PASS
 
 Full Backend Regression:
-175 / 175 PASS
+192 / 192 PASS
 
 Hybrid Fallback Regression:
 14 / 14 PASS
 
-Phase 4:
-NOT STARTED
+Phase 4 — Cross-Encoder Reranking:
+VERIFIED PASS
 
 Phase 5:
 NOT STARTED
@@ -1448,20 +1448,62 @@ The packaged Windows application was freshly rebuilt, packaged via Tauri into NS
 
 ---
 
-### Explicit Phase 4 & Phase 5 Boundaries (Strictly NOT Authorized)
+### Phase 4: Local Cross-Encoder Reranking Validated State
+- **Status**: **COMPLETE / PASS**.
+- **Architecture**:
+  ```
+  BM25 (SQLite FTS5) + Dense (SQLite-Vec)
+            ↓
+      RRF Fusion (k=60)
+            ↓
+    Top-25 Candidates Pool
+            ↓
+  Cross-Encoder (BAAI/bge-reranker-base)
+            ↓
+     Final Search Results
+  ```
+- **Technical Implementation Details**:
+  - **Local Cross-Encoder Engine**: `BAAI/bge-reranker-base` executed locally via FastEmbed ONNX Runtime (`TextCrossEncoder`), requiring zero PyTorch or GPU dependencies.
+  - **Candidate Pool Limitation**: Top 25 candidates (`RERANK_CANDIDATE_POOL_SIZE = 25`) sliced from initial RRF fusion candidates for joint query-document scoring.
+  - **Score Formulation & Semantics**: Raw unbounded cross-encoder logits are converted via numerically stable sigmoid $\sigma(z) = \frac{1}{1 + e^{-z}}$ into a **normalized bounded relevance score** in `(0, 1)`, stored in `reranker_score`. Sigmoid transformation ensures monotonic mapping and strictly positive scores without claiming probabilistic calibration.
+  - **Deterministic 5-Level Tie-Breaking**:
+    $$\text{Sort Key} = (\text{reranker\_score } \downarrow, \text{ rrf\_score } \downarrow, \text{ dense\_score } \downarrow, \text{ lexical\_score } \downarrow, \text{ chunk\_id } \uparrow)$$
+  - **Evidence & Provenance Preservation**: All first-stage retrieval evidence (`lexical_score`, `dense_score`, `rrf_score`, `lexical_rank`, `dense_rank`) and complete document provenance (`source_file`, `source_path`, `heading_h1`, `heading_h2`, `page_number`, `line_start`, `line_end`, `char_start`, `char_end`, `content_hash`, `chunk_id`, `file_id`) are preserved intact.
+  - **Search Mode Bypass**: Direct `mode="bm25"` and `mode="dense"` queries bypass cross-encoder reranking entirely (`reranker_score = None`, `latency_breakdown_ms.reranker_inference = 0.0`).
+  - **Graceful Fallback & Fault Tolerance**: If the reranker model fails to load, encounters an inference error, or exceeds initialization timeout, hybrid retrieval gracefully degrades to standard RRF ranking with `degraded = True`, `degraded_reason = "reranker_unavailable: ..."`, and `reranker_score = None`.
+  - **Independent Latency Telemetry**: Dedicated `reranker_inference` duration measured independently in `latency_breakdown_ms` alongside `normalization`, `lexical_search`, `query_embedding`, `dense_search`, and `rrf_fusion`.
+  - **Measured CPU Latency**: ~1.05 s – 1.18 s reranker inference duration on CPU for the 25-candidate pool (~1.1 s – 1.3 s total request latency).
+- **Verification Evidence**:
+  - **Phase 4 Acceptance Requirements**: **20 / 20 requirements verified** (19 direct, 1 indirect/hardened).
+  - **Dedicated Reranker Tests**: `backend/tests/test_reranker.py` (**17 / 17 PASS**).
+  - **Hybrid Fallback Tests**: `backend/tests/test_hybrid_fallback.py` (**14 / 14 PASS**).
+  - **Full Backend Test Suite**: **192 / 192 PASS** (100% in 200.46s).
+  - **Frontend Production Build**: `tsc && vite build` (**0 TypeScript errors**).
+  - **Packaged Windows Release**: Verified fresh build of WiX MSI (`FileMind_0.1.0_x64_en-US.msi`) and NSIS installer (`FileMind_0.1.0_x64-setup.exe`) with bundled PyInstaller `--onedir` backend sidecar and `WebView2Loader.dll`. Note: `src-tauri/tauri.conf.json` was intentionally updated with `"resources": ["binaries/filemind-backend-dir/**/*"]` to bundle the complete backend directory.
+  - **Installed Practical Evaluation**: Tested against `C:\FileMind-Practical-Test` (`sample.txt`, `test.txt`, `notes.md`), confirming correct top-1 retrieval and semantic reordering over RRF baseline.
+- **Files Created & Modified for Phase 4**:
+  - `backend/app/retrieval/reranker.py` (Created — Cross-Encoder engine with `BAAI/bge-reranker-base`)
+  - `backend/app/retrieval/hybrid.py` (Modified — Phase 4 reranking integration, score contracts, RRF fallback)
+  - `backend/app/core/config.py` (Modified — Reranker model and pool constants)
+  - `backend/app/schemas.py` (Modified — `reranker_score` field in search response schema)
+  - `backend/tests/test_reranker.py` (Created — 17 dedicated Phase 4 acceptance tests)
+  - `frontend/src/types/index.ts` (Modified — TypeScript search and latency types)
+  - `frontend/src/components/SearchModal.tsx` (Modified — Rerank score UI badge)
+  - `src-tauri/tauri.conf.json` (Modified — Added `"resources": ["binaries/filemind-backend-dir/**/*"]` for ONEDIR packaging)
 
-The following capabilities belong to Phase 4 and Phase 5 and are **STRICTLY NOT STARTED / NOT IMPLEMENTED**:
-- **No reranker**: No cross-encoder models (e.g. `bge-reranker-base`), Fast/Quality mode switching, or post-RRF reranking stages.
-- **No cross-encoder**: No neural cross-attention score compute pipelines.
+---
+
+### Explicit Phase 5 Boundaries (Strictly NOT Authorized)
+
+The following capabilities belong to Phase 5 and are **STRICTLY NOT STARTED / NOT IMPLEMENTED**:
 - **No LLM**: No local Ollama, llama.cpp, OpenAI, or HuggingFace generative models integrated.
 - **No RAG pipeline**: No context packing, generative prompting, citation generation by LLM, or question-answering flows.
-- **No Phase 4/5 implementation**: Zero code for Phase 4 or Phase 5 exists in the repository.
+- **No Agents**: No autonomous agent loops, tools, or generative reasoning engines.
+- **No Phase 5 implementation**: Zero code for Phase 5 exists in the repository.
 
 > [!IMPORTANT]
-> **HARD STOP — PRE-PHASE-4 FOUNDATION VERIFIED COMPLETE.**
-> **ALL 12 PRE-PHASE-4 DEFECTS RESOLVED & VERIFIED PASS.**
-> **FULL BACKEND REGRESSION: 175 / 175 PASS.**
-> **PHASE 4 NOT STARTED.**
+> **HARD STOP — PHASE 4 VERIFIED COMPLETE.**
+> **FULL BACKEND REGRESSION: 192 / 192 PASS.**
 > **PHASE 5 NOT STARTED.**
 
 
