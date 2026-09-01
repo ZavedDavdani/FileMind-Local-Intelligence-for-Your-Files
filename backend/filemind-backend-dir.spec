@@ -1,4 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
+#
+# NOTE: This file is a PyInstaller-generated spec artifact. The authoritative
+# build entrypoint is backend/build_backend.py, which invokes PyInstaller
+# directly with --noconsole (and will regenerate/overwrite this file on the
+# next `python build_backend.py` run). `console` below is kept in sync with
+# that --noconsole flag so this file cannot be built manually with the wrong
+# (visible console window) result if invoked directly via
+# `pyinstaller filemind-backend-dir.spec`.
 from PyInstaller.utils.hooks import collect_all
 
 datas = []
@@ -51,7 +59,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
