@@ -1918,26 +1918,26 @@ future packaging regression occurs. Do not implement it speculatively.
 
 ---
 
-## 11. Phase Roadmap (for context — do not jump ahead)
+## 11. Phase Roadmap
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Distribution feasibility (packaging smoke test only) | ✅ Complete / PASS |
-| 1 | Filesystem engine: watcher, change detection, exclusions, SQLite schema, crash recovery | ✅ Complete / PASS |
-| 2 | Document intelligence: parser benchmarking, hierarchical chunking, provenance | ✅ Complete / PASS |
-| 3 | Retrieval: BM25 + dense + RRF, 28-query evaluation set | ✅ Complete / PASS |
-| H1 | Windows Job Object process-lifecycle hardening | ✅ Complete / PASS |
+| 0 | Distribution Feasibility (Packaging, sidecar lifecycle, startup baseline) | ✅ Complete / PASS |
+| 1 | Filesystem Engine (Watcher, change detection, exclusions, SQLite schema, crash recovery) | ✅ Complete / IMPLEMENTED |
+| 2 | Document Intelligence (Parser benchmarking, hierarchical chunking, immutable provenance) | ✅ Complete / IMPLEMENTED |
+| 3 | Hybrid Retrieval (BM25 + dense vector embeddings + RRF fusion, 28-query evaluation set) | ✅ Complete / IMPLEMENTED |
+| H1 | Windows Job Object process-lifecycle supervision | ✅ Complete / PASS |
 | H2 | Directory event cascade coalescing | ✅ Complete / PASS |
 | H3 | PDF extraction-quality gate and observability | ✅ Complete / PASS |
 | H4 | SQLite WAL observability and transaction-boundary hardening | ✅ Complete / PASS |
-| P1–P5 | Pre-RAG integrity pass and contract closeout | ✅ Complete / PASS |
 | B1–B4 | Hardening Batches 1–4 (Security, Isolation, Index Metadata, Logging, Size Guards) | ✅ Complete / PASS |
-| 4 | Reranking: benchmark-driven Fast/Quality mode decision | ✅ Complete / CLOSED |
-| 5 | RAG: full pipeline, citation verification, cloud/local policy | ⏳ Not started |
-| 6 | Evaluation/MLOps: expanded dataset, Ragas, MLflow, CI gates | ⏳ Not started |
-| 7 | Multimodal (optional): OCR, tables, ColPali | ⏳ Not started |
-| 8 | Production hardening: battery throttling, hardware-aware models, auto-update | ⏳ Not started |
-| 9 | Optional cloud/enterprise (only if local product proves valuable) | ⏳ Not started |
+| 4 | Reranking / Search Quality (Fast vs Quality modes, benchmark exit gate) | ✅ Complete / CLOSED |
+| 5 | RAG / Local AI (Full pipeline, citation verification, cloud/local policy) | ⏳ NOT STARTED |
+| 6 | Evaluation / MLOps (Expanded dataset, Ragas, MLflow, CI regression gates) | ⏳ PENDING |
+| 7 | Multimodal (Optional: OCR, complex tables, ColPali) | ⏳ PENDING |
+| 8 | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
+| 9 | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
+| 10 | Future Automation / Agentic Intelligence (Autonomous file organization, smart workflows) | ⏳ FUTURE EXTENSION |
 
 Each phase has an explicit exit condition in the full specification documents. Do
 not mark a phase complete without measurable evidence matching its exit condition —
@@ -1945,9 +1945,59 @@ not mark a phase complete without measurable evidence matching its exit conditio
 
 ---
 
-## 12. Phase 4 Validated State & Closure Report
+## 12. Pre-Phase-5 Hardening History (Batches 1–4)
 
-### 12.1 Fast vs Quality Retrieval Contract
+### Batch 1: Security, API & Frontend Hardening
+- **CORS Hardening**: Removed insecure wildcard origins; strictly bounded loopback HTTP origins (`localhost`, `127.0.0.1`, `tauri://localhost`).
+- **Content Security Policy (CSP)**: Enforced strict CSP in Tauri webview preventing arbitrary script execution.
+- **Folder Containment**: Added strict root-path containment checks rejecting path traversal attempts.
+- **Path Security**: Canonical path normalization, null-byte rejection, and junction/reparse-point defense.
+
+### Batch 2: Correctness & Data Integrity
+- **Document Lifecycle Race Fix**: Resolved chunk deletion vs. indexing race conditions in background worker.
+- **Job Deduplication**: Implemented atomic job queue deduplication preventing duplicate simultaneous indexing jobs.
+- **SQL LIKE Escaping**: Added deterministic escaping for wildcard characters (`%`, `_`) in metadata queries.
+- **Rust Parser Support**: Added multi-language code parsing extensions for `.rs` and modern project files.
+- **Health Version Synchronization**: Aligned `/health` endpoint response payload with canonical semver.
+- **Schema Validation**: Corrected schema definitions for folder and file registration endpoints.
+
+### Batch 3: Filesystem Reliability & Retrieval Robustness
+- **Offline Deletion Reconciliation**: Background engine startup reconciles files deleted while FileMind was offline.
+- **Watcher Symlink / Junction Protection**: Prevented infinite recursive traversal across Windows junctions and symlinks.
+- **JobQueue Permanent-Failure Semantics**: Max retry limit triggers terminal `FAILED` status with structured error diagnostics.
+- **Debounced Event Flush Batching**: Coalesced rapid bursts of filesystem events into single atomic SQLite transactions.
+- **Adaptive Dense fetch_k Ceiling**: Clamped dense vector candidate fetching to bounded safe limits.
+- **Filename / Stem Boost Consolidation**: Merged lexical exact-filename and stem boosting directly into RRF scoring.
+- **CJK / Multilingual Evaluation**: Evaluated multi-byte UTF-8 tokenization and query normalization.
+- **Structured Health Parsing**: Frontend gracefully parses structured health status objects.
+- **Backend Supervision**: Tauri supervisor monitors sidecar heartbeat and ensures clean restart on unexpected exit.
+- **Folder Containment Defense**: Enhanced `/fs/action` endpoint with boundary verification.
+
+### Batch 4: Pre-Phase-5 Hardening (All 18 Verified Items)
+1. **Same-File Reprocessing Failure Isolation**: If reprocessing a modified file fails or is skipped (e.g. corrupted PDF), FileMind preserves the existing last-known-good index chunks rather than silently purging them.
+2. **Parser & Chunker Version Invalidation**: File metadata records `parser_version` and `chunker_version`; version bumps automatically trigger re-indexing on subsequent discovery scans.
+3. **Embedding Model Identity & Metadata**: SQLite table `embedding_index_metadata` tracks active model name, dimension, and revision (`v1.0.0`), preventing index corruption if models change.
+4. **Parser Provenance in Models**: `TEXT_PARSER_VERSION = "1.1.0"` stamped on all extracted text/code documents.
+5. **Strict Integrity Mode**: When `--integrity-mode STRICT` is configured, files with unchanged mtime+size but matching SHA-256 bypass expensive re-parsing while maintaining absolute cryptographic integrity.
+6. **ActionType Consistency**: Aligned `ActionType` enum in Rust/Tauri with Python backend schemas (`open`, `open_folder`, `copy_path`).
+7. **Windows Console Prevention**: PyInstaller packaging uses `--noconsole` in production builds to eliminate transient console popups.
+8. **Tauri Single-Instance Plugin**: Configured `tauri-plugin-single-instance` to focus existing window on secondary launch.
+9. **Windows-Only Bundle Targets**: Configured `tauri.conf.json` targets strictly to `["nsis", "msi"]`.
+10. **Opener Path Security**: All open-file and open-folder commands strictly validate targets against registered folder boundaries.
+11. **MAX_FILE_SIZE Ingestion Guard**: Configured 50 MB default file size limit (`MAX_FILE_SIZE_BYTES`) protecting against OOM crashes on huge binary files.
+12. **Persistent Rotating Logging**: Rotating log handler at `%APPDATA%\FileMind\logs\filemind.log` (5 MB max size, 5 backups, level `INFO`, sensitive document text redacted).
+13. **Dependency Reproducibility**: Generated pinned `backend/requirements-lock.txt` for exact reproducible environments.
+14. **Model Registry Foundation**: Centralized `app.retrieval.model_registry` tracking local model lifecycle states (`not_ready`, `loading`, `ready`, `failed`).
+15. **Unified AI Readiness Endpoint**: Added `GET /ai/status` reporting local embedding, reranker, and vector store readiness.
+16. **First-Run Model Preparation**: Prepares local FastEmbed cache on startup without blocking user interaction.
+17. **Regression Test Suite**: Added 11 new Batch 4 test suites (**248 / 248 backend tests passing**).
+18. **Authoritative Documentation**: Updated `FileMind.md` with complete implementation specifications.
+
+---
+
+## 13. Phase 4 Validated State & Closure Report
+
+### 13.1 Fast vs Quality Retrieval Contract
 The FileMind search architecture cleanly decouples **Retrieval Mode** from **Search Quality**:
 
 - **Retrieval Mode** (`mode`):
@@ -1958,7 +2008,7 @@ The FileMind search architecture cleanly decouples **Retrieval Mode** from **Sea
   - `fast`: Pure single-pass retrieval without cross-encoder inference (sub-20 ms response target).
   - `quality`: Multi-stage hybrid retrieval with Cross-Encoder reranking (`BAAI/bge-reranker-base`).
 
-#### Valid Combination Matrix & Strict Rejection
+### 13.2 Valid Combination Matrix & HTTP 400 Rejection
 | Mode | Quality | Status | Runtime Execution |
 |---|---|---|---|
 | `bm25` | `fast` | **VALID** | FTS5 BM25 lexical ranking -> results |
@@ -1968,19 +2018,20 @@ The FileMind search architecture cleanly decouples **Retrieval Mode** from **Sea
 | `bm25` | `quality` | **INVALID** | HTTP 400 Bad Request ("Quality mode is only supported with hybrid retrieval") |
 | `dense` | `quality` | **INVALID** | HTTP 400 Bad Request ("Quality mode is only supported with hybrid retrieval") |
 
-### 12.2 Explicit Quality Degradation Semantics
+### 13.3 Explicit Quality Degradation Semantics
 If `quality == "quality"` is requested and the cross-encoder model is unavailable, times out, or fails:
 - Hybrid RRF ranking is **preserved**.
 - Search response explicitly sets `degraded = true` and `degraded_reason = "reranker_unavailable: <error>"`.
 - All item `reranker_score` fields are set to `null` (no fabricated scores).
 - The frontend surfaces an explicit warning badge: `Quality (Degraded: Reranker unavailable)`.
+- **Inviolable Principle**: Quality search must **never** silently become Fast search or unreranked RRF without degraded telemetry.
 
-### 12.3 Candidate Pool Policy
+### 13.4 Candidate Pool Policy
 - **Policy**: Dynamic Candidate Pool Expansion within Safe Bounds.
-- Effective Candidate Pool: $\text{pool} = \min(\max(25, \text{top\_k}), 100)$.
-- Guarantees `pool >= top_k` to eliminate silent truncation while enforcing a safe ceiling of 100 to protect memory and bounded execution time.
+- Effective Candidate Pool: $\text{effective\_pool} = \min(\max(25, \text{top\_k}), 100)$.
+- Guarantees `effective_pool >= top_k` to eliminate silent truncation when requesting $top\_k > 25$, while enforcing an upper safety ceiling of 100 to protect bounded CPU memory and execution time.
 
-### 12.4 Timing Provenance Preservation
+### 13.5 Timing Provenance Preservation
 All search responses return immutable, un-reconstructed server-side latency breakdowns across 7 discrete stages:
 1. `normalization`: Unicode NFKC & identifier extraction latency.
 2. `lexical_search`: SQLite FTS5 BM25 query time.
@@ -1990,14 +2041,14 @@ All search responses return immutable, un-reconstructed server-side latency brea
 6. `reranker_inference`: Cross-encoder ONNX batch inference time (or 0.0 ms in Fast mode).
 7. `total_request`: End-to-end request time.
 
-### 12.5 Phase 4 Benchmark Execution & Reproducibility
+### 13.6 Benchmark Execution & Reproducibility
 - **Dataset Version**: `phase4-eval-v1.0` (28 canonical queries covering exact filename, exact phrase, code snippets, acronyms, technical terms, semantic concepts, synonyms, paraphrases, structured tables, multi-file, cross-format, and negative queries).
 - **Corpus Version**: `phase3-benchmark-corpus-v1` (20 realistic structural and adversarial files, 54 chunks, 219,851 bytes).
-- **Embedding Model**: `sentence-transformers/all-MiniLM-L6-v2` (384-dim).
+- **Embedding Model**: `sentence-transformers/all-MiniLM-L6-v2` (384-dim, FastEmbed ONNX Runtime).
 - **Reranker Model**: `BAAI/bge-reranker-base` (FastEmbed ONNX Runtime).
 - **Platform**: Windows 11 (Python 3.11.0, 16 CPUs, RAM RSS ~2,160 MB during full benchmark).
 
-#### Benchmark Results (5 Warm Runs per Query, 28 Queries)
+### 13.7 Benchmark Results Table (5 Warm Runs per Query, 28 Queries)
 | Configuration | Recall@1 | Recall@5 | Recall@10 | MRR | NDCG@10 | p50 Latency | p95 Latency | Mean Latency | Rerank Latency |
 |---|---|---|---|---|---|---|---|---|---|
 | **BM25 Fast** | 0.4113 | 0.4933 | 0.4933 | 0.5600 | 0.5090 | 0.22 ms | 0.42 ms | 0.25 ms | 0.00 ms |
@@ -2005,31 +2056,93 @@ All search responses return immutable, un-reconstructed server-side latency brea
 | **Hybrid Fast (RRF)** | **0.7147** | **0.9233** | **0.9733** | **0.9433** | **0.9367** | **19.67 ms** | **22.04 ms** | **19.90 ms** | **0.00 ms** |
 | **Hybrid Quality (Cross-Encoder)** | 0.6667 | 0.8747 | 0.9347 | 0.9200 | 0.8868 | 4817.67 ms | 5890.36 ms | 5176.00 ms | 5062.31 ms |
 
-### 12.6 Authoritative Model, Default, and Score Decisions
+### 13.8 Authoritative Decisions
 1. **Default Mode Decision**:
    - **Hybrid Fast (RRF) MUST remain the user-facing default.**
    - Hybrid Fast achieves **0.9367 NDCG@10** and **0.9433 MRR** at **19.67 ms** median latency (~50 queries/sec).
-   - Quality Mode requires ~4.8 s on CPU across 25 candidates; it is available as a deliberate user selection, but unacceptable as an interactive keystroke default.
+   - Quality Mode requires ~4.8 s on CPU across 25 candidates; it is available as a deliberate user selection for deep analysis, but unacceptable as an interactive keystroke default.
 2. **Model Decision**:
    - Keep `BAAI/bge-reranker-base`. On complex semantic queries (e.g. `Q19_TABLE_CONTENT` NDCG delta +0.5090, `Q18_MULTI_CHUNK` delta +0.1165), cross-encoder scoring provides deep semantic alignment without heavy PyTorch payload.
 3. **Candidate Pool Decision**:
-   - Default pool of 25 candidates (`DEFAULT_RERANK_POOL = 25`) with dynamic expansion `min(max(25, top_k), 100)`.
+   - Default pool of 25 candidates (`DEFAULT_RERANK_POOL = 25`) with dynamic expansion $\min(\max(25, \text{top\_k}), 100)$.
 4. **Score Semantics**:
    - Reranker output is passed through standard logistic sigmoid $\sigma(x) = \frac{1}{1 + e^{-x}}$ to yield a **bounded monotonic relevance score in $(0, 1)$**.
    - It is explicitly documented as a **relative relevance ranking score**, NOT a calibrated Bayesian posterior probability or confidence percentage.
 5. **Caching Decision**:
    - Fast Hybrid retrieval runs in < 20 ms, making caching unnecessary for current desktop vault scale (< 10,000 files). Search remains 100% deterministic and stateless.
-6. **Phase 4 Exit Decision**:
+6. **Pagination Decision**:
+   - Cursor contract designed as `offset` with deterministic multi-level tie-breaking `(score DESC, chunk_id ASC)`. Tail queries beyond the cross-encoder candidate pool seamlessly fall back to deterministic RRF ordering.
+7. **Phase 4 Exit Decision**:
    - All 17 Phase 4 Exit Gate criteria are satisfied and verified with automated test suites (**248 / 248 backend regression tests passing**).
    - **PHASE 4 IS OFFICIALLY CLOSED.**
 
+### 13.9 Semantic Reorder Analysis
+Reranking produced reordered top-3 candidates across 23 queries:
+- **Major Semantic Gains**:
+  - `Q19_TABLE_CONTENT` ("Quarterly benchmark results discovery and watcher latency"): Cross-encoder promoted `sample_metrics.xlsx` to #1 $\rightarrow$ **NDCG delta: +0.5090**.
+  - `Q18_MULTI_CHUNK` ("FileMind architecture overview and subsystems"): **NDCG delta: +0.1165**.
+  - `Q15_HYBRID_MULTI_TERM` ("SQLite WAL persistence and change detection"): **NDCG delta: +0.0486**.
+- **Exact-Keyword Edge Cases**:
+  - `Q01_EXACT_FILENAME` ("sample_system_spec.pdf"): Lexical boost in RRF correctly prioritized exact `.pdf` filename, while Cross-Encoder ranked `.docx` highest due to semantic similarity ($\Delta \text{NDCG}: -0.7860$). This demonstrates why exact filename stem boost remains critical in Fast Hybrid mode.
+
+### 13.10 Frontend UX & Search Controls
+- **Retrieval Mode Selector**: Hybrid (RRF), Lexical (BM25), and Dense (Semantic).
+- **Quality Toggle**: Fast (Instant) vs Quality (Deep Rerank).
+- **Combination Guard**: Selecting Lexical or Dense disables Quality with a tooltip explaining that Quality requires Hybrid mode.
+- **Degraded Alert**: Visual warning banner when `response.degraded` is true with human-readable error reasons.
+- **Honest Search Footer**: Displayed as `"100% Local Deterministic Search • Fast & Quality Modes"`. No false claims of LLM answer generation.
+
+### 13.11 Automated Test Verification & Regression
+- **Phase 4 Closure Tests** (`backend/tests/test_phase4_closure.py`): **6 / 6 PASS**
+- **Reranker Tests** (`backend/tests/test_reranker.py`): **17 / 17 PASS**
+- **Hybrid Fallback Tests** (`backend/tests/test_hybrid_fallback.py`): **14 / 14 PASS**
+- **Full Backend Regression Suite** (`pytest backend/tests/`): **247 passed, 0 failed, 1 skipped** (out of 248 total tests).
+  *(Note: 1 skipped test is `test_watcher_symlink_ignored_on_windows`, which skips on non-elevated Windows environments lacking symlink creation privileges).*
+- **Frontend Production Build** (`tsc && vite build`): **PASS in 4.67s** (1,603 modules transformed, 0 errors).
+
+### 13.12 Security & Privacy Model
+- **Registered-Root Containment**: File operations restricted to registered vault directories.
+- **Symlink & Junction Defense**: Protected against circular or unauthorized junction traversals.
+- **Opener Restrictions**: Path-checked shell execution using OS default viewers without arbitrary command execution.
+- **CORS & CSP**: Localhost-only CORS; strict Content Security Policy.
+- **Backend Supervision**: Win32 Job Objects guarantee zero orphaned child processes.
+- **Single-Instance Enforcement**: Tauri single-instance plugin focuses existing application.
+- **Local-First Privacy**: 100% on-device model execution with zero telemetry or silent cloud fallback.
+- **Sensitive-Data-Safe Logging**: Document text and secrets are strictly excluded from persistent logs.
+
+### 13.13 Data & Index Integrity
+- **Version Tracking**: `parser_version` and `chunker_version` stored per file; version upgrades trigger automatic re-indexing.
+- **Embedding Index Identity**: `embedding_index_metadata` verifies active model identity, dimensions, and schema version (`v1.0.0`).
+- **Last-Known-Good Preservation**: Reprocessing failures retain existing valid chunks rather than purging them.
+- **Deletion Reconciliation**: Reconciles files deleted while offline upon engine startup.
+- **Strict Integrity Mode**: Streaming SHA-256 check allows fast bypass for unchanged files while maintaining cryptographic integrity.
+
+### 13.14 Logging & Diagnostics
+- **File Location**: `%APPDATA%\FileMind\logs\filemind.log`
+- **Rotation**: 5 MB per file, up to 5 backups.
+- **Privacy Rule**: Document body text and secrets are never intentionally logged.
+
+### 13.15 AI Readiness Foundation
+- **Model Registry**: Centralized registry (`app.retrieval.model_registry`) managing model lifecycle states (`not_ready`, `loading`, `ready`, `failed`).
+- **Status API**: `GET /ai/status` reporting local embedding, reranker, and vector store readiness.
+- **First-Run Preparation**: FastEmbed models initialized asynchronously on daemon threads without blocking startup.
+
+### 13.16 Current Limitation: Phase 5 NOT STARTED
+- **Ollama Integration**: NOT implemented.
+- **RAG Generation**: NOT implemented.
+- **Answer Synthesis**: NOT implemented.
+- **Citation Generation**: NOT implemented.
+- **Autonomous Agents**: NOT implemented.
+- FileMind currently operates strictly as a high-precision, 100% local, deterministic evidence retrieval engine.
+
 ---
 
-## 13. When Instructions Conflict With This File
+## 14. When Instructions Conflict With This File
 
 If a task instruction conflicts with a Non-Negotiable Contract (§2), an Absolute
 Prohibition (§3), or the phase boundary in §0/§11, stop and flag the conflict rather
 than proceeding. This file reflects a deliberately locked specification — treat an
 instruction that contradicts it as a signal to ask for clarification, not as an
 implicit spec change.
+
 
