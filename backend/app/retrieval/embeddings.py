@@ -72,6 +72,18 @@ class EmbeddingEngine:
         self._init_done = threading.Event()   # set when _run_init finishes (success or fail)
         self._init_error: Optional[Exception] = None
 
+    @property
+    def model_version(self) -> str:
+        return "1.0.0"
+
+    def get_identity(self) -> dict:
+        return {
+            "provider": "fastembed",
+            "model_name": self.model_name,
+            "model_version": self.model_version,
+            "dimension": self.dimension,
+        }
+
     def _run_init(self) -> None:
         """Daemon thread: loads the FastEmbed model and signals _init_done.
 
@@ -80,6 +92,11 @@ class EmbeddingEngine:
         provide the required happens-before).
         """
         try:
+            from app.retrieval.model_registry import default_model_registry, ModelReadiness
+            default_model_registry.update_readiness(
+                f"fastembed:{self.model_name}",
+                ModelReadiness.LOADING,
+            )
             from fastembed import TextEmbedding
             logger.info(
                 "Embedding init thread starting: %s (daemon=True, bounded to ~40 s max)",
@@ -88,12 +105,23 @@ class EmbeddingEngine:
             model = TextEmbedding(model_name=self.model_name)
             self._model = model          # visible to all waiters after _init_done.set()
             self._init_error = None
+            default_model_registry.update_readiness(
+                f"fastembed:{self.model_name}",
+                ModelReadiness.READY,
+            )
             logger.info("Embedding init thread succeeded: %s", self.model_name)
         except Exception as exc:
             self._init_error = exc
+            from app.retrieval.model_registry import default_model_registry, ModelReadiness
+            default_model_registry.update_readiness(
+                f"fastembed:{self.model_name}",
+                ModelReadiness.FAILED,
+                error=str(exc),
+            )
             logger.error("Embedding init thread failed: %s: %s", self.model_name, exc)
         finally:
             self._init_done.set()        # always release all waiters
+
 
     def _ensure_loaded(self) -> None:
         """Deferred lazy loading with a single bounded daemon thread.

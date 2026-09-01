@@ -1,0 +1,3653 @@
+{
+  "metadata": {
+    "benchmark_version": "phase4-bench-v1.0",
+    "dataset_version": "phase4-eval-v1.0",
+    "corpus_version": "phase3-benchmark-corpus-v1",
+    "timestamp": "2026-09-01T20:18:32Z",
+    "python_version": "3.11.0 (main, Oct 24 2022, 18:26:48) [MSC v.1933 64 bit (AMD64)]",
+    "os": "Windows-10-10.0.26200-SP0",
+    "cpu_count": 12,
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "reranker_model": "BAAI/bge-reranker-base",
+    "num_warm_runs": 5,
+    "total_queries": 28,
+    "active_queries_count": 25,
+    "memory_rss_mb": 2160.67,
+    "ram_delta_mb": 2066.28
+  },
+  "configurations": {
+    "BM25 Fast": {
+      "mode": "bm25",
+      "quality": "fast",
+      "metrics": {
+        "recall_at_1": 0.4113,
+        "recall_at_3": 0.4673,
+        "recall_at_5": 0.4933,
+        "recall_at_10": 0.4933,
+        "mrr": 0.56,
+        "ndcg_at_10": 0.509
+      },
+      "latency_ms": {
+        "cold_start_ms": 0.92,
+        "p50_ms": 0.22,
+        "p95_ms": 0.42,
+        "mean_ms": 0.25,
+        "min_ms": 0.05,
+        "max_ms": 2.77,
+        "mean_reranker_inference_ms": 0.0
+      },
+      "stage_breakdown_ms": {
+        "normalization": 0.03,
+        "lexical_search": 0.2,
+        "query_embedding": 0.0,
+        "dense_search": 0.0,
+        "rrf_fusion": 0.0,
+        "reranker_inference": 0.0,
+        "total_request": 0.25
+      },
+      "queries": [
+        {
+          "query_id": "Q01_EXACT_FILENAME",
+          "query_text": "sample_system_spec.pdf",
+          "category": "exact_filename",
+          "recall_at_1": 0.2,
+          "recall_at_3": 0.6,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_a1aeee09a27bab2f",
+              "score": 9.4506,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 9.4402,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_17e8d89d65770d17",
+              "score": 9.4093,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q02_EXACT_PHRASE",
+          "query_text": "Cryptographic hashing with streaming SHA-256 validation",
+          "category": "exact_phrase",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 30.1679,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q03_EXACT_PHRASE_STORAGE",
+          "query_text": "Write-Ahead Logging (WAL) mode enabled for high-concurrency",
+          "category": "exact_phrase",
+          "recall_at_1": 0.5,
+          "recall_at_3": 0.5,
+          "recall_at_5": 0.5,
+          "recall_at_10": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.5563,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_6c8f4cc4696197d3",
+              "score": 32.5357,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q04_KEYWORD_IDENTIFIER",
+          "query_text": "file_events",
+          "category": "identifier",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_0fd53323a9bd011f",
+              "score": 6.0649,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q05_CODE_SNIPPET",
+          "query_text": "def get_config():",
+          "category": "code",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 9.822,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q06_TECHNICAL_ACRONYM",
+          "query_text": "mTLS",
+          "category": "acronym",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 5.8916,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q07_TECHNICAL_TERM",
+          "query_text": "integrity_mode NORMAL debounce_ms",
+          "category": "technical_term",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 18.8607,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q08_CODE_IDENTIFIER",
+          "query_text": "EngineCoordinator",
+          "category": "identifier",
+          "recall_at_1": 0.25,
+          "recall_at_3": 0.75,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b34f24984372a069",
+              "score": 4.7964,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_2812a646335337b6",
+              "score": 3.7516,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_132b6278997535a1",
+              "score": 3.5906,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q09_PARTIAL_TERM",
+          "query_text": "debounc",
+          "category": "partial_term",
+          "recall_at_1": 0.5,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 5.3552,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 5.2907,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q10_SEMANTIC_CONCEPT_1",
+          "query_text": "how does the system guarantee fast crash recovery and restart",
+          "category": "semantic_concept",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q11_SEMANTIC_CONCEPT_2",
+          "query_text": "data retention schedule for cold audit records and compliance",
+          "category": "semantic_concept",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q12_SEMANTIC_CONCEPT_3",
+          "query_text": "preventing dangling or orphan processes from staying alive",
+          "category": "semantic_concept",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q13_SEMANTIC_CONCEPT_4",
+          "query_text": "quarterly business revenue and financial profit margins",
+          "category": "semantic_concept",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q14_SEMANTIC_CONCEPT_5",
+          "query_text": "hardware memory limits for background compute workers",
+          "category": "semantic_concept",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q15_HYBRID_MULTI_TERM_1",
+          "query_text": "SQLite WAL persistence and change detection",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 0.3333,
+          "recall_at_3": 0.3333,
+          "recall_at_5": 0.3333,
+          "recall_at_10": 0.3333,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.5563,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_75ba49ac19ff5b1d",
+              "score": 26.241,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q16_HYBRID_MULTI_TERM_2",
+          "query_text": "discovery rate throughput target 500 files/s",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 0.5,
+          "recall_at_3": 0.5,
+          "recall_at_5": 0.5,
+          "recall_at_10": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.6131,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_6ccc18c68a18a3d0",
+              "score": 26.143,
+              "source_file": "sample_metrics.csv",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q17_HYBRID_MULTI_TERM_3",
+          "query_text": "asynchronous worker pool filesystem discovery events",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 24.2796,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q18_MULTI_CHUNK_RELEVANCE",
+          "query_text": "FileMind architecture overview and subsystems",
+          "category": "multi_chunk",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q19_TABLE_CONTENT",
+          "query_text": "Quarterly benchmark results discovery and watcher latency",
+          "category": "table_content",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q20_NATURAL_LANGUAGE_1",
+          "query_text": "What is the key rotation interval for Tier-1 TLS 1.3 protocol?",
+          "category": "natural_language",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q21_NATURAL_LANGUAGE_2",
+          "query_text": "Which database tables store watcher events and indexing jobs?",
+          "category": "natural_language",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q22_SINGLE_HIGH_RELEVANCE",
+          "query_text": "def execute_task(self, task_id: str)",
+          "category": "single_chunk",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b28f9ad41ade2729",
+              "score": 25.6748,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q23_AMBIGUOUS_QUERY",
+          "query_text": "performance benchmarks",
+          "category": "ambiguous",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        },
+        {
+          "query_id": "Q24_METADATA_FILTER_H1",
+          "query_text": "Data Integrity Protocols immutable provenance",
+          "category": "metadata_heading",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_f345fe7b5624b925",
+              "score": 24.34,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q25_HEADCOUNT_QUERY",
+          "query_text": "Engineering department headcount",
+          "category": "table_content",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_10": 0.0,
+          "retrieved_top3": []
+        }
+      ]
+    },
+    "Dense Fast": {
+      "mode": "dense",
+      "quality": "fast",
+      "metrics": {
+        "recall_at_1": 0.6267,
+        "recall_at_3": 0.7767,
+        "recall_at_5": 0.8613,
+        "recall_at_10": 0.9113,
+        "mrr": 0.8393,
+        "ndcg_at_10": 0.8263
+      },
+      "latency_ms": {
+        "cold_start_ms": 22.21,
+        "p50_ms": 18.15,
+        "p95_ms": 21.91,
+        "mean_ms": 18.36,
+        "min_ms": 16.35,
+        "max_ms": 24.4,
+        "mean_reranker_inference_ms": 0.0
+      },
+      "stage_breakdown_ms": {
+        "normalization": 0.06,
+        "lexical_search": 0.0,
+        "query_embedding": 16.63,
+        "dense_search": 1.56,
+        "rrf_fusion": 0.0,
+        "reranker_inference": 0.0,
+        "total_request": 18.36
+      },
+      "queries": [
+        {
+          "query_id": "Q01_EXACT_FILENAME",
+          "query_text": "sample_system_spec.pdf",
+          "category": "exact_filename",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.2,
+          "recall_at_10": 0.2,
+          "mrr": 0.2,
+          "ndcg_at_10": 0.1312,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_1fb728b134565854",
+              "score": 0.3177,
+              "source_file": "doc12_metrics.csv",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_6812b8b9f989da63",
+              "score": 0.3118,
+              "source_file": "sample_dataset.json",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_d47e68cf75bc9631",
+              "score": 0.3052,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q02_EXACT_PHRASE",
+          "query_text": "Cryptographic hashing with streaming SHA-256 validation",
+          "category": "exact_phrase",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 0.5659,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_f345fe7b5624b925",
+              "score": 0.3765,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_44d2d2ad4a3f0313",
+              "score": 0.3658,
+              "source_file": "sample_presentation.pptx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q03_EXACT_PHRASE_STORAGE",
+          "query_text": "Write-Ahead Logging (WAL) mode enabled for high-concurrency",
+          "category": "exact_phrase",
+          "recall_at_1": 0.5,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9514,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_6c8f4cc4696197d3",
+              "score": 0.7269,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.7049,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.6624,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q04_KEYWORD_IDENTIFIER",
+          "query_text": "file_events",
+          "category": "identifier",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 0.2,
+          "ndcg_at_10": 0.3869,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_78a5b30306e5534b",
+              "score": 0.3436,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_0cf2bf16f00f70f1",
+              "score": 0.3113,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_a1aeee09a27bab2f",
+              "score": 0.2905,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q05_CODE_SNIPPET",
+          "query_text": "def get_config():",
+          "category": "code",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 0.7733,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_132b6278997535a1",
+              "score": 0.4468,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_7e9239bd9aad413e",
+              "score": 0.3247,
+              "source_file": "doc10_module.py",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q06_TECHNICAL_ACRONYM",
+          "query_text": "mTLS",
+          "category": "acronym",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 0.4751,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_954aafc31f9453f7",
+              "score": 0.2594,
+              "source_file": "doc6_deck.pptx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_b187539fc8bcb4ac",
+              "score": 0.2467,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q07_TECHNICAL_TERM",
+          "query_text": "integrity_mode NORMAL debounce_ms",
+          "category": "technical_term",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 0.497,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_86ac22b7c079cf1c",
+              "score": 0.3211,
+              "source_file": "doc5_bullets.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_7044aa70f17611e3",
+              "score": 0.2764,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q08_CODE_IDENTIFIER",
+          "query_text": "EngineCoordinator",
+          "category": "identifier",
+          "recall_at_1": 0.25,
+          "recall_at_3": 0.25,
+          "recall_at_5": 0.25,
+          "recall_at_10": 0.25,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.3904,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b34f24984372a069",
+              "score": 0.6023,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_a1aeee09a27bab2f",
+              "score": 0.2923,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_3613546b29768b18",
+              "score": 0.2153,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q09_PARTIAL_TERM",
+          "query_text": "debounc",
+          "category": "partial_term",
+          "recall_at_1": 0.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_10": 0.6934,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_d33afb854c6145e9",
+              "score": 0.1607,
+              "source_file": "doc4_nested_ops.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 0.1488,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 0.1429,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q10_SEMANTIC_CONCEPT_1",
+          "query_text": "how does the system guarantee fast crash recovery and restart",
+          "category": "semantic_concept",
+          "recall_at_1": 0.3333,
+          "recall_at_3": 0.3333,
+          "recall_at_5": 0.6667,
+          "recall_at_10": 0.6667,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.7959,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 0.3959,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.3677,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.3384,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q11_SEMANTIC_CONCEPT_2",
+          "query_text": "data retention schedule for cold audit records and compliance",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_e138fd81d0cc1b59",
+              "score": 0.7105,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_63dc4749f124fc8c",
+              "score": 0.5382,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.3866,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q12_SEMANTIC_CONCEPT_3",
+          "query_text": "preventing dangling or orphan processes from staying alive",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_86ac22b7c079cf1c",
+              "score": 0.4768,
+              "source_file": "doc5_bullets.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.405,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.3552,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q13_SEMANTIC_CONCEPT_4",
+          "query_text": "quarterly business revenue and financial profit margins",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_11d95f31b9155dac",
+              "score": 0.611,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_de16e5fa918ff4cb",
+              "score": 0.4203,
+              "source_file": "doc7_table_deck.pptx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_c0423f10be28691b",
+              "score": 0.4137,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q14_SEMANTIC_CONCEPT_5",
+          "query_text": "hardware memory limits for background compute workers",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_ac10fe9dbc1e49db",
+              "score": 0.516,
+              "source_file": "doc4_nested_ops.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.3919,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.3112,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q15_HYBRID_MULTI_TERM_1",
+          "query_text": "SQLite WAL persistence and change detection",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 0.3333,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.8146,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.6706,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_6c8f4cc4696197d3",
+              "score": 0.637,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_75ba49ac19ff5b1d",
+              "score": 0.4877,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q16_HYBRID_MULTI_TERM_2",
+          "query_text": "discovery rate throughput target 500 files/s",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 0.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_10": 0.6934,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_8e8ae2809dd21483",
+              "score": 0.4978,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_6ccc18c68a18a3d0",
+              "score": 0.4934,
+              "source_file": "sample_metrics.csv",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_489448ae4328db31",
+              "score": 0.4908,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q17_HYBRID_MULTI_TERM_3",
+          "query_text": "asynchronous worker pool filesystem discovery events",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.6463,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_456bdbd1fc4fc239",
+              "score": 0.512,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_b34f24984372a069",
+              "score": 0.5101,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q18_MULTI_CHUNK_RELEVANCE",
+          "query_text": "FileMind architecture overview and subsystems",
+          "category": "multi_chunk",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.3333,
+          "recall_at_10": 1.0,
+          "mrr": 0.25,
+          "ndcg_at_10": 0.5173,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_78a5b30306e5534b",
+              "score": 0.7895,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_d47e68cf75bc9631",
+              "score": 0.7824,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_a1aeee09a27bab2f",
+              "score": 0.7706,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q19_TABLE_CONTENT",
+          "query_text": "Quarterly benchmark results discovery and watcher latency",
+          "category": "table_content",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.3333,
+          "recall_at_5": 0.3333,
+          "recall_at_10": 0.6667,
+          "mrr": 0.3333,
+          "ndcg_at_10": 0.3318,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_de16e5fa918ff4cb",
+              "score": 0.6506,
+              "source_file": "doc7_table_deck.pptx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_8e8ae2809dd21483",
+              "score": 0.519,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_489448ae4328db31",
+              "score": 0.5118,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q20_NATURAL_LANGUAGE_1",
+          "query_text": "What is the key rotation interval for Tier-1 TLS 1.3 protocol?",
+          "category": "natural_language",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 0.5593,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_63dc4749f124fc8c",
+              "score": 0.2337,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_e0de44695de51aa6",
+              "score": 0.213,
+              "source_file": "doc4_nested_ops.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q21_NATURAL_LANGUAGE_2",
+          "query_text": "Which database tables store watcher events and indexing jobs?",
+          "category": "natural_language",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_0fd53323a9bd011f",
+              "score": 0.5678,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.4667,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_17e8d89d65770d17",
+              "score": 0.4391,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q22_SINGLE_HIGH_RELEVANCE",
+          "query_text": "def execute_task(self, task_id: str)",
+          "category": "single_chunk",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b28f9ad41ade2729",
+              "score": 0.8291,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_7e9239bd9aad413e",
+              "score": 0.4906,
+              "source_file": "doc10_module.py",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_132b6278997535a1",
+              "score": 0.3538,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q23_AMBIGUOUS_QUERY",
+          "query_text": "performance benchmarks",
+          "category": "ambiguous",
+          "recall_at_1": 0.25,
+          "recall_at_3": 0.5,
+          "recall_at_5": 0.75,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9505,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b187539fc8bcb4ac",
+              "score": 0.7729,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_489448ae4328db31",
+              "score": 0.6534,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_de16e5fa918ff4cb",
+              "score": 0.5283,
+              "source_file": "doc7_table_deck.pptx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q24_METADATA_FILTER_H1",
+          "query_text": "Data Integrity Protocols immutable provenance",
+          "category": "metadata_heading",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_f345fe7b5624b925",
+              "score": 0.7918,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_d47e68cf75bc9631",
+              "score": 0.4313,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_44d2d2ad4a3f0313",
+              "score": 0.4282,
+              "source_file": "sample_presentation.pptx",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        },
+        {
+          "query_id": "Q25_HEADCOUNT_QUERY",
+          "query_text": "Engineering department headcount",
+          "category": "table_content",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_03ebc371aed08760",
+              "score": 0.6287,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_c78ebc75206b39b2",
+              "score": 0.4816,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": null,
+              "rrf_score": null
+            },
+            {
+              "chunk_id": "chk_3613546b29768b18",
+              "score": 0.2496,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": null
+            }
+          ]
+        }
+      ]
+    },
+    "Hybrid Fast (RRF)": {
+      "mode": "hybrid",
+      "quality": "fast",
+      "metrics": {
+        "recall_at_1": 0.7147,
+        "recall_at_3": 0.8607,
+        "recall_at_5": 0.9233,
+        "recall_at_10": 0.9733,
+        "mrr": 0.9433,
+        "ndcg_at_10": 0.9367
+      },
+      "latency_ms": {
+        "cold_start_ms": 19.54,
+        "p50_ms": 19.67,
+        "p95_ms": 22.04,
+        "mean_ms": 19.9,
+        "min_ms": 17.57,
+        "max_ms": 24.04,
+        "mean_reranker_inference_ms": 0.0
+      },
+      "stage_breakdown_ms": {
+        "normalization": 0.06,
+        "lexical_search": 0.34,
+        "query_embedding": 16.62,
+        "dense_search": 2.43,
+        "rrf_fusion": 0.38,
+        "reranker_inference": 0.0,
+        "total_request": 19.9
+      },
+      "queries": [
+        {
+          "query_id": "Q01_EXACT_FILENAME",
+          "query_text": "sample_system_spec.pdf",
+          "category": "exact_filename",
+          "recall_at_1": 0.2,
+          "recall_at_3": 0.6,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_a1aeee09a27bab2f",
+              "score": 0.051778,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.051778
+            },
+            {
+              "chunk_id": "chk_17e8d89d65770d17",
+              "score": 0.049572,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.049572
+            },
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 0.049116,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.049116
+            }
+          ]
+        },
+        {
+          "query_id": "Q02_EXACT_PHRASE",
+          "query_text": "Cryptographic hashing with streaming SHA-256 validation",
+          "category": "exact_phrase",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 0.032787,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_f345fe7b5624b925",
+              "score": 0.016129,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_44d2d2ad4a3f0313",
+              "score": 0.015873,
+              "source_file": "sample_presentation.pptx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q03_EXACT_PHRASE_STORAGE",
+          "query_text": "Write-Ahead Logging (WAL) mode enabled for high-concurrency",
+          "category": "exact_phrase",
+          "recall_at_1": 0.5,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9514,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_6c8f4cc4696197d3",
+              "score": 0.032787,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.016129,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.015873,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q04_KEYWORD_IDENTIFIER",
+          "query_text": "file_events",
+          "category": "identifier",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_0fd53323a9bd011f",
+              "score": 0.031778,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": 0.031778
+            },
+            {
+              "chunk_id": "chk_78a5b30306e5534b",
+              "score": 0.016393,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_0cf2bf16f00f70f1",
+              "score": 0.016129,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            }
+          ]
+        },
+        {
+          "query_id": "Q05_CODE_SNIPPET",
+          "query_text": "def get_config():",
+          "category": "code",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 0.032787,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_132b6278997535a1",
+              "score": 0.016129,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_7e9239bd9aad413e",
+              "score": 0.015873,
+              "source_file": "doc10_module.py",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q06_TECHNICAL_ACRONYM",
+          "query_text": "mTLS",
+          "category": "acronym",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 0.032787,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_954aafc31f9453f7",
+              "score": 0.016129,
+              "source_file": "doc6_deck.pptx",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_b187539fc8bcb4ac",
+              "score": 0.015873,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q07_TECHNICAL_TERM",
+          "query_text": "integrity_mode NORMAL debounce_ms",
+          "category": "technical_term",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 0.032787,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_86ac22b7c079cf1c",
+              "score": 0.016129,
+              "source_file": "doc5_bullets.docx",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_7044aa70f17611e3",
+              "score": 0.015873,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q08_CODE_IDENTIFIER",
+          "query_text": "EngineCoordinator",
+          "category": "identifier",
+          "recall_at_1": 0.25,
+          "recall_at_3": 0.75,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b34f24984372a069",
+              "score": 0.032787,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_132b6278997535a1",
+              "score": 0.027921,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": 0.027921
+            },
+            {
+              "chunk_id": "chk_2812a646335337b6",
+              "score": 0.02724,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": 0.02724
+            }
+          ]
+        },
+        {
+          "query_id": "Q09_PARTIAL_TERM",
+          "query_text": "debounc",
+          "category": "partial_term",
+          "recall_at_1": 0.5,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 0.032522,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": 0.032522
+            },
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 0.032002,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.032002
+            },
+            {
+              "chunk_id": "chk_d33afb854c6145e9",
+              "score": 0.016393,
+              "source_file": "doc4_nested_ops.docx",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            }
+          ]
+        },
+        {
+          "query_id": "Q10_SEMANTIC_CONCEPT_1",
+          "query_text": "how does the system guarantee fast crash recovery and restart",
+          "category": "semantic_concept",
+          "recall_at_1": 0.3333,
+          "recall_at_3": 0.3333,
+          "recall_at_5": 0.6667,
+          "recall_at_10": 0.6667,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.7959,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 0.016393,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.016129,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.015873,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q11_SEMANTIC_CONCEPT_2",
+          "query_text": "data retention schedule for cold audit records and compliance",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_e138fd81d0cc1b59",
+              "score": 0.016393,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_63dc4749f124fc8c",
+              "score": 0.016129,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.015873,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q12_SEMANTIC_CONCEPT_3",
+          "query_text": "preventing dangling or orphan processes from staying alive",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_86ac22b7c079cf1c",
+              "score": 0.016393,
+              "source_file": "doc5_bullets.docx",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.016129,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.015873,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q13_SEMANTIC_CONCEPT_4",
+          "query_text": "quarterly business revenue and financial profit margins",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_11d95f31b9155dac",
+              "score": 0.016393,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_de16e5fa918ff4cb",
+              "score": 0.016129,
+              "source_file": "doc7_table_deck.pptx",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_c0423f10be28691b",
+              "score": 0.015873,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q14_SEMANTIC_CONCEPT_5",
+          "query_text": "hardware memory limits for background compute workers",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_ac10fe9dbc1e49db",
+              "score": 0.016393,
+              "source_file": "doc4_nested_ops.docx",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.016129,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.015873,
+              "source_file": "doc8_spec.md",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q15_HYBRID_MULTI_TERM_1",
+          "query_text": "SQLite WAL persistence and change detection",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 0.3333,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9514,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_75ba49ac19ff5b1d",
+              "score": 0.032266,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": 0.032266
+            },
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.016393,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_6c8f4cc4696197d3",
+              "score": 0.016129,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            }
+          ]
+        },
+        {
+          "query_id": "Q16_HYBRID_MULTI_TERM_2",
+          "query_text": "discovery rate throughput target 500 files/s",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 0.5,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9197,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_6ccc18c68a18a3d0",
+              "score": 0.032522,
+              "source_file": "sample_metrics.csv",
+              "reranker_score": null,
+              "rrf_score": 0.032522
+            },
+            {
+              "chunk_id": "chk_8e8ae2809dd21483",
+              "score": 0.016393,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_489448ae4328db31",
+              "score": 0.015873,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q17_HYBRID_MULTI_TERM_3",
+          "query_text": "asynchronous worker pool filesystem discovery events",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.032787,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_456bdbd1fc4fc239",
+              "score": 0.016129,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_b34f24984372a069",
+              "score": 0.015873,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q18_MULTI_CHUNK_RELEVANCE",
+          "query_text": "FileMind architecture overview and subsystems",
+          "category": "multi_chunk",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.0,
+          "recall_at_5": 0.3333,
+          "recall_at_10": 1.0,
+          "mrr": 0.25,
+          "ndcg_at_10": 0.5173,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_78a5b30306e5534b",
+              "score": 0.016393,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_d47e68cf75bc9631",
+              "score": 0.016129,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_a1aeee09a27bab2f",
+              "score": 0.015873,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q19_TABLE_CONTENT",
+          "query_text": "Quarterly benchmark results discovery and watcher latency",
+          "category": "table_content",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.3333,
+          "recall_at_5": 0.3333,
+          "recall_at_10": 0.6667,
+          "mrr": 0.3333,
+          "ndcg_at_10": 0.3318,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_de16e5fa918ff4cb",
+              "score": 0.016393,
+              "source_file": "doc7_table_deck.pptx",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_8e8ae2809dd21483",
+              "score": 0.016129,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_489448ae4328db31",
+              "score": 0.015873,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q20_NATURAL_LANGUAGE_1",
+          "query_text": "What is the key rotation interval for Tier-1 TLS 1.3 protocol?",
+          "category": "natural_language",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 0.016393,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_63dc4749f124fc8c",
+              "score": 0.016129,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_e0de44695de51aa6",
+              "score": 0.015873,
+              "source_file": "doc4_nested_ops.docx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q21_NATURAL_LANGUAGE_2",
+          "query_text": "Which database tables store watcher events and indexing jobs?",
+          "category": "natural_language",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_0fd53323a9bd011f",
+              "score": 0.016393,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.016129,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_17e8d89d65770d17",
+              "score": 0.015873,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q22_SINGLE_HIGH_RELEVANCE",
+          "query_text": "def execute_task(self, task_id: str)",
+          "category": "single_chunk",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b28f9ad41ade2729",
+              "score": 0.032787,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_7e9239bd9aad413e",
+              "score": 0.016129,
+              "source_file": "doc10_module.py",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_132b6278997535a1",
+              "score": 0.015873,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q23_AMBIGUOUS_QUERY",
+          "query_text": "performance benchmarks",
+          "category": "ambiguous",
+          "recall_at_1": 0.25,
+          "recall_at_3": 0.5,
+          "recall_at_5": 0.75,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9505,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b187539fc8bcb4ac",
+              "score": 0.016393,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_489448ae4328db31",
+              "score": 0.016129,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_de16e5fa918ff4cb",
+              "score": 0.015873,
+              "source_file": "doc7_table_deck.pptx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q24_METADATA_FILTER_H1",
+          "query_text": "Data Integrity Protocols immutable provenance",
+          "category": "metadata_heading",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_f345fe7b5624b925",
+              "score": 0.032787,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": null,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_d47e68cf75bc9631",
+              "score": 0.016129,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_44d2d2ad4a3f0313",
+              "score": 0.015873,
+              "source_file": "sample_presentation.pptx",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q25_HEADCOUNT_QUERY",
+          "query_text": "Engineering department headcount",
+          "category": "table_content",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_03ebc371aed08760",
+              "score": 0.016393,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": null,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_c78ebc75206b39b2",
+              "score": 0.016129,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": null,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_3613546b29768b18",
+              "score": 0.015873,
+              "source_file": "sample_architecture.md",
+              "reranker_score": null,
+              "rrf_score": 0.015873
+            }
+          ]
+        }
+      ]
+    },
+    "Hybrid Quality (RRF + bge-reranker-base)": {
+      "mode": "hybrid",
+      "quality": "quality",
+      "metrics": {
+        "recall_at_1": 0.6667,
+        "recall_at_3": 0.8413,
+        "recall_at_5": 0.8747,
+        "recall_at_10": 0.9347,
+        "mrr": 0.92,
+        "ndcg_at_10": 0.8868
+      },
+      "latency_ms": {
+        "cold_start_ms": 7173.18,
+        "p50_ms": 4817.67,
+        "p95_ms": 5890.36,
+        "mean_ms": 5176.0,
+        "min_ms": 2496.21,
+        "max_ms": 60043.5,
+        "mean_reranker_inference_ms": 5062.31
+      },
+      "stage_breakdown_ms": {
+        "normalization": 0.12,
+        "lexical_search": 0.87,
+        "query_embedding": 103.77,
+        "dense_search": 6.85,
+        "rrf_fusion": 1.14,
+        "reranker_inference": 5062.31,
+        "total_request": 5176.0
+      },
+      "queries": [
+        {
+          "query_id": "Q01_EXACT_FILENAME",
+          "query_text": "sample_system_spec.pdf",
+          "category": "exact_filename",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.2,
+          "recall_at_5": 0.2,
+          "recall_at_10": 0.2,
+          "mrr": 0.5,
+          "ndcg_at_10": 0.214,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_d47e68cf75bc9631",
+              "score": 0.077249,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": 0.077249,
+              "rrf_score": 0.015873
+            },
+            {
+              "chunk_id": "chk_a1aeee09a27bab2f",
+              "score": 0.056493,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.056493,
+              "rrf_score": 0.051778
+            },
+            {
+              "chunk_id": "chk_6812b8b9f989da63",
+              "score": 0.048151,
+              "source_file": "sample_dataset.json",
+              "reranker_score": 0.048151,
+              "rrf_score": 0.016129
+            }
+          ]
+        },
+        {
+          "query_id": "Q02_EXACT_PHRASE",
+          "query_text": "Cryptographic hashing with streaming SHA-256 validation",
+          "category": "exact_phrase",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 0.989848,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": 0.989848,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_f345fe7b5624b925",
+              "score": 0.031061,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.031061,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_6ccc18c68a18a3d0",
+              "score": 0.01255,
+              "source_file": "sample_metrics.csv",
+              "reranker_score": 0.01255,
+              "rrf_score": 0.013158
+            }
+          ]
+        },
+        {
+          "query_id": "Q03_EXACT_PHRASE_STORAGE",
+          "query_text": "Write-Ahead Logging (WAL) mode enabled for high-concurrency",
+          "category": "exact_phrase",
+          "recall_at_1": 0.5,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9514,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_6c8f4cc4696197d3",
+              "score": 0.999463,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.999463,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.693418,
+              "source_file": "doc8_spec.md",
+              "reranker_score": 0.693418,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.498115,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": 0.498115,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q04_KEYWORD_IDENTIFIER",
+          "query_text": "file_events",
+          "category": "identifier",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_0fd53323a9bd011f",
+              "score": 0.862675,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": 0.862675,
+              "rrf_score": 0.031778
+            },
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.313926,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": 0.313926,
+              "rrf_score": 0.015625
+            },
+            {
+              "chunk_id": "chk_78a5b30306e5534b",
+              "score": 0.001239,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.001239,
+              "rrf_score": 0.016393
+            }
+          ]
+        },
+        {
+          "query_id": "Q05_CODE_SNIPPET",
+          "query_text": "def get_config():",
+          "category": "code",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 0.984362,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.984362,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_6697173249101160",
+              "score": 0.241461,
+              "source_file": "doc9_guide.md",
+              "reranker_score": 0.241461,
+              "rrf_score": 0.015625
+            },
+            {
+              "chunk_id": "chk_7e9239bd9aad413e",
+              "score": 0.089054,
+              "source_file": "doc10_module.py",
+              "reranker_score": 0.089054,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q06_TECHNICAL_ACRONYM",
+          "query_text": "mTLS",
+          "category": "acronym",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 0.642145,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": 0.642145,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_b187539fc8bcb4ac",
+              "score": 0.607738,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.607738,
+              "rrf_score": 0.015873
+            },
+            {
+              "chunk_id": "chk_00afb5ef8f502ccd",
+              "score": 0.084734,
+              "source_file": "doc8_spec.md",
+              "reranker_score": 0.084734,
+              "rrf_score": 0.013699
+            }
+          ]
+        },
+        {
+          "query_id": "Q07_TECHNICAL_TERM",
+          "query_text": "integrity_mode NORMAL debounce_ms",
+          "category": "technical_term",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 0.96919,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.96919,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 0.01176,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.01176,
+              "rrf_score": 0.015385
+            },
+            {
+              "chunk_id": "chk_132b6278997535a1",
+              "score": 0.002759,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": 0.002759,
+              "rrf_score": 0.015625
+            }
+          ]
+        },
+        {
+          "query_id": "Q08_CODE_IDENTIFIER",
+          "query_text": "EngineCoordinator",
+          "category": "identifier",
+          "recall_at_1": 0.25,
+          "recall_at_3": 0.25,
+          "recall_at_5": 0.25,
+          "recall_at_10": 0.5,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.5032,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b34f24984372a069",
+              "score": 0.959948,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": 0.959948,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_b187539fc8bcb4ac",
+              "score": 0.029127,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.029127,
+              "rrf_score": 0.014493
+            },
+            {
+              "chunk_id": "chk_c78ebc75206b39b2",
+              "score": 0.022832,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": 0.022832,
+              "rrf_score": 0.012821
+            }
+          ]
+        },
+        {
+          "query_id": "Q09_PARTIAL_TERM",
+          "query_text": "debounc",
+          "category": "partial_term",
+          "recall_at_1": 0.5,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_072e2e2de283bacf",
+              "score": 0.003239,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.003239,
+              "rrf_score": 0.032522
+            },
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 0.002638,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.002638,
+              "rrf_score": 0.032002
+            },
+            {
+              "chunk_id": "chk_00afb5ef8f502ccd",
+              "score": 0.000232,
+              "source_file": "doc8_spec.md",
+              "reranker_score": 0.000232,
+              "rrf_score": 0.013699
+            }
+          ]
+        },
+        {
+          "query_id": "Q10_SEMANTIC_CONCEPT_1",
+          "query_text": "how does the system guarantee fast crash recovery and restart",
+          "category": "semantic_concept",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.3333,
+          "recall_at_5": 0.3333,
+          "recall_at_10": 0.6667,
+          "mrr": 0.5,
+          "ndcg_at_10": 0.5364,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_2c6e3318d1e28dc2",
+              "score": 0.083316,
+              "source_file": "doc8_spec.md",
+              "reranker_score": 0.083316,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 0.001682,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.001682,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_86ac22b7c079cf1c",
+              "score": 0.000977,
+              "source_file": "doc5_bullets.docx",
+              "reranker_score": 0.000977,
+              "rrf_score": 0.013699
+            }
+          ]
+        },
+        {
+          "query_id": "Q11_SEMANTIC_CONCEPT_2",
+          "query_text": "data retention schedule for cold audit records and compliance",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_e138fd81d0cc1b59",
+              "score": 0.392989,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": 0.392989,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_86ac22b7c079cf1c",
+              "score": 0.010359,
+              "source_file": "doc5_bullets.docx",
+              "reranker_score": 0.010359,
+              "rrf_score": 0.015385
+            },
+            {
+              "chunk_id": "chk_63dc4749f124fc8c",
+              "score": 0.004098,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": 0.004098,
+              "rrf_score": 0.016129
+            }
+          ]
+        },
+        {
+          "query_id": "Q12_SEMANTIC_CONCEPT_3",
+          "query_text": "preventing dangling or orphan processes from staying alive",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_86ac22b7c079cf1c",
+              "score": 0.019719,
+              "source_file": "doc5_bullets.docx",
+              "reranker_score": 0.019719,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_b28f9ad41ade2729",
+              "score": 0.000116,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": 0.000116,
+              "rrf_score": 0.015625
+            },
+            {
+              "chunk_id": "chk_0cf2bf16f00f70f1",
+              "score": 0.0001,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": 0.0001,
+              "rrf_score": 0.011905
+            }
+          ]
+        },
+        {
+          "query_id": "Q13_SEMANTIC_CONCEPT_4",
+          "query_text": "quarterly business revenue and financial profit margins",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_11d95f31b9155dac",
+              "score": 0.916362,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": 0.916362,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_c0423f10be28691b",
+              "score": 0.012437,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": 0.012437,
+              "rrf_score": 0.015873
+            },
+            {
+              "chunk_id": "chk_7044aa70f17611e3",
+              "score": 0.00469,
+              "source_file": "doc8_spec.md",
+              "reranker_score": 0.00469,
+              "rrf_score": 0.012987
+            }
+          ]
+        },
+        {
+          "query_id": "Q14_SEMANTIC_CONCEPT_5",
+          "query_text": "hardware memory limits for background compute workers",
+          "category": "semantic_concept",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_ac10fe9dbc1e49db",
+              "score": 0.269253,
+              "source_file": "doc4_nested_ops.docx",
+              "reranker_score": 0.269253,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_0cf2bf16f00f70f1",
+              "score": 0.002627,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": 0.002627,
+              "rrf_score": 0.0125
+            },
+            {
+              "chunk_id": "chk_b34f24984372a069",
+              "score": 0.001678,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": 0.001678,
+              "rrf_score": 0.012195
+            }
+          ]
+        },
+        {
+          "query_id": "Q15_HYBRID_MULTI_TERM_1",
+          "query_text": "SQLite WAL persistence and change detection",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 0.3333,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_75ba49ac19ff5b1d",
+              "score": 0.982472,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.982472,
+              "rrf_score": 0.032266
+            },
+            {
+              "chunk_id": "chk_6c8f4cc4696197d3",
+              "score": 0.857664,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.857664,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_7f8f007544dfc303",
+              "score": 0.821716,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": 0.821716,
+              "rrf_score": 0.016393
+            }
+          ]
+        },
+        {
+          "query_id": "Q16_HYBRID_MULTI_TERM_2",
+          "query_text": "discovery rate throughput target 500 files/s",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 0.5,
+          "recall_at_3": 0.5,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.8772,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_6ccc18c68a18a3d0",
+              "score": 0.937731,
+              "source_file": "sample_metrics.csv",
+              "reranker_score": 0.937731,
+              "rrf_score": 0.032522
+            },
+            {
+              "chunk_id": "chk_631b00d85a53ecd5",
+              "score": 0.471677,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.471677,
+              "rrf_score": 0.015625
+            },
+            {
+              "chunk_id": "chk_8e8ae2809dd21483",
+              "score": 0.423038,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": 0.423038,
+              "rrf_score": 0.016393
+            }
+          ]
+        },
+        {
+          "query_id": "Q17_HYBRID_MULTI_TERM_3",
+          "query_text": "asynchronous worker pool filesystem discovery events",
+          "category": "hybrid_multi_term",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7f4c75db248aa141",
+              "score": 0.998766,
+              "source_file": "doc2_multicolumn.pdf",
+              "reranker_score": 0.998766,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_0fd53323a9bd011f",
+              "score": 0.201839,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": 0.201839,
+              "rrf_score": 0.015385
+            },
+            {
+              "chunk_id": "chk_b34f24984372a069",
+              "score": 0.049738,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": 0.049738,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q18_MULTI_CHUNK_RELEVANCE",
+          "query_text": "FileMind architecture overview and subsystems",
+          "category": "multi_chunk",
+          "recall_at_1": 0.0,
+          "recall_at_3": 0.3333,
+          "recall_at_5": 0.6667,
+          "recall_at_10": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_10": 0.6338,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_78a5b30306e5534b",
+              "score": 0.991772,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.991772,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_7fd49b2bdbf4c628",
+              "score": 0.979523,
+              "source_file": "sample_presentation.pptx",
+              "reranker_score": 0.979523,
+              "rrf_score": 0.015625
+            },
+            {
+              "chunk_id": "chk_00afb5ef8f502ccd",
+              "score": 0.485572,
+              "source_file": "doc8_spec.md",
+              "reranker_score": 0.485572,
+              "rrf_score": 0.014925
+            }
+          ]
+        },
+        {
+          "query_id": "Q19_TABLE_CONTENT",
+          "query_text": "Quarterly benchmark results discovery and watcher latency",
+          "category": "table_content",
+          "recall_at_1": 0.3333,
+          "recall_at_3": 0.6667,
+          "recall_at_5": 0.6667,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.8408,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_489448ae4328db31",
+              "score": 0.87031,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": 0.87031,
+              "rrf_score": 0.015873
+            },
+            {
+              "chunk_id": "chk_6ccc18c68a18a3d0",
+              "score": 0.633689,
+              "source_file": "sample_metrics.csv",
+              "reranker_score": 0.633689,
+              "rrf_score": 0.014286
+            },
+            {
+              "chunk_id": "chk_de16e5fa918ff4cb",
+              "score": 0.271644,
+              "source_file": "doc7_table_deck.pptx",
+              "reranker_score": 0.271644,
+              "rrf_score": 0.016393
+            }
+          ]
+        },
+        {
+          "query_id": "Q20_NATURAL_LANGUAGE_1",
+          "query_text": "What is the key rotation interval for Tier-1 TLS 1.3 protocol?",
+          "category": "natural_language",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_7bf48a114ba7e4ca",
+              "score": 0.995879,
+              "source_file": "doc1_enterprise_spec.pdf",
+              "reranker_score": 0.995879,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_631b00d85a53ecd5",
+              "score": 0.005937,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.005937,
+              "rrf_score": 0.012658
+            },
+            {
+              "chunk_id": "chk_605a72e3901ce2a0",
+              "score": 0.003492,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.003492,
+              "rrf_score": 0.012821
+            }
+          ]
+        },
+        {
+          "query_id": "Q21_NATURAL_LANGUAGE_2",
+          "query_text": "Which database tables store watcher events and indexing jobs?",
+          "category": "natural_language",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_0fd53323a9bd011f",
+              "score": 0.918972,
+              "source_file": "sample_system_spec.docx",
+              "reranker_score": 0.918972,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_489448ae4328db31",
+              "score": 0.130458,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": 0.130458,
+              "rrf_score": 0.014925
+            },
+            {
+              "chunk_id": "chk_6ccc18c68a18a3d0",
+              "score": 0.071302,
+              "source_file": "sample_metrics.csv",
+              "reranker_score": 0.071302,
+              "rrf_score": 0.013889
+            }
+          ]
+        },
+        {
+          "query_id": "Q22_SINGLE_HIGH_RELEVANCE",
+          "query_text": "def execute_task(self, task_id: str)",
+          "category": "single_chunk",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b28f9ad41ade2729",
+              "score": 0.998765,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": 0.998765,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_7e9239bd9aad413e",
+              "score": 0.488095,
+              "source_file": "doc10_module.py",
+              "reranker_score": 0.488095,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_132b6278997535a1",
+              "score": 0.02415,
+              "source_file": "sample_coordinator.py",
+              "reranker_score": 0.02415,
+              "rrf_score": 0.015873
+            }
+          ]
+        },
+        {
+          "query_id": "Q23_AMBIGUOUS_QUERY",
+          "query_text": "performance benchmarks",
+          "category": "ambiguous",
+          "recall_at_1": 0.25,
+          "recall_at_3": 0.75,
+          "recall_at_5": 0.75,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 0.9831,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_b187539fc8bcb4ac",
+              "score": 0.993889,
+              "source_file": "sample_architecture.md",
+              "reranker_score": 0.993889,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_a942b79d5ffb353f",
+              "score": 0.986536,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": 0.986536,
+              "rrf_score": 0.015625
+            },
+            {
+              "chunk_id": "chk_489448ae4328db31",
+              "score": 0.953365,
+              "source_file": "sample_metrics.xlsx",
+              "reranker_score": 0.953365,
+              "rrf_score": 0.016129
+            }
+          ]
+        },
+        {
+          "query_id": "Q24_METADATA_FILTER_H1",
+          "query_text": "Data Integrity Protocols immutable provenance",
+          "category": "metadata_heading",
+          "recall_at_1": 1.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 1.0,
+          "ndcg_at_10": 1.0,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_f345fe7b5624b925",
+              "score": 0.996997,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.996997,
+              "rrf_score": 0.032787
+            },
+            {
+              "chunk_id": "chk_17e8d89d65770d17",
+              "score": 0.005291,
+              "source_file": "sample_system_spec.pdf",
+              "reranker_score": 0.005291,
+              "rrf_score": 0.014706
+            },
+            {
+              "chunk_id": "chk_86ac22b7c079cf1c",
+              "score": 0.001281,
+              "source_file": "doc5_bullets.docx",
+              "reranker_score": 0.001281,
+              "rrf_score": 0.015152
+            }
+          ]
+        },
+        {
+          "query_id": "Q25_HEADCOUNT_QUERY",
+          "query_text": "Engineering department headcount",
+          "category": "table_content",
+          "recall_at_1": 0.0,
+          "recall_at_3": 1.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "mrr": 0.5,
+          "ndcg_at_10": 0.6309,
+          "retrieved_top3": [
+            {
+              "chunk_id": "chk_c78ebc75206b39b2",
+              "score": 0.937216,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": 0.937216,
+              "rrf_score": 0.016129
+            },
+            {
+              "chunk_id": "chk_03ebc371aed08760",
+              "score": 0.721838,
+              "source_file": "doc11_sheets.xlsx",
+              "reranker_score": 0.721838,
+              "rrf_score": 0.016393
+            },
+            {
+              "chunk_id": "chk_977a7ebcdb003653",
+              "score": 0.022168,
+              "source_file": "doc10_module.py",
+              "reranker_score": 0.022168,
+              "rrf_score": 0.014493
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "semantic_reorder_examples": [
+    {
+      "query_id": "Q01_EXACT_FILENAME",
+      "query_text": "sample_system_spec.pdf",
+      "category": "exact_filename",
+      "fast_top1": {
+        "chunk_id": "chk_a1aeee09a27bab2f",
+        "score": 0.051778,
+        "source_file": "sample_system_spec.pdf",
+        "reranker_score": null,
+        "rrf_score": 0.051778
+      },
+      "quality_top1": {
+        "chunk_id": "chk_d47e68cf75bc9631",
+        "score": 0.077249,
+        "source_file": "sample_system_spec.docx",
+        "reranker_score": 0.077249,
+        "rrf_score": 0.015873
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 0.214,
+      "ndcg_delta": -0.786
+    },
+    {
+      "query_id": "Q02_EXACT_PHRASE",
+      "query_text": "Cryptographic hashing with streaming SHA-256 validation",
+      "category": "exact_phrase",
+      "fast_top1": {
+        "chunk_id": "chk_7bf48a114ba7e4ca",
+        "score": 0.032787,
+        "source_file": "doc1_enterprise_spec.pdf",
+        "reranker_score": null,
+        "rrf_score": 0.032787
+      },
+      "quality_top1": {
+        "chunk_id": "chk_7bf48a114ba7e4ca",
+        "score": 0.989848,
+        "source_file": "doc1_enterprise_spec.pdf",
+        "reranker_score": 0.989848,
+        "rrf_score": 0.032787
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q04_KEYWORD_IDENTIFIER",
+      "query_text": "file_events",
+      "category": "identifier",
+      "fast_top1": {
+        "chunk_id": "chk_0fd53323a9bd011f",
+        "score": 0.031778,
+        "source_file": "sample_system_spec.docx",
+        "reranker_score": null,
+        "rrf_score": 0.031778
+      },
+      "quality_top1": {
+        "chunk_id": "chk_0fd53323a9bd011f",
+        "score": 0.862675,
+        "source_file": "sample_system_spec.docx",
+        "reranker_score": 0.862675,
+        "rrf_score": 0.031778
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q05_CODE_SNIPPET",
+      "query_text": "def get_config():",
+      "category": "code",
+      "fast_top1": {
+        "chunk_id": "chk_072e2e2de283bacf",
+        "score": 0.032787,
+        "source_file": "sample_architecture.md",
+        "reranker_score": null,
+        "rrf_score": 0.032787
+      },
+      "quality_top1": {
+        "chunk_id": "chk_072e2e2de283bacf",
+        "score": 0.984362,
+        "source_file": "sample_architecture.md",
+        "reranker_score": 0.984362,
+        "rrf_score": 0.032787
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q06_TECHNICAL_ACRONYM",
+      "query_text": "mTLS",
+      "category": "acronym",
+      "fast_top1": {
+        "chunk_id": "chk_7bf48a114ba7e4ca",
+        "score": 0.032787,
+        "source_file": "doc1_enterprise_spec.pdf",
+        "reranker_score": null,
+        "rrf_score": 0.032787
+      },
+      "quality_top1": {
+        "chunk_id": "chk_7bf48a114ba7e4ca",
+        "score": 0.642145,
+        "source_file": "doc1_enterprise_spec.pdf",
+        "reranker_score": 0.642145,
+        "rrf_score": 0.032787
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q07_TECHNICAL_TERM",
+      "query_text": "integrity_mode NORMAL debounce_ms",
+      "category": "technical_term",
+      "fast_top1": {
+        "chunk_id": "chk_072e2e2de283bacf",
+        "score": 0.032787,
+        "source_file": "sample_architecture.md",
+        "reranker_score": null,
+        "rrf_score": 0.032787
+      },
+      "quality_top1": {
+        "chunk_id": "chk_072e2e2de283bacf",
+        "score": 0.96919,
+        "source_file": "sample_architecture.md",
+        "reranker_score": 0.96919,
+        "rrf_score": 0.032787
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q08_CODE_IDENTIFIER",
+      "query_text": "EngineCoordinator",
+      "category": "identifier",
+      "fast_top1": {
+        "chunk_id": "chk_b34f24984372a069",
+        "score": 0.032787,
+        "source_file": "sample_coordinator.py",
+        "reranker_score": null,
+        "rrf_score": 0.032787
+      },
+      "quality_top1": {
+        "chunk_id": "chk_b34f24984372a069",
+        "score": 0.959948,
+        "source_file": "sample_coordinator.py",
+        "reranker_score": 0.959948,
+        "rrf_score": 0.032787
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 0.5032,
+      "ndcg_delta": -0.4968
+    },
+    {
+      "query_id": "Q09_PARTIAL_TERM",
+      "query_text": "debounc",
+      "category": "partial_term",
+      "fast_top1": {
+        "chunk_id": "chk_072e2e2de283bacf",
+        "score": 0.032522,
+        "source_file": "sample_architecture.md",
+        "reranker_score": null,
+        "rrf_score": 0.032522
+      },
+      "quality_top1": {
+        "chunk_id": "chk_072e2e2de283bacf",
+        "score": 0.003239,
+        "source_file": "sample_architecture.md",
+        "reranker_score": 0.003239,
+        "rrf_score": 0.032522
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q10_SEMANTIC_CONCEPT_1",
+      "query_text": "how does the system guarantee fast crash recovery and restart",
+      "category": "semantic_concept",
+      "fast_top1": {
+        "chunk_id": "chk_605a72e3901ce2a0",
+        "score": 0.016393,
+        "source_file": "sample_system_spec.pdf",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_2c6e3318d1e28dc2",
+        "score": 0.083316,
+        "source_file": "doc8_spec.md",
+        "reranker_score": 0.083316,
+        "rrf_score": 0.016129
+      },
+      "fast_ndcg": 0.7959,
+      "quality_ndcg": 0.5364,
+      "ndcg_delta": -0.2595
+    },
+    {
+      "query_id": "Q11_SEMANTIC_CONCEPT_2",
+      "query_text": "data retention schedule for cold audit records and compliance",
+      "category": "semantic_concept",
+      "fast_top1": {
+        "chunk_id": "chk_e138fd81d0cc1b59",
+        "score": 0.016393,
+        "source_file": "doc1_enterprise_spec.pdf",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_e138fd81d0cc1b59",
+        "score": 0.392989,
+        "source_file": "doc1_enterprise_spec.pdf",
+        "reranker_score": 0.392989,
+        "rrf_score": 0.016393
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q12_SEMANTIC_CONCEPT_3",
+      "query_text": "preventing dangling or orphan processes from staying alive",
+      "category": "semantic_concept",
+      "fast_top1": {
+        "chunk_id": "chk_86ac22b7c079cf1c",
+        "score": 0.016393,
+        "source_file": "doc5_bullets.docx",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_86ac22b7c079cf1c",
+        "score": 0.019719,
+        "source_file": "doc5_bullets.docx",
+        "reranker_score": 0.019719,
+        "rrf_score": 0.016393
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q13_SEMANTIC_CONCEPT_4",
+      "query_text": "quarterly business revenue and financial profit margins",
+      "category": "semantic_concept",
+      "fast_top1": {
+        "chunk_id": "chk_11d95f31b9155dac",
+        "score": 0.016393,
+        "source_file": "doc11_sheets.xlsx",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_11d95f31b9155dac",
+        "score": 0.916362,
+        "source_file": "doc11_sheets.xlsx",
+        "reranker_score": 0.916362,
+        "rrf_score": 0.016393
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q14_SEMANTIC_CONCEPT_5",
+      "query_text": "hardware memory limits for background compute workers",
+      "category": "semantic_concept",
+      "fast_top1": {
+        "chunk_id": "chk_ac10fe9dbc1e49db",
+        "score": 0.016393,
+        "source_file": "doc4_nested_ops.docx",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_ac10fe9dbc1e49db",
+        "score": 0.269253,
+        "source_file": "doc4_nested_ops.docx",
+        "reranker_score": 0.269253,
+        "rrf_score": 0.016393
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q15_HYBRID_MULTI_TERM_1",
+      "query_text": "SQLite WAL persistence and change detection",
+      "category": "hybrid_multi_term",
+      "fast_top1": {
+        "chunk_id": "chk_75ba49ac19ff5b1d",
+        "score": 0.032266,
+        "source_file": "sample_architecture.md",
+        "reranker_score": null,
+        "rrf_score": 0.032266
+      },
+      "quality_top1": {
+        "chunk_id": "chk_75ba49ac19ff5b1d",
+        "score": 0.982472,
+        "source_file": "sample_architecture.md",
+        "reranker_score": 0.982472,
+        "rrf_score": 0.032266
+      },
+      "fast_ndcg": 0.9514,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0486
+    },
+    {
+      "query_id": "Q16_HYBRID_MULTI_TERM_2",
+      "query_text": "discovery rate throughput target 500 files/s",
+      "category": "hybrid_multi_term",
+      "fast_top1": {
+        "chunk_id": "chk_6ccc18c68a18a3d0",
+        "score": 0.032522,
+        "source_file": "sample_metrics.csv",
+        "reranker_score": null,
+        "rrf_score": 0.032522
+      },
+      "quality_top1": {
+        "chunk_id": "chk_6ccc18c68a18a3d0",
+        "score": 0.937731,
+        "source_file": "sample_metrics.csv",
+        "reranker_score": 0.937731,
+        "rrf_score": 0.032522
+      },
+      "fast_ndcg": 0.9197,
+      "quality_ndcg": 0.8772,
+      "ndcg_delta": -0.0425
+    },
+    {
+      "query_id": "Q17_HYBRID_MULTI_TERM_3",
+      "query_text": "asynchronous worker pool filesystem discovery events",
+      "category": "hybrid_multi_term",
+      "fast_top1": {
+        "chunk_id": "chk_7f4c75db248aa141",
+        "score": 0.032787,
+        "source_file": "doc2_multicolumn.pdf",
+        "reranker_score": null,
+        "rrf_score": 0.032787
+      },
+      "quality_top1": {
+        "chunk_id": "chk_7f4c75db248aa141",
+        "score": 0.998766,
+        "source_file": "doc2_multicolumn.pdf",
+        "reranker_score": 0.998766,
+        "rrf_score": 0.032787
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q18_MULTI_CHUNK_RELEVANCE",
+      "query_text": "FileMind architecture overview and subsystems",
+      "category": "multi_chunk",
+      "fast_top1": {
+        "chunk_id": "chk_78a5b30306e5534b",
+        "score": 0.016393,
+        "source_file": "sample_architecture.md",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_78a5b30306e5534b",
+        "score": 0.991772,
+        "source_file": "sample_architecture.md",
+        "reranker_score": 0.991772,
+        "rrf_score": 0.016393
+      },
+      "fast_ndcg": 0.5173,
+      "quality_ndcg": 0.6338,
+      "ndcg_delta": 0.1165
+    },
+    {
+      "query_id": "Q19_TABLE_CONTENT",
+      "query_text": "Quarterly benchmark results discovery and watcher latency",
+      "category": "table_content",
+      "fast_top1": {
+        "chunk_id": "chk_de16e5fa918ff4cb",
+        "score": 0.016393,
+        "source_file": "doc7_table_deck.pptx",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_489448ae4328db31",
+        "score": 0.87031,
+        "source_file": "sample_metrics.xlsx",
+        "reranker_score": 0.87031,
+        "rrf_score": 0.015873
+      },
+      "fast_ndcg": 0.3318,
+      "quality_ndcg": 0.8408,
+      "ndcg_delta": 0.509
+    },
+    {
+      "query_id": "Q20_NATURAL_LANGUAGE_1",
+      "query_text": "What is the key rotation interval for Tier-1 TLS 1.3 protocol?",
+      "category": "natural_language",
+      "fast_top1": {
+        "chunk_id": "chk_7bf48a114ba7e4ca",
+        "score": 0.016393,
+        "source_file": "doc1_enterprise_spec.pdf",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_7bf48a114ba7e4ca",
+        "score": 0.995879,
+        "source_file": "doc1_enterprise_spec.pdf",
+        "reranker_score": 0.995879,
+        "rrf_score": 0.016393
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q21_NATURAL_LANGUAGE_2",
+      "query_text": "Which database tables store watcher events and indexing jobs?",
+      "category": "natural_language",
+      "fast_top1": {
+        "chunk_id": "chk_0fd53323a9bd011f",
+        "score": 0.016393,
+        "source_file": "sample_system_spec.docx",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_0fd53323a9bd011f",
+        "score": 0.918972,
+        "source_file": "sample_system_spec.docx",
+        "reranker_score": 0.918972,
+        "rrf_score": 0.016393
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q23_AMBIGUOUS_QUERY",
+      "query_text": "performance benchmarks",
+      "category": "ambiguous",
+      "fast_top1": {
+        "chunk_id": "chk_b187539fc8bcb4ac",
+        "score": 0.016393,
+        "source_file": "sample_architecture.md",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_b187539fc8bcb4ac",
+        "score": 0.993889,
+        "source_file": "sample_architecture.md",
+        "reranker_score": 0.993889,
+        "rrf_score": 0.016393
+      },
+      "fast_ndcg": 0.9505,
+      "quality_ndcg": 0.9831,
+      "ndcg_delta": 0.0326
+    },
+    {
+      "query_id": "Q24_METADATA_FILTER_H1",
+      "query_text": "Data Integrity Protocols immutable provenance",
+      "category": "metadata_heading",
+      "fast_top1": {
+        "chunk_id": "chk_f345fe7b5624b925",
+        "score": 0.032787,
+        "source_file": "sample_system_spec.pdf",
+        "reranker_score": null,
+        "rrf_score": 0.032787
+      },
+      "quality_top1": {
+        "chunk_id": "chk_f345fe7b5624b925",
+        "score": 0.996997,
+        "source_file": "sample_system_spec.pdf",
+        "reranker_score": 0.996997,
+        "rrf_score": 0.032787
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 1.0,
+      "ndcg_delta": 0.0
+    },
+    {
+      "query_id": "Q25_HEADCOUNT_QUERY",
+      "query_text": "Engineering department headcount",
+      "category": "table_content",
+      "fast_top1": {
+        "chunk_id": "chk_03ebc371aed08760",
+        "score": 0.016393,
+        "source_file": "doc11_sheets.xlsx",
+        "reranker_score": null,
+        "rrf_score": 0.016393
+      },
+      "quality_top1": {
+        "chunk_id": "chk_c78ebc75206b39b2",
+        "score": 0.937216,
+        "source_file": "doc11_sheets.xlsx",
+        "reranker_score": 0.937216,
+        "rrf_score": 0.016129
+      },
+      "fast_ndcg": 1.0,
+      "quality_ndcg": 0.6309,
+      "ndcg_delta": -0.3691
+    }
+  ]
+}

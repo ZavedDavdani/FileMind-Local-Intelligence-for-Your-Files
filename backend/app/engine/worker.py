@@ -133,6 +133,22 @@ class WorkerPool:
                 return
 
             if job_type in ("METADATA_DISCOVERY", "HASH_VERIFICATION", "DOCUMENT_PARSE", "CHUNK_GENERATION"):
+                # 0. Check Max File Size Ingestion Guard
+                from app.core.config import MAX_FILE_SIZE_BYTES
+                try:
+                    file_size = os.path.getsize(file_path)
+                except OSError:
+                    file_size = 0
+
+                if file_size > MAX_FILE_SIZE_BYTES:
+                    err_msg = f"File size ({file_size} bytes) exceeds limit ({MAX_FILE_SIZE_BYTES} bytes)"
+                    logger.info("File %s exceeds max size limit: %d bytes", file_path, file_size)
+                    with self.db.session() as conn:
+                        repo = Repository(conn)
+                        repo.update_file_status(file_id, "SKIPPED", error=err_msg)
+                    self.queue.complete_job(job_id, file_id, final_status="SKIPPED", indexing_error=err_msg)
+                    return
+
                 # 1. Compute SHA-256 Hash
                 sha256_hash, error = compute_file_sha256(file_path)
                 if error:
@@ -149,9 +165,24 @@ class WorkerPool:
                     self.queue.complete_job(job_id, file_id, sha256=sha256_hash)
                     return
 
+                # Check unchanged hash & version bypass for Strict Integrity verification
+                with self.db.session() as conn:
+                    repo = Repository(conn)
+                    file_rec = repo.get_file_by_id(file_id)
+                    chunk_vers = repo.get_file_chunk_versions(file_id)
+
+                if file_rec and file_rec.get("index_status") == "INDEXED" and file_rec.get("sha256") == sha256_hash and chunk_vers:
+                    if (chunk_vers.get("parser_version") == parser.parser_version and
+                        chunk_vers.get("chunker_version") == self.chunker.chunker_version):
+                        # Strict Integrity verification passed: hash and versions match existing index
+                        logger.info("File %s integrity verified (unchanged SHA-256 and versions)", file_path)
+                        self.queue.complete_job(job_id, file_id, sha256=sha256_hash, final_status="INDEXED")
+                        return
+
                 # 3. Document Parsing & Hierarchical Chunking
                 try:
                     doc = parser.parse(file_path, file_id=file_id, mime_type=mime_type)
+
 
                     # Hardening H3: Quality Gate & Vectorization Boundary Check
                     if hasattr(doc, "quality_assessment") and doc.quality_assessment:

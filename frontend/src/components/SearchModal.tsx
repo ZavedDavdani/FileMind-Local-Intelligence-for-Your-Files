@@ -17,6 +17,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 }) => {
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<"hybrid" | "bm25" | "dense">("hybrid");
+  const [quality, setQuality] = useState<"fast" | "quality">("quality");
   const [selectedFolder, setSelectedFolder] = useState<string>("");
   const [selectedExt, setSelectedExt] = useState<string>("");
   const [response, setResponse] = useState<SearchResponse | null>(null);
@@ -33,6 +34,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     }
   }, [isOpen]);
 
+  // If mode is switched away from hybrid, clamp quality to fast
+  const handleModeChange = (newMode: "hybrid" | "bm25" | "dense") => {
+    setMode(newMode);
+    if (newMode !== "hybrid") {
+      setQuality("fast");
+    }
+  };
+
   // Execute debounced search when inputs change
   useEffect(() => {
     if (!isOpen || !query.trim()) {
@@ -48,6 +57,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         const req: SearchRequest = {
           query: query.trim(),
           mode,
+          quality: mode === "hybrid" ? quality : "fast",
           top_k: 10,
           folder_id: selectedFolder || undefined,
           extension: selectedExt || undefined,
@@ -62,7 +72,8 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     }, 180);
 
     return () => clearTimeout(timer);
-  }, [query, mode, selectedFolder, selectedExt, isOpen]);
+  }, [query, mode, quality, selectedFolder, selectedExt, isOpen]);
+
 
   // Handle keyboard navigation (Escape to close)
   useEffect(() => {
@@ -156,38 +167,73 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
         {/* Filter Controls Bar */}
         <div className="px-4 py-2 bg-slate-950/60 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-          {/* Retrieval Mode Radio */}
-          <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
-            <button
-              onClick={() => setMode("hybrid")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                mode === "hybrid"
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Hybrid (RRF)
-            </button>
-            <button
-              onClick={() => setMode("bm25")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                mode === "bm25"
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Lexical (BM25)
-            </button>
-            <button
-              onClick={() => setMode("dense")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                mode === "dense"
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Dense (Semantic)
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Retrieval Mode Radio */}
+            <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+              <button
+                onClick={() => handleModeChange("hybrid")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  mode === "hybrid"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Hybrid (RRF)
+              </button>
+              <button
+                onClick={() => handleModeChange("bm25")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  mode === "bm25"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Lexical (BM25)
+              </button>
+              <button
+                onClick={() => handleModeChange("dense")}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  mode === "dense"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Dense (Semantic)
+              </button>
+            </div>
+
+            {/* Quality Selector */}
+            <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+              <button
+                onClick={() => setQuality("fast")}
+                className={`px-2 py-1 rounded-md font-medium transition-colors ${
+                  quality === "fast"
+                    ? "bg-slate-700 text-white shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                title="Fast Mode: Low-latency direct retrieval without cross-encoder inference"
+              >
+                Fast
+              </button>
+              <button
+                onClick={() => mode === "hybrid" && setQuality("quality")}
+                disabled={mode !== "hybrid"}
+                className={`px-2 py-1 rounded-md font-medium transition-colors ${
+                  quality === "quality" && mode === "hybrid"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : mode !== "hybrid"
+                    ? "text-slate-600 cursor-not-allowed"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                title={
+                  mode === "hybrid"
+                    ? "Quality Mode: Hybrid RRF + Cross-Encoder reranking for highest precision"
+                    : "Quality mode requires Hybrid retrieval"
+                }
+              >
+                Quality
+              </button>
+            </div>
           </div>
 
           {/* Metadata Filters */}
@@ -232,6 +278,20 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               {error}
             </div>
           )}
+
+          {response?.degraded && (
+            <div className="p-2.5 bg-amber-950/40 border border-amber-700/60 rounded-lg text-xs text-amber-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold uppercase tracking-wider text-[10px] bg-amber-800/60 px-1.5 py-0.5 rounded">
+                  Degraded Search
+                </span>
+                <span>
+                  {response.degraded_reason || "Subsystem unavailable; degraded fallback active."}
+                </span>
+              </div>
+            </div>
+          )}
+
 
           {!query.trim() && (
             <div className="py-8 text-center space-y-4">
@@ -464,10 +524,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             </span>
           </div>
           <span className="font-mono text-[11px] text-slate-400">
-            No LLM • 100% Deterministic Local Search
+            100% Local Deterministic Search • Fast & Quality Modes
           </span>
         </div>
       </div>
     </div>
   );
 };
+

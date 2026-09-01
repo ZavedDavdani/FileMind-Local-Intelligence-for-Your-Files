@@ -3,7 +3,8 @@
 import sqlite3
 from typing import List, Tuple
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
+
 
 MIGRATION_V1_SQL = """
 -- Schema migrations tracking table
@@ -172,6 +173,20 @@ CREATE TRIGGER IF NOT EXISTS trg_chunks_au AFTER UPDATE ON chunks BEGIN
 END;
 """
 
+MIGRATION_V5_SQL = """
+-- Phase 3 Hardening: Embedding Index Metadata & Provenance tracking
+CREATE TABLE IF NOT EXISTS embedding_index_metadata (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    provider TEXT NOT NULL,
+    model_name TEXT NOT NULL,
+    model_version TEXT NOT NULL,
+    dimension INTEGER NOT NULL,
+    config_json TEXT DEFAULT '{}',
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+"""
+
+
 
 def apply_migrations(conn: sqlite3.Connection) -> int:
     """Applies all pending database migrations in order."""
@@ -211,5 +226,11 @@ def apply_migrations(conn: sqlite3.Connection) -> int:
         cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (4);")
         current_version = 4
 
+    if current_version < 5:
+        cursor.executescript(MIGRATION_V5_SQL)
+        cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (5);")
+        current_version = 5
+
     return current_version
+
 

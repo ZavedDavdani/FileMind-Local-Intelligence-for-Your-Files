@@ -35,8 +35,10 @@ def build():
         "PyInstaller",
         "--clean",
         "--noconfirm",
+        "--noconsole",
         "--onedir",
         "--name", "filemind-backend-dir",
+
         "--hidden-import", "uvicorn.logging",
         "--hidden-import", "uvicorn.loops",
         "--hidden-import", "uvicorn.loops.auto",

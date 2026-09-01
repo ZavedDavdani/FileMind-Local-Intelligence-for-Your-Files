@@ -251,6 +251,7 @@ class EnumerateResponse(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, description="Raw user query string")
     mode: str = Field("hybrid", description="Retrieval mode: hybrid, bm25, or dense")
+    quality: str = Field("fast", description="Search quality: fast or quality")
     top_k: int = Field(10, ge=1, le=100, description="Max results to return")
     folder_id: Optional[str] = Field(None, description="Optional folder filter")
     extension: Optional[str] = Field(None, description="Optional file extension filter (e.g. .pdf)")
@@ -288,10 +289,41 @@ class SearchResultItem(BaseModel):
 class SearchResponse(BaseModel):
     query: str
     mode: str
+    quality: str = "fast"
     total_found: int
     latency_breakdown_ms: Dict[str, float]
     results: List[SearchResultItem]
     degraded: bool = False
     degraded_reason: Optional[str] = None
     retrieval_method: Optional[str] = None
+
+
+
+# ---------------------------------------------------------------------------
+# AI Readiness & Infrastructure Schemas
+# ---------------------------------------------------------------------------
+
+class ComponentAIStatus(BaseModel):
+    model_name: str
+    provider: str
+    dimension: Optional[int] = None
+    status: str
+    error: Optional[str] = None
+
+
+class LocalAIStatus(BaseModel):
+    status: str
+    embedding: ComponentAIStatus
+    reranker: ComponentAIStatus
+
+
+class CloudAIStatus(BaseModel):
+    enabled: bool = False
+    status: str = "unavailable"
+
+
+class AIStatusResponse(BaseModel):
+    local_ai: LocalAIStatus
+    cloud_ai: CloudAIStatus
+
 

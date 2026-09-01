@@ -29,7 +29,20 @@ MAX_RETRY_ATTEMPTS = 3
 INITIAL_BACKOFF_SECONDS = 1.0
 HASH_CHUNK_SIZE_BYTES = 64 * 1024  # 64 KB streaming buffer
 
+# Ingestion guards & limits
+# 50 MB default file size guard before hashing/parsing/embedding
+MAX_FILE_SIZE_BYTES = int(os.environ.get("FILEMIND_MAX_FILE_SIZE_BYTES", 50 * 1024 * 1024))
+
+# Persistent rotating logging configuration
+LOG_DIR = APP_DATA_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+DEFAULT_LOG_FILE = LOG_DIR / "filemind.log"
+MAX_LOG_BYTES = 5 * 1024 * 1024  # 5 MB per log file
+LOG_BACKUP_COUNT = 5  # Retain up to 5 rotated backup files
+DEFAULT_LOG_LEVEL = os.environ.get("FILEMIND_LOG_LEVEL", "INFO").upper()
+
 # Phase 4 Reranker configuration defaults
 DEFAULT_RERANK_MODEL_NAME = "BAAI/bge-reranker-base"
 DEFAULT_RERANK_POOL = 25
 RERANKER_LOAD_TIMEOUT_SECONDS = 15.0
+

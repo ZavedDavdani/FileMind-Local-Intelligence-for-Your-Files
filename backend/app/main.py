@@ -17,9 +17,12 @@ from app.db.connection import db_manager
 from app.db.repository import Repository
 from app.engine.coordinator import coordinator
 from app.schemas import (
+    AIStatusResponse,
     ActionRequest,
     ActionResponse,
     ActionType,
+    CloudAIStatus,
+    ComponentAIStatus,
     EnumerateRequest,
     EnumerateResponse,
     EventItem,
@@ -36,9 +39,12 @@ from app.schemas import (
     IndexingStatusResponse,
     JobItem,
     JobListResponse,
+    LocalAIStatus,
     SearchRequest,
     SearchResponse,
 )
+from app.retrieval.model_registry import ModelType, default_model_registry
+
 
 PORT = 24823
 HOST = "127.0.0.1"
@@ -90,6 +96,50 @@ def get_health() -> HealthResponse:
         version=__version__,
         port=PORT,
     )
+
+
+@app.get("/ai/status", response_model=AIStatusResponse, tags=["AI Readiness"])
+def get_ai_status() -> AIStatusResponse:
+    """Returns authoritative readiness status for local AI / retrieval components."""
+    emb_model = default_model_registry.get_active_model(ModelType.EMBEDDING)
+    rerank_model = default_model_registry.get_active_model(ModelType.RERANKER)
+
+    emb_status = ComponentAIStatus(
+        model_name=emb_model.name if emb_model else "sentence-transformers/all-MiniLM-L6-v2",
+        provider=emb_model.provider if emb_model else "fastembed",
+        dimension=emb_model.dimension if emb_model else 384,
+        status=emb_model.readiness.value if emb_model else "ready",
+        error=emb_model.error if emb_model else None,
+    )
+
+    rerank_status = ComponentAIStatus(
+        model_name=rerank_model.name if rerank_model else "BAAI/bge-reranker-base",
+        provider=rerank_model.provider if rerank_model else "fastembed",
+        dimension=None,
+        status=rerank_model.readiness.value if rerank_model else "ready",
+        error=rerank_model.error if rerank_model else None,
+    )
+
+    local_status = "ready"
+    if emb_status.status == "failed" and rerank_status.status == "failed":
+        local_status = "failed"
+    elif emb_status.status in ("failed", "degraded") or rerank_status.status in ("failed", "degraded"):
+        local_status = "degraded"
+    elif emb_status.status in ("loading", "downloading", "preparing") or rerank_status.status in ("loading", "downloading", "preparing"):
+        local_status = "loading"
+
+    return AIStatusResponse(
+        local_ai=LocalAIStatus(
+            status=local_status,
+            embedding=emb_status,
+            reranker=rerank_status,
+        ),
+        cloud_ai=CloudAIStatus(
+            enabled=False,
+            status="unavailable",
+        ),
+    )
+
 
 
 # ---------------------------------------------------------------------------
@@ -505,8 +555,32 @@ def get_document_intelligence_status() -> Dict[str, Any]:
 def search_evidence(req: SearchRequest) -> SearchResponse:
     """
     Local hybrid evidence retrieval endpoint.
-    Combines BM25 lexical ranking and dense vector similarity using Reciprocal Rank Fusion (RRF).
+    Supports Fast and Quality search modes across BM25, Dense, and Hybrid retrieval.
     """
+    valid_modes = {"hybrid", "bm25", "dense"}
+    valid_qualities = {"fast", "quality"}
+
+    mode_lower = (req.mode or "").lower().strip()
+    quality_lower = (req.quality or "").lower().strip()
+
+    if mode_lower not in valid_modes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid retrieval mode '{req.mode}'. Valid options are: 'hybrid', 'bm25', 'dense'.",
+        )
+
+    if quality_lower not in valid_qualities:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid quality mode '{req.quality}'. Valid options are: 'fast', 'quality'.",
+        )
+
+    if quality_lower == "quality" and mode_lower != "hybrid":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Quality mode is only supported with hybrid retrieval (received mode='{req.mode}', quality='{req.quality}').",
+        )
+
     filters = {}
     if req.folder_id:
         filters["folder_id"] = req.folder_id
@@ -522,9 +596,11 @@ def search_evidence(req: SearchRequest) -> SearchResponse:
             query=req.query,
             top_k=req.top_k,
             filters=filters,
-            mode=req.mode,
+            mode=mode_lower,
+            quality=quality_lower,
         )
         return SearchResponse(**resp)
+
 
 
 def start():

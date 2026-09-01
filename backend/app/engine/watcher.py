@@ -454,6 +454,10 @@ class WatcherService:
                         from datetime import datetime, timezone
                         mod_iso = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat()
                         
+                        from app.core.config import MAX_FILE_SIZE_BYTES
+                        is_oversized = (st.st_size > MAX_FILE_SIZE_BYTES)
+                        oversized_err = f"File size ({st.st_size} bytes) exceeds limit ({MAX_FILE_SIZE_BYTES} bytes)" if is_oversized else None
+
                         file_rec = repo.upsert_file(
                             folder_id=folder_id,
                             path=path,
@@ -462,14 +466,17 @@ class WatcherService:
                             extension=ext.lower(),
                             size_bytes=st.st_size,
                             modified_at=mod_iso,
-                            index_status="QUEUED",
+                            index_status="SKIPPED" if is_oversized else "QUEUED",
+                            indexing_error=oversized_err,
                         )
-                        repo.enqueue_job(
-                            file_id=file_rec["file_id"],
-                            folder_id=folder_id,
-                            job_type="HASH_VERIFICATION",
-                            priority=3,
-                        )
+                        if not is_oversized:
+                            repo.enqueue_job(
+                                file_id=file_rec["file_id"],
+                                folder_id=folder_id,
+                                job_type="HASH_VERIFICATION",
+                                priority=3,
+                            )
+
 
                 elif event_type == "DELETE":
                     file_rec = repo.get_file_by_path(path)

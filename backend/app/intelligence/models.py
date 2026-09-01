@@ -77,9 +77,10 @@ class Document:
     total_pages: Optional[int] = None
     elements: List[DocumentElement] = field(default_factory=list)
     parser_name: str = "unknown"
-    parser_version: str = "1.0.0"
+    parser_version: str = "unknown"
     quality_assessment: Optional[Any] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
 
     @property
     def full_text(self) -> str:

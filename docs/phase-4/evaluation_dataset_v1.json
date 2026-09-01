@@ -1,0 +1,497 @@
+{
+  "dataset_version": "phase4-eval-v1.0",
+  "corpus_version": "phase3-benchmark-corpus-v1",
+  "total_queries": 28,
+  "corpus_summary": {
+    "total_files": 20,
+    "total_chunks": 54,
+    "total_bytes": 219851
+  },
+  "queries": [
+    {
+      "query_id": "Q01_EXACT_FILENAME",
+      "query_text": "sample_system_spec.pdf",
+      "category": "exact_filename",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "sample_system_spec.pdf"
+      ],
+      "expected_chunk_ids": [
+        "chk_a1aeee09a27bab2f",
+        "chk_17e8d89d65770d17",
+        "chk_605a72e3901ce2a0",
+        "chk_6c8f4cc4696197d3",
+        "chk_f345fe7b5624b925"
+      ],
+      "graded_relevance": {
+        "chk_a1aeee09a27bab2f": 2,
+        "chk_17e8d89d65770d17": 2,
+        "chk_605a72e3901ce2a0": 2,
+        "chk_6c8f4cc4696197d3": 2,
+        "chk_f345fe7b5624b925": 2
+      },
+      "description": "Exact match for document filename; lexical retrieval should rank all chunks of sample_system_spec.pdf highest."
+    },
+    {
+      "query_id": "Q02_EXACT_PHRASE",
+      "query_text": "Cryptographic hashing with streaming SHA-256 validation",
+      "category": "exact_phrase",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "doc1_enterprise_spec.pdf"
+      ],
+      "expected_chunk_ids": [
+        "chk_7bf48a114ba7e4ca"
+      ],
+      "graded_relevance": {
+        "chk_7bf48a114ba7e4ca": 2
+      },
+      "description": "Exact phrase from Security Subsystem Hierarchy in doc1_enterprise_spec.pdf."
+    },
+    {
+      "query_id": "Q03_EXACT_PHRASE_STORAGE",
+      "query_text": "Write-Ahead Logging (WAL) mode enabled for high-concurrency",
+      "category": "exact_phrase",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "sample_system_spec.pdf",
+        "sample_system_spec.docx"
+      ],
+      "expected_chunk_ids": [
+        "chk_6c8f4cc4696197d3",
+        "chk_7f8f007544dfc303"
+      ],
+      "graded_relevance": {
+        "chk_6c8f4cc4696197d3": 2,
+        "chk_7f8f007544dfc303": 2,
+        "chk_2c6e3318d1e28dc2": 1
+      },
+      "description": "Exact phrase detailing SQLite WAL persistence in system specifications."
+    },
+    {
+      "query_id": "Q04_KEYWORD_IDENTIFIER",
+      "query_text": "file_events",
+      "category": "identifier",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "sample_system_spec.docx"
+      ],
+      "expected_chunk_ids": [
+        "chk_0fd53323a9bd011f"
+      ],
+      "graded_relevance": {
+        "chk_0fd53323a9bd011f": 2
+      },
+      "description": "Specific internal SQLite table identifier for filesystem event audit trail."
+    },
+    {
+      "query_id": "Q05_CODE_SNIPPET",
+      "query_text": "def get_config():",
+      "category": "code",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "sample_architecture.md"
+      ],
+      "expected_chunk_ids": [
+        "chk_072e2e2de283bacf"
+      ],
+      "graded_relevance": {
+        "chk_072e2e2de283bacf": 2
+      },
+      "description": "Code definition in markdown architecture specification."
+    },
+    {
+      "query_id": "Q06_TECHNICAL_ACRONYM",
+      "query_text": "mTLS",
+      "category": "acronym",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "doc1_enterprise_spec.pdf"
+      ],
+      "expected_chunk_ids": [
+        "chk_7bf48a114ba7e4ca"
+      ],
+      "graded_relevance": {
+        "chk_7bf48a114ba7e4ca": 2
+      },
+      "description": "Technical acronym for mutual TLS protocol in security spec."
+    },
+    {
+      "query_id": "Q07_TECHNICAL_TERM",
+      "query_text": "integrity_mode NORMAL debounce_ms",
+      "category": "technical_term",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "sample_architecture.md"
+      ],
+      "expected_chunk_ids": [
+        "chk_072e2e2de283bacf"
+      ],
+      "graded_relevance": {
+        "chk_072e2e2de283bacf": 2
+      },
+      "description": "Configuration parameter names in architecture specification."
+    },
+    {
+      "query_id": "Q08_CODE_IDENTIFIER",
+      "query_text": "EngineCoordinator",
+      "category": "identifier",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "sample_coordinator.py"
+      ],
+      "expected_chunk_ids": [
+        "chk_b34f24984372a069",
+        "chk_132b6278997535a1",
+        "chk_2812a646335337b6",
+        "chk_b28f9ad41ade2729"
+      ],
+      "graded_relevance": {
+        "chk_b34f24984372a069": 2,
+        "chk_132b6278997535a1": 2,
+        "chk_2812a646335337b6": 2,
+        "chk_b28f9ad41ade2729": 2
+      },
+      "description": "Python class name for the background engine coordinator."
+    },
+    {
+      "query_id": "Q09_PARTIAL_TERM",
+      "query_text": "debounc",
+      "category": "partial_term",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "sample_system_spec.pdf",
+        "sample_architecture.md"
+      ],
+      "expected_chunk_ids": [
+        "chk_605a72e3901ce2a0",
+        "chk_072e2e2de283bacf"
+      ],
+      "graded_relevance": {
+        "chk_605a72e3901ce2a0": 2,
+        "chk_072e2e2de283bacf": 2
+      },
+      "description": "Stemmed partial term for debounce logic."
+    },
+    {
+      "query_id": "Q10_SEMANTIC_CONCEPT_1",
+      "query_text": "how does the system guarantee fast crash recovery and restart",
+      "category": "semantic_concept",
+      "expected_advantage": "dense",
+      "expected_files": [
+        "sample_system_spec.pdf",
+        "sample_architecture.md",
+        "sample_metrics.csv"
+      ],
+      "expected_chunk_ids": [
+        "chk_605a72e3901ce2a0",
+        "chk_631b00d85a53ecd5",
+        "chk_6ccc18c68a18a3d0"
+      ],
+      "graded_relevance": {
+        "chk_605a72e3901ce2a0": 2,
+        "chk_631b00d85a53ecd5": 2,
+        "chk_6ccc18c68a18a3d0": 1
+      },
+      "description": "Semantic query describing crash resilience and recovery targets."
+    },
+    {
+      "query_id": "Q11_SEMANTIC_CONCEPT_2",
+      "query_text": "data retention schedule for cold audit records and compliance",
+      "category": "semantic_concept",
+      "expected_advantage": "dense",
+      "expected_files": [
+        "doc1_enterprise_spec.pdf"
+      ],
+      "expected_chunk_ids": [
+        "chk_e138fd81d0cc1b59"
+      ],
+      "graded_relevance": {
+        "chk_e138fd81d0cc1b59": 2
+      },
+      "description": "Semantic conceptual query for compliance archival lifecycle."
+    },
+    {
+      "query_id": "Q12_SEMANTIC_CONCEPT_3",
+      "query_text": "preventing dangling or orphan processes from staying alive",
+      "category": "semantic_concept",
+      "expected_advantage": "dense",
+      "expected_files": [
+        "doc5_bullets.docx"
+      ],
+      "expected_chunk_ids": [
+        "chk_86ac22b7c079cf1c"
+      ],
+      "graded_relevance": {
+        "chk_86ac22b7c079cf1c": 2
+      },
+      "description": "Semantic query about child-process cleanup."
+    },
+    {
+      "query_id": "Q13_SEMANTIC_CONCEPT_4",
+      "query_text": "quarterly business revenue and financial profit margins",
+      "category": "semantic_concept",
+      "expected_advantage": "dense",
+      "expected_files": [
+        "doc11_sheets.xlsx"
+      ],
+      "expected_chunk_ids": [
+        "chk_11d95f31b9155dac"
+      ],
+      "graded_relevance": {
+        "chk_11d95f31b9155dac": 2
+      },
+      "description": "Semantic retrieval of financial spreadsheet table."
+    },
+    {
+      "query_id": "Q14_SEMANTIC_CONCEPT_5",
+      "query_text": "hardware memory limits for background compute workers",
+      "category": "semantic_concept",
+      "expected_advantage": "dense",
+      "expected_files": [
+        "doc4_nested_ops.docx"
+      ],
+      "expected_chunk_ids": [
+        "chk_ac10fe9dbc1e49db"
+      ],
+      "graded_relevance": {
+        "chk_ac10fe9dbc1e49db": 2
+      },
+      "description": "Semantic retrieval of worker RAM capacity limit."
+    },
+    {
+      "query_id": "Q15_HYBRID_MULTI_TERM_1",
+      "query_text": "SQLite WAL persistence and change detection",
+      "category": "hybrid_multi_term",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "sample_architecture.md",
+        "sample_system_spec.pdf",
+        "sample_system_spec.docx"
+      ],
+      "expected_chunk_ids": [
+        "chk_75ba49ac19ff5b1d",
+        "chk_6c8f4cc4696197d3",
+        "chk_7f8f007544dfc303"
+      ],
+      "graded_relevance": {
+        "chk_75ba49ac19ff5b1d": 2,
+        "chk_6c8f4cc4696197d3": 2,
+        "chk_7f8f007544dfc303": 1
+      },
+      "description": "Multi-term query benefiting from both lexical precision on WAL/SQLite and dense concept relevance."
+    },
+    {
+      "query_id": "Q16_HYBRID_MULTI_TERM_2",
+      "query_text": "discovery rate throughput target 500 files/s",
+      "category": "hybrid_multi_term",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "sample_metrics.csv",
+        "sample_metrics.xlsx"
+      ],
+      "expected_chunk_ids": [
+        "chk_6ccc18c68a18a3d0",
+        "chk_489448ae4328db31"
+      ],
+      "graded_relevance": {
+        "chk_6ccc18c68a18a3d0": 2,
+        "chk_489448ae4328db31": 2
+      },
+      "description": "Multi-term benchmark target matching across CSV and XLSX tables."
+    },
+    {
+      "query_id": "Q17_HYBRID_MULTI_TERM_3",
+      "query_text": "asynchronous worker pool filesystem discovery events",
+      "category": "hybrid_multi_term",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "doc2_multicolumn.pdf"
+      ],
+      "expected_chunk_ids": [
+        "chk_7f4c75db248aa141"
+      ],
+      "graded_relevance": {
+        "chk_7f4c75db248aa141": 2
+      },
+      "description": "Multi-term whitepaper section retrieval."
+    },
+    {
+      "query_id": "Q18_MULTI_CHUNK_RELEVANCE",
+      "query_text": "FileMind architecture overview and subsystems",
+      "category": "multi_chunk",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "sample_presentation.pptx",
+        "sample_architecture.md",
+        "sample_system_spec.pdf"
+      ],
+      "expected_chunk_ids": [
+        "chk_7fd49b2bdbf4c628",
+        "chk_75ba49ac19ff5b1d",
+        "chk_17e8d89d65770d17"
+      ],
+      "graded_relevance": {
+        "chk_7fd49b2bdbf4c628": 2,
+        "chk_75ba49ac19ff5b1d": 2,
+        "chk_17e8d89d65770d17": 2
+      },
+      "description": "Broad architectural topic with multiple highly relevant chunks across presentation, markdown, and PDF."
+    },
+    {
+      "query_id": "Q19_TABLE_CONTENT",
+      "query_text": "Quarterly benchmark results discovery and watcher latency",
+      "category": "table_content",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "sample_metrics.xlsx",
+        "sample_metrics.csv"
+      ],
+      "expected_chunk_ids": [
+        "chk_a942b79d5ffb353f",
+        "chk_489448ae4328db31",
+        "chk_6ccc18c68a18a3d0"
+      ],
+      "graded_relevance": {
+        "chk_a942b79d5ffb353f": 2,
+        "chk_489448ae4328db31": 2,
+        "chk_6ccc18c68a18a3d0": 1
+      },
+      "description": "Retrieval of tabular benchmark performance data."
+    },
+    {
+      "query_id": "Q20_NATURAL_LANGUAGE_1",
+      "query_text": "What is the key rotation interval for Tier-1 TLS 1.3 protocol?",
+      "category": "natural_language",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "doc1_enterprise_spec.pdf"
+      ],
+      "expected_chunk_ids": [
+        "chk_7bf48a114ba7e4ca"
+      ],
+      "graded_relevance": {
+        "chk_7bf48a114ba7e4ca": 2
+      },
+      "description": "Natural language question seeking a specific table value (90 Days) in security spec."
+    },
+    {
+      "query_id": "Q21_NATURAL_LANGUAGE_2",
+      "query_text": "Which database tables store watcher events and indexing jobs?",
+      "category": "natural_language",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "sample_system_spec.docx"
+      ],
+      "expected_chunk_ids": [
+        "chk_0fd53323a9bd011f"
+      ],
+      "graded_relevance": {
+        "chk_0fd53323a9bd011f": 2
+      },
+      "description": "Natural language inquiry mapping to component layer table in DOCX."
+    },
+    {
+      "query_id": "Q22_SINGLE_HIGH_RELEVANCE",
+      "query_text": "def execute_task(self, task_id: str)",
+      "category": "single_chunk",
+      "expected_advantage": "lexical",
+      "expected_files": [
+        "sample_coordinator.py"
+      ],
+      "expected_chunk_ids": [
+        "chk_b28f9ad41ade2729"
+      ],
+      "graded_relevance": {
+        "chk_b28f9ad41ade2729": 2
+      },
+      "description": "Exact method signature lookup with exactly one matching chunk."
+    },
+    {
+      "query_id": "Q23_AMBIGUOUS_QUERY",
+      "query_text": "performance benchmarks",
+      "category": "ambiguous",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "sample_architecture.md",
+        "sample_metrics.xlsx",
+        "doc12_metrics.csv"
+      ],
+      "expected_chunk_ids": [
+        "chk_b187539fc8bcb4ac",
+        "chk_a942b79d5ffb353f",
+        "chk_489448ae4328db31",
+        "chk_1fb728b134565854"
+      ],
+      "graded_relevance": {
+        "chk_b187539fc8bcb4ac": 2,
+        "chk_a942b79d5ffb353f": 2,
+        "chk_489448ae4328db31": 2,
+        "chk_1fb728b134565854": 1
+      },
+      "description": "Short ambiguous query matching across multiple document formats."
+    },
+    {
+      "query_id": "Q24_METADATA_FILTER_H1",
+      "query_text": "Data Integrity Protocols immutable provenance",
+      "category": "metadata_heading",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "sample_system_spec.pdf"
+      ],
+      "expected_chunk_ids": [
+        "chk_f345fe7b5624b925"
+      ],
+      "graded_relevance": {
+        "chk_f345fe7b5624b925": 2
+      },
+      "description": "Heading and section provenance query in PDF."
+    },
+    {
+      "query_id": "Q25_HEADCOUNT_QUERY",
+      "query_text": "Engineering department headcount",
+      "category": "table_content",
+      "expected_advantage": "hybrid",
+      "expected_files": [
+        "doc11_sheets.xlsx"
+      ],
+      "expected_chunk_ids": [
+        "chk_03ebc371aed08760"
+      ],
+      "graded_relevance": {
+        "chk_03ebc371aed08760": 2
+      },
+      "description": "Specific department headcount query matching table row in Excel workbook."
+    },
+    {
+      "query_id": "Q26_NEGATIVE_NO_MATCH_1",
+      "query_text": "quantum entanglement topological superconducting qubit",
+      "category": "negative",
+      "expected_advantage": "none",
+      "expected_files": [],
+      "expected_chunk_ids": [],
+      "graded_relevance": {},
+      "description": "Negative query: No quantum computing documents exist in the corpus."
+    },
+    {
+      "query_id": "Q27_NEGATIVE_NO_MATCH_2",
+      "query_text": "kubernetes helm chart deployment yaml aws ingress controller",
+      "category": "negative",
+      "expected_advantage": "none",
+      "expected_files": [],
+      "expected_chunk_ids": [],
+      "graded_relevance": {},
+      "description": "Negative query: No cloud/Kubernetes deployment artifacts exist in the corpus."
+    },
+    {
+      "query_id": "Q28_NEGATIVE_NO_MATCH_3",
+      "query_text": "blockchain smart contract solana validator consensus",
+      "category": "negative",
+      "expected_advantage": "none",
+      "expected_files": [],
+      "expected_chunk_ids": [],
+      "graded_relevance": {},
+      "description": "Negative query: No crypto/blockchain materials exist in the corpus."
+    }
+  ]
+}

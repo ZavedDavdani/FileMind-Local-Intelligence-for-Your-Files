@@ -114,6 +114,11 @@ class FilesystemScanner:
                     _, ext = os.path.splitext(f)
                     mime, _ = mimetypes.guess_type(file_abs)
 
+                    # Ingestion Guard: Check MAX_FILE_SIZE_BYTES limit early
+                    from app.core.config import MAX_FILE_SIZE_BYTES
+                    is_oversized = (size_bytes > MAX_FILE_SIZE_BYTES)
+                    oversized_error = f"File size ({size_bytes} bytes) exceeds limit ({MAX_FILE_SIZE_BYTES} bytes)" if is_oversized else None
+
                     # Change detection check against existing database record
                     existing = self.repo.get_file_by_path(file_abs)
 
@@ -130,24 +135,60 @@ class FilesystemScanner:
                             modified_at=mod_iso,
                             created_at=create_iso,
                             mime_type=mime,
-                            index_status="QUEUED",
+                            index_status="SKIPPED" if is_oversized else "QUEUED",
+                            indexing_error=oversized_error,
                         )
-                        job = self.repo.enqueue_job(
-                            file_id=file_record["file_id"],
-                            folder_id=folder_id,
-                            job_type="HASH_VERIFICATION" if is_strict else "METADATA_DISCOVERY",
-                            priority=1,
-                        )
-                        result.enqueued_job_ids.append(job["job_id"])
+                        if not is_oversized:
+                            job = self.repo.enqueue_job(
+                                file_id=file_record["file_id"],
+                                folder_id=folder_id,
+                                job_type="HASH_VERIFICATION" if is_strict else "METADATA_DISCOVERY",
+                                priority=1,
+                            )
+                            result.enqueued_job_ids.append(job["job_id"])
 
                     else:
-                        # Existing file: compare mtime and size
-                        # Normalize ISO timestamp comparison
+                        # Existing file: compare mtime, size, strict hash, and parser/chunker versions
                         mtime_changed = (existing["modified_at"] != mod_iso)
                         size_changed = (existing["size_bytes"] != size_bytes)
                         needs_rehash = is_strict or (existing["sha256"] is None)
 
-                        if mtime_changed or size_changed or needs_rehash:
+                        # Version Invalidation Check: Check if active parser/chunker version has evolved
+                        version_changed = False
+                        if not is_oversized and existing.get("index_status") == "INDEXED":
+                            try:
+                                from app.intelligence.parsers.registry import default_parser_registry
+                                from app.intelligence.chunker.hierarchical import CHUNKER_VERSION
+                                active_parser = default_parser_registry.get_parser_for_file(file_abs, mime)
+                                if active_parser:
+                                    chunk_vers = self.repo.get_file_chunk_versions(existing["file_id"])
+                                    if chunk_vers:
+                                        if (chunk_vers["parser_version"] != active_parser.parser_version or
+                                            chunk_vers["chunker_version"] != CHUNKER_VERSION):
+                                            version_changed = True
+                            except Exception:
+                                pass
+
+                        if is_oversized:
+                            if existing.get("index_status") != "SKIPPED":
+                                result.modified_files += 1
+                                self.repo.upsert_file(
+                                    folder_id=folder_id,
+                                    path=file_abs,
+                                    relative_path=file_rel,
+                                    filename=f,
+                                    extension=ext.lower(),
+                                    size_bytes=size_bytes,
+                                    modified_at=mod_iso,
+                                    created_at=create_iso,
+                                    mime_type=mime,
+                                    index_status="SKIPPED",
+                                    indexing_error=oversized_error,
+                                    file_id=existing["file_id"],
+                                )
+                            else:
+                                result.unchanged_files += 1
+                        elif mtime_changed or size_changed or needs_rehash or version_changed:
                             result.modified_files += 1
                             file_record = self.repo.upsert_file(
                                 folder_id=folder_id,
@@ -171,6 +212,7 @@ class FilesystemScanner:
                             result.enqueued_job_ids.append(job["job_id"])
                         else:
                             result.unchanged_files += 1
+
 
                 except (PermissionError, OSError) as exc:
                     result.errors.append({"path": file_abs, "error": str(exc)})

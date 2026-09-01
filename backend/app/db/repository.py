@@ -744,3 +744,70 @@ class Repository:
             "skipped_files": file_counts.get("SKIPPED", 0),
         }
 
+    def get_file_chunk_versions(self, file_id: str) -> Optional[Dict[str, str]]:
+        """Returns the parser_name, parser_version, and chunker_version of indexed chunks for a file."""
+        cursor = self.conn.execute(
+            """
+            SELECT parser_name, parser_version, chunker_version
+            FROM chunks
+            WHERE file_id = ?
+            LIMIT 1;
+            """,
+            (file_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "parser_name": row["parser_name"],
+            "parser_version": row["parser_version"],
+            "chunker_version": row["chunker_version"],
+        }
+
+    def get_embedding_metadata(self) -> Optional[Dict[str, Any]]:
+        """Returns the recorded active embedding model identity from database."""
+        cursor = self.conn.execute(
+            """
+            SELECT provider, model_name, model_version, dimension, config_json, updated_at
+            FROM embedding_index_metadata
+            WHERE id = 1;
+            """
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        config = {}
+        try:
+            config = json.loads(row["config_json"] or "{}")
+        except Exception:
+            pass
+        return {
+            "provider": row["provider"],
+            "model_name": row["model_name"],
+            "model_version": row["model_version"],
+            "dimension": row["dimension"],
+            "config": config,
+            "updated_at": row["updated_at"],
+        }
+
+    def set_embedding_metadata(
+        self,
+        provider: str,
+        model_name: str,
+        model_version: str,
+        dimension: int,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Sets or replaces the active embedding model identity."""
+        config_json = json.dumps(config or {})
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute(
+            """
+            INSERT OR REPLACE INTO embedding_index_metadata
+            (id, provider, model_name, model_version, dimension, config_json, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?, ?);
+            """,
+            (provider, model_name, model_version, dimension, config_json, now),
+        )
+
+

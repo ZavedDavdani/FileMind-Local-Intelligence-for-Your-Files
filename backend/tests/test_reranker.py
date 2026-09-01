@@ -208,7 +208,8 @@ def test_2_candidate_count_limiting(phase4_test_setup):
             rerank_candidate_pool_size=2,
         )
 
-        retriever.search("specifications", top_k=1, mode="hybrid")
+        retriever.search("specifications", top_k=1, mode="hybrid", quality="quality")
+
 
         # Verify reranker was called with at most rerank_candidate_pool_size (2) candidates
         call_args = mock_reranker.rerank.call_args
@@ -247,7 +248,7 @@ def test_4_reranker_score_field_presence(phase4_test_setup):
         mock_reranker._model = MockCrossEncoderModel(default_score=0.912345)
 
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
-        resp = retriever.search("storage engine", top_k=5, mode="hybrid")
+        resp = retriever.search("storage engine", top_k=5, mode="hybrid", quality="quality")
 
         assert resp["total_found"] > 0
         for r in resp["results"]:
@@ -264,7 +265,7 @@ def test_5_existing_scores_preserved(phase4_test_setup):
         mock_reranker._model = MockCrossEncoderModel(default_score=0.88)
 
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
-        resp = retriever.search("storage engine", top_k=5, mode="hybrid")
+        resp = retriever.search("storage engine", top_k=5, mode="hybrid", quality="quality")
 
         first = resp["results"][0]
         assert first["reranker_score"] == round(_sigmoid(0.88), 6)
@@ -282,7 +283,7 @@ def test_6_provenance_preserved(phase4_test_setup):
         mock_reranker._model = MockCrossEncoderModel(default_score=0.95)
 
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
-        resp = retriever.search("Architecture storage", top_k=5, mode="hybrid")
+        resp = retriever.search("Architecture storage", top_k=5, mode="hybrid", quality="quality")
 
         first = resp["results"][0]
         assert first["chunk_id"] == "chk_arch_1"
@@ -312,7 +313,7 @@ def test_7_and_8_null_score_semantics_preserved(phase4_test_setup):
         mock_reranker._model = MockCrossEncoderModel(default_score=0.7)
 
         retriever = HybridRetriever(db_conn=conn, vector_store=mock_vec, reranker=mock_reranker)
-        resp = retriever.search("storage engine", top_k=10, mode="hybrid")
+        resp = retriever.search("storage engine", top_k=10, mode="hybrid", quality="quality")
 
         found_lex_only = False
         found_dense_only = False
@@ -340,7 +341,7 @@ def test_9_and_10_reranker_failure_graceful_fallback(phase4_test_setup):
         mock_reranker.rerank.side_effect = RuntimeError("Reranker GPU accelerator timeout")
 
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
-        resp = retriever.search("storage engine", top_k=5, mode="hybrid")
+        resp = retriever.search("storage engine", top_k=5, mode="hybrid", quality="quality")
 
         # Must NOT crash!
         assert resp["mode"] == "hybrid"
@@ -362,7 +363,8 @@ def test_11_filters_enforced_before_reranking(phase4_test_setup):
         mock_reranker._model = MockCrossEncoderModel(default_score=0.85)
 
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
-        resp = retriever.search("specifications", top_k=5, filters={"extension": ".pdf"}, mode="hybrid")
+        resp = retriever.search("specifications", top_k=5, filters={"extension": ".pdf"}, mode="hybrid", quality="quality")
+
 
         assert resp["total_found"] > 0
         for r in resp["results"]:
@@ -382,7 +384,7 @@ def test_12_empty_candidate_pool_handled_safely(phase4_test_setup):
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
 
         # Filter for non-existent extension ensures both lexical and dense candidate pools are empty
-        resp = retriever.search("storage engine", top_k=5, filters={"extension": ".nonexistent"}, mode="hybrid")
+        resp = retriever.search("storage engine", top_k=5, filters={"extension": ".nonexistent"}, mode="hybrid", quality="quality")
 
         assert resp["total_found"] == 0
         assert resp["results"] == []
@@ -397,7 +399,7 @@ def test_13_top_k_smaller_than_pool(phase4_test_setup):
         mock_reranker._model = MockCrossEncoderModel(default_score=0.8)
 
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker, rerank_candidate_pool_size=10)
-        resp = retriever.search("specifications", top_k=1, mode="hybrid")
+        resp = retriever.search("specifications", top_k=1, mode="hybrid", quality="quality")
 
         assert resp["total_found"] == 1
         assert len(resp["results"]) == 1
@@ -411,7 +413,7 @@ def test_14_top_k_larger_than_available_candidates(phase4_test_setup):
         mock_reranker._model = MockCrossEncoderModel(default_score=0.8)
 
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
-        resp = retriever.search("specifications", top_k=100, mode="hybrid")
+        resp = retriever.search("specifications", top_k=100, mode="hybrid", quality="quality")
 
         assert 0 < resp["total_found"] <= 3
         assert len(resp["results"]) == resp["total_found"]
@@ -488,7 +490,7 @@ def test_18_latency_stages_measured_independently(phase4_test_setup):
         mock_reranker._model = MockCrossEncoderModel(default_score=0.8)
 
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
-        resp = retriever.search("storage engine", top_k=5, mode="hybrid")
+        resp = retriever.search("storage engine", top_k=5, mode="hybrid", quality="quality")
 
         lat = resp["latency_breakdown_ms"]
         assert "normalization" in lat
@@ -510,13 +512,13 @@ def test_19_search_modes_scope(phase4_test_setup):
         retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
 
         # BM25 mode
-        resp_bm25 = retriever.search("storage engine", top_k=5, mode="bm25")
+        resp_bm25 = retriever.search("storage engine", top_k=5, mode="bm25", quality="fast")
         assert resp_bm25["mode"] == "bm25"
         for r in resp_bm25["results"]:
             assert r["reranker_score"] is None
 
         # Dense mode
-        resp_dense = retriever.search("storage engine", top_k=5, mode="dense")
+        resp_dense = retriever.search("storage engine", top_k=5, mode="dense", quality="fast")
         assert resp_dense["mode"] == "dense"
         for r in resp_dense["results"]:
             assert r["reranker_score"] is None
@@ -530,7 +532,7 @@ def test_20_real_cross_encoder_semantic_reordering(phase4_test_setup):
     with db.session() as conn:
         # Uses real default_reranker (already cached locally)
         retriever = HybridRetriever(db_conn=conn)
-        resp = retriever.search("cryptographic verification and hashing security", top_k=3, mode="hybrid")
+        resp = retriever.search("cryptographic verification and hashing security", top_k=3, mode="hybrid", quality="quality")
 
         assert resp["total_found"] > 0
         assert resp["degraded"] is False
@@ -539,3 +541,4 @@ def test_20_real_cross_encoder_semantic_reordering(phase4_test_setup):
         assert top_doc["source_file"] == "sec.pdf"
         assert top_doc["reranker_score"] is not None
         assert isinstance(top_doc["reranker_score"], float)
+

@@ -89,6 +89,61 @@ class SqliteVecStore(BaseVectorStore):
     def _pack_vector(self, vec: List[float]) -> bytes:
         return struct.pack(f"{len(vec)}f", *vec)
 
+    def get_index_metadata(self) -> Optional[Dict[str, Any]]:
+        """Returns the recorded active embedding model identity from database."""
+        try:
+            cursor = self.conn.execute(
+                "SELECT provider, model_name, model_version, dimension FROM embedding_index_metadata WHERE id = 1;"
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            try:
+                return {
+                    "provider": row["provider"],
+                    "model_name": row["model_name"],
+                    "model_version": row["model_version"],
+                    "dimension": row["dimension"],
+                }
+            except (TypeError, IndexError):
+                return {
+                    "provider": row[0],
+                    "model_name": row[1],
+                    "model_version": row[2],
+                    "dimension": row[3],
+                }
+        except Exception:
+            return None
+
+    def set_index_metadata(self, provider: str, model_name: str, model_version: str, dimension: int) -> None:
+        """Records active embedding model identity in embedding_index_metadata."""
+        try:
+            self.conn.execute(
+                """
+                INSERT OR REPLACE INTO embedding_index_metadata (id, provider, model_name, model_version, dimension)
+                VALUES (1, ?, ?, ?, ?);
+                """,
+                (provider, model_name, model_version, dimension),
+            )
+        except Exception as exc:
+            logger.warning("Failed to record embedding index metadata: %s", str(exc))
+
+    def verify_index_validity(self, expected_identity: Dict[str, Any]) -> bool:
+        """Verifies whether the indexed vectors match the active embedding model identity."""
+        meta = self.get_index_metadata()
+        if not meta:
+            return True  # No metadata recorded yet (empty or uninitialized index)
+
+        if meta["provider"] != expected_identity.get("provider", "fastembed"):
+            return False
+        if meta["model_name"] != expected_identity.get("model_name"):
+            return False
+        if meta["model_version"] != expected_identity.get("model_version", "1.0.0"):
+            return False
+        if meta["dimension"] != expected_identity.get("dimension", self.dimension):
+            return False
+        return True
+
     def upsert_vectors(self, records: List[Dict[str, Any]]) -> int:
         if not records:
             return 0
@@ -104,7 +159,13 @@ class SqliteVecStore(BaseVectorStore):
             rows.append((r["chunk_id"], packed))
 
         self.conn.executemany(insert_sql, rows)
+
+        # Record metadata if not present
+        if self.get_index_metadata() is None:
+            self.set_index_metadata("fastembed", "sentence-transformers/all-MiniLM-L6-v2", "1.0.0", self.dimension)
+
         return len(rows)
+
 
     def delete_by_chunk_ids(self, chunk_ids: List[str]) -> int:
         if not chunk_ids:

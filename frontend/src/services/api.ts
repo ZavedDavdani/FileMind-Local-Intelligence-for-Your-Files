@@ -498,6 +498,7 @@ export async function searchEvidence(
   let latencies: any = null;
   let queryStr = request.query;
   let modeStr: "hybrid" | "bm25" | "dense" | string = request.mode || "hybrid";
+  let qualityStr: "fast" | "quality" | string = request.quality || "fast";
   let degraded = false;
   let degradedReason: string | null = null;
   let retrievalMethod: string | null = null;
@@ -517,6 +518,7 @@ export async function searchEvidence(
       latencies = data.latency_breakdown_ms;
       if (typeof data.query === "string") queryStr = data.query;
       if (typeof data.mode === "string") modeStr = data.mode;
+      if (typeof data.quality === "string") qualityStr = data.quality;
       degraded = Boolean(data.degraded);
       degradedReason = typeof data.degraded_reason === "string" ? data.degraded_reason : null;
       retrievalMethod = typeof data.retrieval_method === "string" ? data.retrieval_method : null;
@@ -531,6 +533,7 @@ export async function searchEvidence(
   return {
     query: queryStr,
     mode: modeStr,
+    quality: qualityStr,
     total_found: totalFound ?? results.length,
     latency_breakdown_ms: {
       normalization: typeof latencies?.normalization === "number" ? latencies.normalization : 0,
@@ -546,4 +549,5 @@ export async function searchEvidence(
     degraded_reason: degradedReason,
     retrieval_method: retrievalMethod,
   };
+
 }

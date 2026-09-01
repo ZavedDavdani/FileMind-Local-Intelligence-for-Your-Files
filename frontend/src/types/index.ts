@@ -206,6 +206,7 @@ export interface SearchLatencyBreakdown {
 export interface SearchResponse {
   query: string;
   mode: "hybrid" | "bm25" | "dense" | string;
+  quality: "fast" | "quality" | string;
   total_found: number;
   latency_breakdown_ms: SearchLatencyBreakdown;
   results: SearchResultItem[];
@@ -217,9 +218,11 @@ export interface SearchResponse {
 export interface SearchRequest {
   query: string;
   mode?: "hybrid" | "bm25" | "dense";
+  quality?: "fast" | "quality";
   top_k?: number;
   folder_id?: string;
   extension?: string;
   file_id?: string;
 }
+
 

@@ -13,6 +13,9 @@ from app.intelligence.models import (
 from app.intelligence.parsers.base import BaseParser, CorruptedDocumentError
 
 
+TEXT_PARSER_VERSION = "1.1.0"
+
+
 class TextAndCodeParser(BaseParser):
     """
     Parser for Markdown, Plain Text, and Source Code files.
@@ -25,7 +28,8 @@ class TextAndCodeParser(BaseParser):
 
     @property
     def parser_version(self) -> str:
-        return "1.0.0"
+        return TEXT_PARSER_VERSION
+
 
     @property
     def supported_mime_types(self) -> List[str]:

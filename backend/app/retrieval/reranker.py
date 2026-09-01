@@ -60,6 +60,11 @@ class Reranker:
     def _run_init(self) -> None:
         """Daemon thread: loads the FastEmbed TextCrossEncoder model and signals _init_done."""
         try:
+            from app.retrieval.model_registry import default_model_registry, ModelReadiness
+            default_model_registry.update_readiness(
+                f"fastembed:{self.model_name}",
+                ModelReadiness.LOADING,
+            )
             from fastembed.rerank.cross_encoder import TextCrossEncoder
             logger.info(
                 "Reranker init thread starting: %s (daemon=True, bounded to ~40 s max)",
@@ -68,12 +73,23 @@ class Reranker:
             model = TextCrossEncoder(model_name=self.model_name)
             self._model = model
             self._init_error = None
+            default_model_registry.update_readiness(
+                f"fastembed:{self.model_name}",
+                ModelReadiness.READY,
+            )
             logger.info("Reranker init thread succeeded: %s", self.model_name)
         except Exception as exc:
             self._init_error = exc
+            from app.retrieval.model_registry import default_model_registry, ModelReadiness
+            default_model_registry.update_readiness(
+                f"fastembed:{self.model_name}",
+                ModelReadiness.FAILED,
+                error=str(exc),
+            )
             logger.error("Reranker init thread failed: %s: %s", self.model_name, exc)
         finally:
             self._init_done.set()
+
 
     def _ensure_loaded(self) -> None:
         """Deferred lazy loading with single bounded daemon thread."""
