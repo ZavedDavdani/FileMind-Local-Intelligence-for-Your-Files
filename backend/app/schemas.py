@@ -30,7 +30,7 @@ class HealthResponse(BaseModel):
     """Deterministic health check contract for Phase 0 and Phase 1."""
     status: str = "healthy"
     service: str = "FileMind Backend"
-    version: str = "0.2.0"
+    version: str = "0.1.0"
     port: int = 24823
 
 

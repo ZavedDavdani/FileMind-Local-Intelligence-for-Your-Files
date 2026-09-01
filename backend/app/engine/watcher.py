@@ -21,7 +21,7 @@ from watchdog.events import (
 from watchdog.observers import Observer
 
 from app.core.exclusions import ExclusionMatcher
-from app.core.security import normalize_path
+from app.core.security import is_symlink_or_junction, normalize_path
 from app.db.connection import DatabaseManager
 from app.db.repository import Repository
 
@@ -172,6 +172,10 @@ class FolderWatchHandler(FileSystemEventHandler):
 
     def _should_ignore(self, path: str, is_dir: bool = False) -> bool:
         try:
+            # Reject symlinks and Windows junctions/reparse points immediately —
+            # consistent with the scanner's is_symlink_or_junction policy.
+            if is_symlink_or_junction(path):
+                return True
             rel = os.path.relpath(path, self.folder_path)
             if is_dir:
                 name = os.path.basename(path)
@@ -373,10 +377,34 @@ class WatcherService:
                     pass
 
     def _handle_flushed_batch(self, events: List[Dict[str, Any]]):
-        """Processes a batch of normalized events inside a single atomic SQLite transaction."""
+        """Processes a batch of normalized events in bounded sub-batches.
+
+        Large event bursts (e.g. 50,000 events) are split into sub-batches of at most
+        WATCHER_BATCH_SIZE items. This prevents a single oversized SQLite transaction from
+        blocking reads and writes. Sub-batches are processed sequentially, preserving ordering
+        and deduplication guarantees established by the debouncer.
+
+        Batch size is justified by SQLite WAL mode: 200 events per transaction keeps single
+        write transactions comfortably within the WAL checkpoint window.
+        """
+        WATCHER_BATCH_SIZE = 200
+
         if not events:
             return
 
+        for i in range(0, len(events), WATCHER_BATCH_SIZE):
+            sub_batch = events[i:i + WATCHER_BATCH_SIZE]
+            self._process_event_sub_batch(sub_batch)
+
+        if self.on_normalized_event:
+            for ev in events:
+                try:
+                    self.on_normalized_event(ev)
+                except Exception:
+                    pass
+
+    def _process_event_sub_batch(self, events: List[Dict[str, Any]]):
+        """Processes a single bounded sub-batch of events inside one atomic SQLite transaction."""
         with self.db.session() as conn:
             repo = Repository(conn)
 
@@ -418,7 +446,7 @@ class WatcherService:
                     continue
 
                 if event_type in ("CREATE", "MODIFY"):
-                    if os.path.exists(path) and os.path.isfile(path):
+                    if os.path.exists(path) and os.path.isfile(path) and not is_symlink_or_junction(path):
                         st = os.stat(path)
                         filename = os.path.basename(path)
                         _, ext = os.path.splitext(filename)
@@ -463,11 +491,4 @@ class WatcherService:
                                 job_type="HASH_VERIFICATION",
                                 priority=2,
                             )
-
-        if self.on_normalized_event:
-            for ev in events:
-                try:
-                    self.on_normalized_event(ev)
-                except Exception:
-                    pass
 

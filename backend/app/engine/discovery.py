@@ -18,8 +18,10 @@ class DiscoveryResult:
         self.modified_files: int = 0
         self.unchanged_files: int = 0
         self.skipped_exclusions: int = 0
+        self.stale_files: int = 0  # Files deleted while offline, now marked missing
         self.errors: List[Dict[str, str]] = []
         self.enqueued_job_ids: List[str] = []
+
 
 
 class FilesystemScanner:
@@ -181,5 +183,25 @@ class FilesystemScanner:
                             error_message=f"Access error during scan: {str(exc)}",
                         )
                     continue
+
+        # Offline deletion reconciliation: find indexed files that are no longer present on disk.
+        # These are files that were deleted while FileMind was closed, which the watcher could not
+        # observe. We reuse the existing deletion lifecycle: mark missing + cancel jobs +
+        # enqueue DELETE_CLEANUP so the worker removes chunks and vectors.
+        indexed_records = self.repo.list_indexed_paths_for_folder(folder_id)
+        for rec in indexed_records:
+            db_path = rec["path"]
+            if db_path not in seen_file_paths:
+                # File is in DB but was not found on disk during this scan.
+                self.repo.mark_file_missing(db_path)
+                self.repo.cancel_pending_jobs_for_file(rec["file_id"])
+                cleanup_job = self.repo.enqueue_job(
+                    file_id=rec["file_id"],
+                    folder_id=folder_id,
+                    job_type="DELETE_CLEANUP",
+                    priority=0,
+                )
+                result.enqueued_job_ids.append(cleanup_job["job_id"])
+                result.stale_files += 1
 
         return result

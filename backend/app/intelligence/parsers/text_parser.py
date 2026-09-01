@@ -281,8 +281,14 @@ class TextAndCodeParser(BaseParser):
             line = raw_line.strip()
             line_len = len(raw_line)
 
-            # Detect class definitions
-            if line.startswith("class ") or (ext == "rust" and line.startswith(("struct ", "enum ", "impl "))):
+            # Detect class / type definitions
+            rust_types = (
+                "struct ", "pub struct ", "pub(crate) struct ",
+                "enum ", "pub enum ", "pub(crate) enum ",
+                "impl ", "pub impl ", "pub(crate) impl ",
+                "trait ", "pub trait ", "pub(crate) trait ",
+            )
+            if line.startswith("class ") or ((ext in (".rs", "rust") or lang == "rust") and line.startswith(rust_types)):
                 if buffer_lines:
                     element_idx += 1
                     doc.elements.append(
@@ -320,7 +326,12 @@ class TextAndCodeParser(BaseParser):
                 continue
 
             # Detect functions
-            if line.startswith(("def ", "async def ", "function ", "fn ", "pub fn ", "public void ", "public int ")):
+            fn_prefixes = (
+                "def ", "async def ", "function ",
+                "fn ", "pub fn ", "pub(crate) fn ", "async fn ", "pub async fn ", "pub(crate) async fn ",
+                "public void ", "public int ",
+            )
+            if line.startswith(fn_prefixes):
                 if buffer_lines:
                     element_idx += 1
                     doc.elements.append(

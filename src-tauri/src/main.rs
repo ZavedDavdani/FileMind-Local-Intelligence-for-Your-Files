@@ -19,31 +19,60 @@ struct BackendState {
     child_process: Option<Child>,
     job_guard: Option<JobObjectGuard>,
     is_healthy: bool,
+    intentional_shutdown: bool,
 }
 
 type ManagedBackend = Arc<Mutex<BackendState>>;
 
 fn is_backend_healthy() -> bool {
     let addr = SocketAddr::from(([127, 0, 0, 1], BACKEND_PORT));
-    if let Ok(mut stream) = TcpStream::connect_timeout(&addr, Duration::from_millis(300)) {
-        let _ = stream.set_read_timeout(Some(Duration::from_millis(400)));
-        let _ = stream.set_write_timeout(Some(Duration::from_millis(400)));
-        let request = format!(
-            "GET /health HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\n\r\n",
-            BACKEND_PORT
-        );
-        if stream.write_all(request.as_bytes()).is_ok() {
-            let mut buf = [0u8; 512];
-            if let Ok(n) = stream.read(&mut buf) {
-                let resp = String::from_utf8_lossy(&buf[..n]);
-                if resp.contains("200 OK") || resp.contains("\"status\":\"healthy\"") || resp.contains("\"status\": \"healthy\"") {
-                    return true;
-                }
-            }
+    let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(300)) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+    let _ = stream.set_write_timeout(Some(Duration::from_millis(400)));
+
+    let request = format!(
+        "GET /health HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\n\r\n",
+        BACKEND_PORT
+    );
+    if stream.write_all(request.as_bytes()).is_err() {
+        return false;
+    }
+
+    let mut buf = [0u8; 4096];
+    let n = match stream.read(&mut buf) {
+        Ok(n) if n > 0 => n,
+        _ => return false,
+    };
+
+    let resp = match std::str::from_utf8(&buf[..n]) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    let status_line = resp.lines().next().unwrap_or("");
+    if !status_line.contains("200") {
+        return false;
+    }
+
+    let body = if let Some(idx) = resp.find("\r\n\r\n") {
+        &resp[idx + 4..]
+    } else if let Some(idx) = resp.find("\n\n") {
+        &resp[idx + 2..]
+    } else {
+        return false;
+    };
+
+    if let Ok(val) = serde_json::from_str::<serde_json::Value>(body.trim()) {
+        if let Some(status) = val.get("status").and_then(|s| s.as_str()) {
+            return status == "healthy";
         }
     }
     false
 }
+
 
 fn describe_backend_bundle(exe_path: &Path) {
     println!(
@@ -380,6 +409,8 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
 
 fn terminate_backend(backend_state: &ManagedBackend) {
     let mut state = backend_state.lock().unwrap();
+    // Signal supervision loop that this is an intentional shutdown, not a crash
+    state.intentional_shutdown = true;
     if let Some(mut child) = state.child_process.take() {
         println!("[Tauri Supervisor] Terminating backend process PID {}", child.id());
         let _ = child.kill();
@@ -420,11 +451,76 @@ fn load_app_state() -> Result<String, String> {
     Ok("{}".to_string())
 }
 
+fn get_registered_folders() -> Vec<PathBuf> {
+    let mut folders = Vec::new();
+    let addr = SocketAddr::from(([127, 0, 0, 1], BACKEND_PORT));
+    if let Ok(mut stream) = TcpStream::connect_timeout(&addr, Duration::from_millis(400)) {
+        let _ = stream.set_read_timeout(Some(Duration::from_millis(800)));
+        let _ = stream.set_write_timeout(Some(Duration::from_millis(400)));
+        let request = format!(
+            "GET /folders HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\n\r\n",
+            BACKEND_PORT
+        );
+        if stream.write_all(request.as_bytes()).is_ok() {
+            let mut buf = Vec::new();
+            if stream.read_to_end(&mut buf).is_ok() {
+                if let Ok(resp) = std::str::from_utf8(&buf) {
+                    let body = if let Some(idx) = resp.find("\r\n\r\n") {
+                        &resp[idx + 4..]
+                    } else if let Some(idx) = resp.find("\n\n") {
+                        &resp[idx + 2..]
+                    } else {
+                        ""
+                    };
+                    if let Ok(items) = serde_json::from_str::<Vec<serde_json::Value>>(body.trim()) {
+                        for item in items {
+                            if let Some(p) = item.get("path").and_then(|v| v.as_str()) {
+                                folders.push(PathBuf::from(p));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    folders
+}
+
 #[tauri::command]
 fn open_in_explorer(path: String) -> Result<(), String> {
+    if path.trim().is_empty() {
+        return Err("Path cannot be empty".to_string());
+    }
     let p = Path::new(&path);
     if !p.exists() {
         return Err("Path does not exist".to_string());
+    }
+
+    let canonical_target = p
+        .canonicalize()
+        .map_err(|e| format!("Failed to canonicalize target path: {}", e))?;
+
+    let registered_folders = get_registered_folders();
+    if registered_folders.is_empty() {
+        return Err("No registered folders found or backend is offline".to_string());
+    }
+
+    let mut is_contained = false;
+    for root in &registered_folders {
+        if let Ok(canonical_root) = root.canonicalize() {
+            // Path::starts_with is path-component-aware (handles separators, case on Windows, and prevents sibling prefix confusion)
+            if canonical_target.starts_with(&canonical_root) {
+                is_contained = true;
+                break;
+            }
+        }
+    }
+
+    if !is_contained {
+        return Err(format!(
+            "Access denied: path '{}' is outside all registered FileMind folders",
+            path
+        ));
     }
 
     #[cfg(target_os = "windows")]
@@ -456,9 +552,11 @@ fn main() {
         child_process: None,
         job_guard: None,
         is_healthy: false,
+        intentional_shutdown: false,
     }));
 
     let supervisor_state = backend_state.clone();
+    let restart_state = backend_state.clone();
     let cleanup_state = backend_state.clone();
 
     tauri::Builder::default()
@@ -473,10 +571,96 @@ fn main() {
         .setup(move |app| {
             let handle = app.handle().clone();
             let bg_state = supervisor_state.clone();
-            
-            // Spawn bundled backend automatically on startup
+
+            // Spawn bundled backend on startup
             std::thread::spawn(move || {
                 spawn_backend(&handle, bg_state);
+            });
+
+            // Backend crash/restart supervision loop (Bug #22)
+            // Polls every 5 seconds; if the backend exits unexpectedly (not during an
+            // intentional_shutdown), attempts up to MAX_RESTART_ATTEMPTS restarts with
+            // exponential backoff (2s, 4s, 8s).
+            // This does NOT make Tauri a general process manager — it only supervises
+            // the single FileMind backend process it owns.
+            let sup_state = restart_state.clone();
+            let sup_app = app.handle().clone();
+            std::thread::spawn(move || {
+                const POLL_INTERVAL_MS: u64 = 5000;
+                const MAX_RESTART_ATTEMPTS: u32 = 3;
+                let mut restart_count: u32 = 0;
+
+                loop {
+                    std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
+
+                    // Check if we're in an intentional shutdown — if so, stop supervising
+                    let should_stop = {
+                        let state = sup_state.lock().unwrap();
+                        state.intentional_shutdown
+                    };
+                    if should_stop {
+                        break;
+                    }
+
+                    // Check if the child process has exited unexpectedly
+                    let child_exited = {
+                        let mut state = sup_state.lock().unwrap();
+                        if let Some(ref mut child) = state.child_process {
+                            match child.try_wait() {
+                                Ok(Some(exit_status)) => {
+                                    eprintln!(
+                                        "[Tauri Supervisor] Backend process exited unexpectedly with status: {:?}",
+                                        exit_status
+                                    );
+                                    true
+                                }
+                                Ok(None) => false,   // Still running
+                                Err(e) => {
+                                    eprintln!("[Tauri Supervisor] WARNING: try_wait error: {}", e);
+                                    false
+                                }
+                            }
+                        } else {
+                            false // No child registered (e.g. early startup, already using an external backend)
+                        }
+                    };
+
+                    if child_exited {
+                        {
+                            // Clear the dead child handle
+                            let mut state = sup_state.lock().unwrap();
+                            state.child_process = None;
+                        }
+
+                        if restart_count >= MAX_RESTART_ATTEMPTS {
+                            eprintln!(
+                                "[Tauri Supervisor] Backend has crashed {} times. Giving up.",
+                                MAX_RESTART_ATTEMPTS
+                            );
+                            break;
+                        }
+
+                        restart_count += 1;
+                        let backoff_secs = 2u64 << (restart_count - 1); // 2, 4, 8
+                        eprintln!(
+                            "[Tauri Supervisor] Restarting backend (attempt {}/{}) after {}s backoff...",
+                            restart_count, MAX_RESTART_ATTEMPTS, backoff_secs
+                        );
+                        std::thread::sleep(Duration::from_secs(backoff_secs));
+
+                        // Re-check intentional_shutdown after backoff
+                        let should_stop = {
+                            let state = sup_state.lock().unwrap();
+                            state.intentional_shutdown
+                        };
+                        if should_stop {
+                            break;
+                        }
+
+                        spawn_backend(&sup_app, sup_state.clone());
+                        println!("[Tauri Supervisor] Backend restart {} triggered.", restart_count);
+                    }
+                }
             });
 
             Ok(())

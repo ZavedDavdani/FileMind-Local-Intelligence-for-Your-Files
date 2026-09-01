@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from app.core.config import DEFAULT_RERANK_POOL
 from app.retrieval.embeddings import EmbeddingEngine, default_embedding_engine
-from app.retrieval.lexical import LexicalRetriever, extract_filename_stems
+from app.retrieval.lexical import LexicalRetriever, compute_filename_match_boost, extract_filename_stems
 from app.retrieval.normalizer import NormalizedQuery, normalize_query
 from app.retrieval.reranker import Reranker, default_reranker
 from app.retrieval.vector_store import BaseVectorStore, SqliteVecStore
@@ -363,22 +363,21 @@ class HybridRetriever:
                 dense_score = dense_item["score"] if dense_item else None
 
                 # Exact filename and stem boost for RRF priority
-                # Calibrated conditional promotion: top lexical exact-stem matches (lex_rank <= 3)
-                # are boosted to ensure file discovery (e.g. 'sample' -> 'sample.txt'), while lower-ranked
-                # tail candidates receive a smaller boost to preserve dual-arm semantic superiority.
+                # Uses shared compute_filename_match_boost helper (domain="rrf") to keep
+                # boost magnitudes and match categories consistent with lexical retrieval.
+                # The lex_rank <= 3 conditional promotion for exact-match candidates is
+                # preserved: top lexical hits with exact filename/stem get the full boost,
+                # while lower-ranked tail candidates get a reduced boost (0.0050).
                 sf = (base_item.get("source_file") or "").lower()
-                direct_stem, root_stem = extract_filename_stems(sf)
-                stems = {direct_stem.lower(), root_stem.lower()}
-
-                if q_raw_lower == sf or q_raw_lower in stems:
+                base_rrf_boost = compute_filename_match_boost(q_raw_lower, norm_q.tokens, sf, domain="rrf")
+                if base_rrf_boost >= 0.0200:
+                    # Exact filename/stem match — apply lex_rank conditioning
                     if lex_rank is not None and lex_rank <= 3:
                         rrf_score += 0.0200
                     else:
                         rrf_score += 0.0050
-                elif any(tok.lower() == sf for tok in norm_q.tokens if len(tok) >= 2):
-                    rrf_score += 0.0080
-                elif any(tok.lower() in stems for tok in norm_q.tokens if len(tok) >= 2):
-                    rrf_score += 0.0050
+                elif base_rrf_boost > 0.0:
+                    rrf_score += base_rrf_boost
 
                 scored_candidates.append({
                     "chunk_id": cid,

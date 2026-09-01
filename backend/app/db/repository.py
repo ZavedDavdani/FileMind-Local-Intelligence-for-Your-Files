@@ -13,6 +13,15 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def escape_like_wildcards(pattern: str, escape_char: str = "\\") -> str:
+    """Escapes SQL LIKE wildcards (%, _, and escape_char itself)."""
+    return (
+        pattern.replace(escape_char, escape_char + escape_char)
+        .replace("%", escape_char + "%")
+        .replace("_", escape_char + "_")
+    )
+
+
 class Repository:
     """Provides strongly typed CRUD queries for the local FileMind database."""
 
@@ -223,6 +232,19 @@ class Repository:
         cursor = self.conn.execute(query, params)
         return [dict(row) for row in cursor.fetchall()]
 
+    def list_indexed_paths_for_folder(self, folder_id: str) -> List[Dict[str, Any]]:
+        """Returns all non-MISSING files in a folder as a list of {file_id, path} dicts.
+
+        Used by the scanner for offline deletion reconciliation: after a full walk,
+        any file returned here that was not seen on disk should be marked missing
+        and queued for DELETE_CLEANUP.
+        """
+        cursor = self.conn.execute(
+            "SELECT file_id, path FROM files WHERE folder_id = ? AND index_status != 'MISSING';",
+            (folder_id,),
+        )
+        return [{"file_id": row["file_id"], "path": row["path"]} for row in cursor.fetchall()]
+
     def mark_file_missing(self, path: str) -> bool:
         cursor = self.conn.execute(
             "UPDATE files SET index_status = 'MISSING', last_seen_at = ? WHERE path = ?;",
@@ -239,14 +261,15 @@ class Repository:
         dir_clean = normalize_path(dir_path)
         dir_prefix = dir_clean + os.sep
         now = _utcnow_iso()
+        like_pattern = escape_like_wildcards(dir_prefix) + "%"
 
         cursor = self.conn.execute(
             """
             UPDATE files
             SET index_status = 'MISSING', last_seen_at = ?
-            WHERE folder_id = ? AND (path LIKE ? OR path = ?) AND index_status != 'MISSING';
+            WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path = ?) AND index_status != 'MISSING';
             """,
-            (now, folder_id, dir_prefix + "%", dir_clean),
+            (now, folder_id, like_pattern, dir_clean),
         )
         affected = cursor.rowcount
 
@@ -257,10 +280,10 @@ class Repository:
             WHERE folder_id = ? AND status IN ('PENDING', 'PROCESSING')
               AND file_id IN (
                   SELECT file_id FROM files
-                  WHERE folder_id = ? AND (path LIKE ? OR path = ?)
+                  WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path = ?)
               );
             """,
-            (folder_id, folder_id, dir_prefix + "%", dir_clean),
+            (folder_id, folder_id, like_pattern, dir_clean),
         )
         return affected
 
@@ -285,10 +308,11 @@ class Repository:
         new_clean = normalize_path(new_dir_path)
         old_prefix = old_clean + os.sep
         new_prefix = new_clean + os.sep
+        like_pattern = escape_like_wildcards(old_prefix) + "%"
 
         cursor = self.conn.execute(
-            "SELECT file_id, path FROM files WHERE folder_id = ? AND (path LIKE ? OR path = ?);",
-            (folder_id, old_prefix + "%", old_clean),
+            "SELECT file_id, path FROM files WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path = ?);",
+            (folder_id, like_pattern, old_clean),
         )
         rows = cursor.fetchall()
         now = _utcnow_iso()
@@ -379,13 +403,13 @@ class Repository:
         jid = job_id or str(uuid.uuid4())
         now = _utcnow_iso()
 
-        # Check if an active job already exists for this file
+        # Check if an active job of the same type already exists for this file
         cursor = self.conn.execute(
             """
             SELECT * FROM indexing_jobs
-            WHERE file_id = ? AND status IN ('PENDING', 'PROCESSING');
+            WHERE file_id = ? AND job_type = ? AND status IN ('PENDING', 'PROCESSING');
             """,
-            (file_id,),
+            (file_id, job_type),
         )
         existing = cursor.fetchone()
         if existing:

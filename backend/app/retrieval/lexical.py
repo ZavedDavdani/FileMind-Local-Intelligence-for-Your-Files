@@ -37,6 +37,65 @@ def extract_filename_stems(source_file: str) -> Tuple[str, str]:
     return (direct_stem, root_stem)
 
 
+def compute_filename_match_boost(
+    query_lower: str,
+    tokens: List[str],
+    source_file: str,
+    domain: str,
+) -> float:
+    """Computes a filename/stem relevance boost calibrated for the given scoring domain.
+
+    Scoring domains:
+    - ``"bm25"``: Adds to the positive BM25 score (abs of FTS5 raw score).
+      Boosts are on the order of 2–5 points, consistent with typical BM25 score magnitudes.
+    - ``"rrf"``: Adds to the RRF score (range ~0..0.033 per arm).
+      Boosts are calibrated to the RRF ceiling (~0.033 at rank 1 with k=60).
+
+    Both domains share the same match-category semantics:
+      1. Exact filename or exact stem match (highest priority)
+      2. Any query token exactly equals the filename
+      3. Any query token matches a stem
+
+    Args:
+        query_lower: The normalized raw query string in lowercase.
+        tokens: The tokenized query terms.
+        source_file: The source_file field from the chunk (lowercase expected from caller).
+        domain: ``"bm25"`` or ``"rrf"``.
+
+    Returns:
+        Float boost to add to the candidate score. Returns 0.0 if no match.
+    """
+    sf = source_file.lower()
+    direct_stem, root_stem = extract_filename_stems(sf)
+    stems = {direct_stem.lower(), root_stem.lower()}
+
+    if domain == "bm25":
+        # BM25 additive boosts (in units of abs(bm25_score))
+        if query_lower == sf or query_lower in stems:
+            return 5.0
+        if any(tok.lower() == sf for tok in tokens if len(tok) >= 2):
+            return 3.0
+        if any(tok.lower() in stems for tok in tokens if len(tok) >= 2):
+            return 2.0
+        return 0.0
+
+    elif domain == "rrf":
+        # RRF additive boosts (calibrated to RRF score range ~0..0.033/arm)
+        # Exact filename/stem: conditional promotion for top-ranked lexical hits
+        # to ensure file discovery without exceeding the RRF ceiling.
+        if query_lower == sf or query_lower in stems:
+            # Caller must apply the lex_rank conditioning if desired;
+            # this helper returns the base "exact match" boost.
+            return 0.0200
+        if any(tok.lower() == sf for tok in tokens if len(tok) >= 2):
+            return 0.0080
+        if any(tok.lower() in stems for tok in tokens if len(tok) >= 2):
+            return 0.0050
+        return 0.0
+
+    return 0.0
+
+
 class LexicalRetriever:
     """Provides fast, deterministic BM25 lexical search over SQLite FTS5 index."""
 
@@ -140,15 +199,7 @@ class LexicalRetriever:
 
             # Filename relevance bonus for exact filename or stem matches
             sf = (d.get("source_file") or "").lower()
-            direct_stem, root_stem = extract_filename_stems(sf)
-            stems = {direct_stem.lower(), root_stem.lower()}
-
-            if q_raw_lower == sf or q_raw_lower in stems:
-                positive_score += 5.0
-            elif any(tok.lower() == sf for tok in norm_q.tokens if len(tok) >= 2):
-                positive_score += 3.0
-            elif any(tok.lower() in stems for tok in norm_q.tokens if len(tok) >= 2):
-                positive_score += 2.0
+            positive_score += compute_filename_match_boost(q_raw_lower, norm_q.tokens, sf, domain="bm25")
 
             try:
                 meta = json.loads(d.get("metadata_json") or "{}")

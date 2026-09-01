@@ -3,7 +3,7 @@
 import sqlite3
 from typing import List, Tuple
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 MIGRATION_V1_SQL = """
 -- Schema migrations tracking table

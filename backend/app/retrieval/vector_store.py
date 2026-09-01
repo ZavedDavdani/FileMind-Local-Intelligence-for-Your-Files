@@ -166,6 +166,12 @@ class SqliteVecStore(BaseVectorStore):
         chunk_distances = {}
         chunk_ids = []
 
+        # Maximum number of adaptive expansion iterations to prevent unbounded work
+        # on large corpora with very narrow filters. After MAX_ADAPTIVE_ITERATIONS
+        # the loop exits with whatever candidates have been gathered so far.
+        MAX_ADAPTIVE_ITERATIONS = 5
+        _iteration = 0
+
         while True:
             cursor = self.conn.execute(vec_sql, (packed_q, fetch_k))
             vec_rows = cursor.fetchall()
@@ -234,8 +240,10 @@ class SqliteVecStore(BaseVectorStore):
             if not has_filters:
                 break
 
-            # If enough valid filtered candidates gathered, or all vectors exhausted, stop
-            if len(matched_chunks) >= top_k or len(vec_rows) < fetch_k or fetch_k >= total_vectors:
+            _iteration += 1
+
+            # If enough valid filtered candidates gathered, or all vectors exhausted, or cap reached, stop
+            if len(matched_chunks) >= top_k or len(vec_rows) < fetch_k or fetch_k >= total_vectors or _iteration >= MAX_ADAPTIVE_ITERATIONS:
                 break
 
             # Adaptively expand fetch_k

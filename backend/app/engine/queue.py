@@ -33,11 +33,22 @@ class JobQueue:
             repo = Repository(conn)
             return repo.complete_job(job_id, file_id, sha256, final_status, indexing_error)
 
-    def fail_job(self, job_id: str, file_id: str, error_message: str, attempts: int) -> bool:
-        """Calculates retry backoff or permanently fails the job if max attempts exceeded."""
+    def fail_job(self, job_id: str, file_id: str, error_message: str, attempts: int = 0, permanent: bool = False) -> bool:
+        """Calculates retry backoff or permanently fails the job.
+
+        If ``permanent=True``, skips all backoff calculation and immediately marks
+        the job as permanently failed (retry_at=None, status='FAILED'). Use this for
+        unrecoverable errors such as corrupted/encrypted documents or missing files.
+
+        If ``permanent=False`` (the default), uses the normal exponential backoff
+        based on the actual ``attempts`` count from the DB.
+        """
         with self.db.session() as conn:
             repo = Repository(conn)
-            if attempts < MAX_RETRY_ATTEMPTS:
+            if permanent:
+                # Unconditional permanent failure — no retry
+                retry_at = None
+            elif attempts < MAX_RETRY_ATTEMPTS:
                 # Exponential backoff: 1s, 2s, 4s...
                 delay_sec = INITIAL_BACKOFF_SECONDS * (2 ** (attempts - 1))
                 retry_dt = datetime.now(timezone.utc) + timedelta(seconds=delay_sec)

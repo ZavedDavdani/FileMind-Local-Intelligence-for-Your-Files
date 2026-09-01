@@ -228,3 +228,86 @@ def test_b9_legitimate_search_result_copy_path_works(registered_folder):
     body = resp.json()
     assert body["success"] is True
     assert "allowed_file.txt" in body["target_path"]
+
+
+# ---------------------------------------------------------------------------
+# B10: Symlink pointing outside registered folder -> 403 Forbidden
+# ---------------------------------------------------------------------------
+
+def test_b10_symlink_pointing_outside_rejected(registered_folder, tmp_path):
+    """B10: Symlink inside registered folder pointing outside must be rejected with 403."""
+    client, _, folder_path, _, _ = registered_folder
+
+    outside_target = str(tmp_path / "outside_target.txt")
+    with open(outside_target, "w") as f:
+        f.write("Secret outside content")
+
+    symlink_path = os.path.join(folder_path, "symlink_outside.txt")
+    symlink_created = False
+    try:
+        os.symlink(outside_target, symlink_path)
+        symlink_created = True
+    except OSError:
+        pass
+
+    if symlink_created:
+        resp = client.post("/fs/action", json={"action": "COPY_PATH", "target_path": symlink_path})
+        assert resp.status_code == 403, f"Expected 403 for symlink, got {resp.status_code}: {resp.text}"
+    else:
+        # If unprivileged Windows user without Developer Mode, verify via mock
+        with mock.patch("app.core.security.is_symlink_or_junction", return_value=True):
+            resp = client.post("/fs/action", json={"action": "COPY_PATH", "target_path": str(tmp_path / "registered_folder" / "allowed_file.txt")})
+            assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# B11: Symlink pointing inside registered folder -> 403 Forbidden
+# ---------------------------------------------------------------------------
+
+def test_b11_symlink_pointing_inside_rejected(registered_folder):
+    """B11: Symlinks pointing inside the registered folder are also forbidden."""
+    client, _, folder_path, file_path, _ = registered_folder
+
+    symlink_path = os.path.join(folder_path, "symlink_inside.txt")
+    symlink_created = False
+    try:
+        os.symlink(file_path, symlink_path)
+        symlink_created = True
+    except OSError:
+        pass
+
+    if symlink_created:
+        resp = client.post("/fs/action", json={"action": "COPY_PATH", "target_path": symlink_path})
+        assert resp.status_code == 403, f"Expected 403 for internal symlink, got {resp.status_code}: {resp.text}"
+    else:
+        with mock.patch("app.core.security.is_symlink_or_junction", return_value=True):
+            resp = client.post("/fs/action", json={"action": "COPY_PATH", "target_path": file_path})
+            assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# B12: Directory containing symlink/junction in parent hierarchy -> 403 Forbidden
+# ---------------------------------------------------------------------------
+
+def test_b12_intermediate_symlink_directory_rejected(registered_folder):
+    """B12: Path where a parent directory is a symlink/junction must be rejected."""
+    client, _, folder_path, file_path, _ = registered_folder
+
+    with mock.patch("app.core.security.contains_symlink_or_junction", return_value=True):
+        resp = client.post("/fs/action", json={"action": "COPY_PATH", "target_path": file_path})
+        assert resp.status_code == 403
+        assert "symlinks and junctions" in resp.json().get("detail", "").lower()
+
+
+# ---------------------------------------------------------------------------
+# B13: Normal registered folder for OPEN_FOLDER -> 200 OK
+# ---------------------------------------------------------------------------
+
+def test_b13_normal_registered_folder_open_allowed(registered_folder):
+    """B13: Opening a legitimate registered folder itself must succeed."""
+    client, _, folder_path, _, _ = registered_folder
+
+    with mock.patch("os.startfile"), mock.patch("subprocess.Popen"):
+        resp = client.post("/fs/action", json={"action": "OPEN_FOLDER", "target_path": folder_path})
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True

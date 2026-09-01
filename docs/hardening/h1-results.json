@@ -1,33 +1,33 @@
 {
   "hardening_task": "H1_WINDOWS_JOB_OBJECT_LIFECYCLE",
   "status": "PASS",
-  "timestamp": "2026-09-01T15:11:36Z",
+  "timestamp": "2026-09-01T19:34:57Z",
   "job_object_configured": true,
   "limit_flags": "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE (0x00002000)",
   "exact_pid_assignment": true,
   "scenarios": {
     "scenario_a_graceful_close": {
-      "parent_pid": 5604,
-      "child_pid": 12712,
+      "parent_pid": 7792,
+      "child_pid": 15932,
       "in_job_object": true,
       "backend_terminated": true,
-      "child_termination_latency_ms": 202.31,
+      "child_termination_latency_ms": 809.92,
       "port_released": true,
-      "port_release_latency_ms": 303.28
+      "port_release_latency_ms": 305.54
     },
     "scenario_b_forced_parent_kill": {
-      "parent_pid": 10820,
-      "child_pid": 18668,
+      "parent_pid": 15508,
+      "child_pid": 10680,
       "in_job_object": true,
       "forced_kill_parent": true,
       "job_object_child_kill_verified": true,
-      "child_termination_latency_ms": 201.0,
+      "child_termination_latency_ms": 100.73,
       "port_released": true,
-      "port_release_latency_ms": 312.1
+      "port_release_latency_ms": 308.24
     },
     "scenario_c_relaunch_health": {
-      "parent_pid": 19160,
-      "child_pid": 6652,
+      "parent_pid": 7412,
+      "child_pid": 15044,
       "relaunch_health_status": "healthy",
       "relaunch_success": true
     }

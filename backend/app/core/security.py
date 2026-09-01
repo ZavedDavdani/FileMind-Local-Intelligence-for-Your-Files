@@ -85,3 +85,24 @@ def validate_subpath_safety(target_path: str, root_path: str) -> str:
             f"Path traversal or root escape detected: '{norm_target}' is outside root '{norm_root}'"
         )
     return norm_target
+
+
+def contains_symlink_or_junction(target_path: str, root_path: Optional[str] = None) -> bool:
+    """Checks whether target_path or any parent directory (up to root_path) is a symlink or junction."""
+    try:
+        norm_target = normalize_path(target_path)
+        curr = Path(norm_target)
+        norm_root = normalize_path(root_path) if root_path else None
+
+        while True:
+            if is_symlink_or_junction(str(curr)):
+                return True
+            if norm_root and os.path.normcase(str(curr)) == os.path.normcase(norm_root):
+                break
+            parent = curr.parent
+            if parent == curr:
+                break
+            curr = parent
+    except Exception:
+        pass
+    return False

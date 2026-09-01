@@ -6,7 +6,7 @@ interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   folders: Folder[];
-  onInspectChunk?: (chunkId: string) => void;
+  onInspectChunk?: (fileId: string, filename: string, chunkId: string) => void;
 }
 
 export const SearchModal: React.FC<SearchModalProps> = ({
@@ -274,7 +274,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
               {/* Latency Breakdown Panel */}
               {showLatencyDetail && (
-                <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800 grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs font-mono">
+                <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 text-center text-xs font-mono">
                   <div className="bg-slate-900/80 p-1.5 rounded">
                     <div className="text-slate-500 text-[10px]">Norm</div>
                     <div className="text-slate-200 font-semibold">{response.latency_breakdown_ms.normalization} ms</div>
@@ -295,6 +295,12 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     <div className="text-slate-500 text-[10px]">RRF Fusion</div>
                     <div className="text-slate-200 font-semibold">{response.latency_breakdown_ms.rrf_fusion} ms</div>
                   </div>
+                  {typeof response.latency_breakdown_ms.reranker_inference === "number" && (
+                    <div className="bg-purple-950/60 border border-purple-800/50 p-1.5 rounded">
+                      <div className="text-purple-300 text-[10px]">Reranker</div>
+                      <div className="text-purple-200 font-semibold">{response.latency_breakdown_ms.reranker_inference} ms</div>
+                    </div>
+                  )}
                   <div className="bg-indigo-950/60 border border-indigo-800/50 p-1.5 rounded">
                     <div className="text-indigo-300 text-[10px]">Total Req</div>
                     <div className="text-indigo-200 font-semibold">{response.latency_breakdown_ms.total_request} ms</div>
@@ -413,7 +419,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                           <span className="text-slate-600">•</span>
                           <button
                             onClick={() => {
-                              onInspectChunk(r.chunk_id);
+                              onInspectChunk(r.file_id, r.source_file, r.chunk_id);
                               onClose();
                             }}
                             className="text-indigo-400 hover:text-indigo-200 font-medium transition"

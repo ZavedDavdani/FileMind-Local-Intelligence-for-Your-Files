@@ -5,12 +5,14 @@ import { fetchFileChunks } from "../services/api";
 interface ChunkInspectorProps {
   fileId: string;
   filename: string;
+  initialChunkId?: string;
   onClose: () => void;
 }
 
 export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
   fileId,
   filename,
+  initialChunkId,
   onClose,
 }) => {
   const [data, setData] = useState<ChunkListResponse | null>(null);
@@ -19,18 +21,26 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
   const [selectedChunk, setSelectedChunk] = useState<ChunkItem | null>(null);
 
   useEffect(() => {
+    if (!fileId) {
+      setError("No file ID specified for chunk inspection");
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     fetchFileChunks(fileId)
       .then((res) => {
         setData(res);
         if (res.chunks && res.chunks.length > 0) {
-          setSelectedChunk(res.chunks[0]);
+          const matched = initialChunkId
+            ? res.chunks.find((c) => c.chunk_id === initialChunkId)
+            : null;
+          setSelectedChunk(matched || res.chunks[0]);
         }
       })
       .catch((err) => setError(err.message || "Failed to load chunks"))
       .finally(() => setLoading(false));
-  }, [fileId]);
+  }, [fileId, initialChunkId]);
 
   return (
     <div

@@ -27,6 +27,55 @@ def test_db_and_pool():
             pool.stop(timeout_sec=2.0)
 
 
+def wait_for_file_status(db_manager, file_id, target_statuses, timeout_sec=5.0):
+    t0 = time.time()
+    while time.time() - t0 < timeout_sec:
+        with db_manager.session() as conn:
+            repo = Repository(conn)
+            f = repo.get_file_by_id(file_id)
+            if f and f["index_status"] in target_statuses:
+                return f
+        time.sleep(0.05)
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        f = repo.get_file_by_id(file_id)
+        raise TimeoutError(f"File {file_id} status {f.get('index_status') if f else 'None'} not in {target_statuses} within {timeout_sec}s")
+
+
+def wait_for_chunks(db_manager, file_id, min_chunks=1, timeout_sec=5.0):
+    t0 = time.time()
+    while time.time() - t0 < timeout_sec:
+        with db_manager.session() as conn:
+            repo = Repository(conn)
+            chunks = repo.get_chunks_by_file(file_id)
+            if len(chunks) >= min_chunks:
+                return chunks
+        time.sleep(0.05)
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        chunks = repo.get_chunks_by_file(file_id)
+        if len(chunks) >= min_chunks:
+            return chunks
+    raise TimeoutError(f"File {file_id} did not reach {min_chunks} chunks within {timeout_sec}s")
+
+
+def wait_for_chunks_deleted(db_manager, file_id, timeout_sec=5.0):
+    t0 = time.time()
+    while time.time() - t0 < timeout_sec:
+        with db_manager.session() as conn:
+            repo = Repository(conn)
+            chunks = repo.get_chunks_by_file(file_id)
+            if len(chunks) == 0:
+                return
+        time.sleep(0.05)
+    with db_manager.session() as conn:
+        repo = Repository(conn)
+        chunks = repo.get_chunks_by_file(file_id)
+        if len(chunks) == 0:
+            return
+    raise TimeoutError(f"File {file_id} chunks were not deleted within {timeout_sec}s")
+
+
 def test_reprocessing_clears_stale_chunks(test_db_and_pool):
     """Verifies that modifying a file replaces stale active chunks without creating duplicates."""
     db_manager, pool, tmp_dir = test_db_and_pool
@@ -51,14 +100,11 @@ def test_reprocessing_clears_stale_chunks(test_db_and_pool):
         file_id = file_rec["file_id"]
         repo.enqueue_job(file_id=file_id, folder_id=folder["folder_id"], job_type="DOCUMENT_PARSE")
 
-    # Wait for initial processing
-    time.sleep(1.0)
-
-    with db_manager.session() as conn:
-        repo = Repository(conn)
-        v1_chunks = repo.get_chunks_by_file(file_id)
-        assert len(v1_chunks) >= 1
-        assert "Version One" in v1_chunks[0]["content"]
+    # Deterministically wait for initial processing
+    wait_for_file_status(db_manager, file_id, ["INDEXED"])
+    v1_chunks = wait_for_chunks(db_manager, file_id, min_chunks=1)
+    assert len(v1_chunks) >= 1
+    assert "Version One" in v1_chunks[0]["content"]
 
     # 2. Modify File Content (Version 2)
     with open(file_path, "w", encoding="utf-8") as f:
@@ -70,15 +116,13 @@ def test_reprocessing_clears_stale_chunks(test_db_and_pool):
         repo.update_file_status(file_id, "QUEUED")
         repo.enqueue_job(file_id=file_id, folder_id=folder["folder_id"], job_type="DOCUMENT_PARSE")
 
-    time.sleep(1.0)
-
-    with db_manager.session() as conn:
-        repo = Repository(conn)
-        v2_chunks = repo.get_chunks_by_file(file_id)
-        assert len(v2_chunks) >= 1
-        # Assert old chunks are gone and only new chunks exist
-        assert not any("Version One" in c["content"] for c in v2_chunks)
-        assert any("Version Two" in c["content"] for c in v2_chunks)
+    # Deterministically wait for reprocessing
+    wait_for_file_status(db_manager, file_id, ["INDEXED"])
+    v2_chunks = wait_for_chunks(db_manager, file_id, min_chunks=1)
+    assert len(v2_chunks) >= 1
+    # Assert old chunks are gone and only new chunks exist
+    assert not any("Version One" in c["content"] for c in v2_chunks)
+    assert any("Version Two" in c["content"] for c in v2_chunks)
 
 
 def test_delete_cleanup_removes_chunks(test_db_and_pool):
@@ -105,18 +149,17 @@ def test_delete_cleanup_removes_chunks(test_db_and_pool):
         file_id = file_rec["file_id"]
         repo.enqueue_job(file_id=file_id, folder_id=folder["folder_id"], job_type="DOCUMENT_PARSE")
 
-    time.sleep(1.0)
+    wait_for_file_status(db_manager, file_id, ["INDEXED"])
+    assert len(wait_for_chunks(db_manager, file_id, 1)) >= 1
 
+    # File is deleted
+    os.remove(file_path)
     with db_manager.session() as conn:
         repo = Repository(conn)
-        assert len(repo.get_chunks_by_file(file_id)) >= 1
-
-        # File is deleted
-        os.remove(file_path)
         repo.update_file_status(file_id, "MISSING")
         repo.enqueue_job(file_id=file_id, folder_id=folder["folder_id"], job_type="DELETE_CLEANUP")
 
-    time.sleep(1.0)
+    wait_for_chunks_deleted(db_manager, file_id)
 
     with db_manager.session() as conn:
         repo = Repository(conn)
@@ -149,12 +192,8 @@ def test_failure_handling_malformed_document(test_db_and_pool):
         file_id = file_rec["file_id"]
         repo.enqueue_job(file_id=file_id, folder_id=folder["folder_id"], job_type="DOCUMENT_PARSE")
 
-    time.sleep(1.0)
-
-    with db_manager.session() as conn:
-        repo = Repository(conn)
-        file_state = repo.get_file_by_id(file_id)
-        # Should be marked FAILED with an explicit error
-        assert file_state["index_status"] == "FAILED"
-        assert file_state["indexing_error"] is not None
-        assert pool.is_running
+    file_state = wait_for_file_status(db_manager, file_id, ["FAILED"])
+    # Should be marked FAILED with an explicit error
+    assert file_state["index_status"] == "FAILED"
+    assert file_state["indexing_error"] is not None
+    assert pool.is_running

@@ -33,7 +33,11 @@ export function App() {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [inspectedChunkId, setInspectedChunkId] = useState<string | null>(null);
+  const [inspectedChunk, setInspectedChunk] = useState<{
+    fileId: string;
+    filename: string;
+    chunkId: string;
+  } | null>(null);
 
   const notify = useCallback((msg: string) => {
     setNotification(msg);
@@ -256,15 +260,16 @@ export function App() {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         folders={folders}
-        onInspectChunk={(chunkId) => setInspectedChunkId(chunkId)}
+        onInspectChunk={(fileId, filename, chunkId) => setInspectedChunk({ fileId, filename, chunkId })}
       />
 
-      {/* Phase 2: Chunk Inspector Modal */}
-      {inspectedChunkId && (
+      {/* Document Intelligence: Chunk Inspector Modal */}
+      {inspectedChunk && (
         <ChunkInspector
-          fileId={files.find((f) => f.file_id)?.file_id || ""}
-          filename="Evidence Preview"
-          onClose={() => setInspectedChunkId(null)}
+          fileId={inspectedChunk.fileId}
+          filename={inspectedChunk.filename}
+          initialChunkId={inspectedChunk.chunkId}
+          onClose={() => setInspectedChunk(null)}
         />
       )}
     </div>

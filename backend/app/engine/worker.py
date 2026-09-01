@@ -128,8 +128,8 @@ class WorkerPool:
                 return
 
             if not file_path or not os.path.exists(file_path):
-                # File disappeared before processing
-                self.queue.fail_job(job_id, file_id, "File not found or deleted on disk", attempts=10)
+                # File disappeared before processing — permanent failure (not retryable)
+                self.queue.fail_job(job_id, file_id, "File not found or deleted on disk", permanent=True)
                 return
 
             if job_type in ("METADATA_DISCOVERY", "HASH_VERIFICATION", "DOCUMENT_PARSE", "CHUNK_GENERATION"):
@@ -243,14 +243,14 @@ class WorkerPool:
                     with self.db.session() as conn:
                         repo = Repository(conn)
                         repo.update_file_status(file_id, "FAILED", error=f"Corrupted: {str(corp_exc)}")
-                    self.queue.fail_job(job_id, file_id, str(corp_exc), attempts=10)
+                    self.queue.fail_job(job_id, file_id, str(corp_exc), permanent=True)
 
                 except Exception as parse_exc:
                     logger.error("Parser failed on %s: %s", file_path, str(parse_exc), exc_info=True)
                     with self.db.session() as conn:
                         repo = Repository(conn)
                         repo.update_file_status(file_id, "FAILED", error=f"Parse Error: {str(parse_exc)}")
-                    self.queue.fail_job(job_id, file_id, f"Parse failure: {str(parse_exc)}", attempts=10)
+                    self.queue.fail_job(job_id, file_id, f"Parse failure: {str(parse_exc)}", permanent=True)
 
             else:
                 self.queue.complete_job(job_id, file_id)

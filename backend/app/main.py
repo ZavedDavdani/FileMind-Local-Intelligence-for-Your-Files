@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+from app import __version__
 from app.core.security import normalize_path
 from app.db.connection import db_manager
 from app.db.repository import Repository
@@ -54,23 +55,26 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="FileMind Backend",
     description="FileMind Local-First Desktop Service - Phase 1 Filesystem Engine",
-    version="0.1.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
-# Enable CORS for local webview and dev origins
+ALLOWED_ORIGINS = [
+    "http://localhost",
+    "http://localhost:1420",
+    "http://localhost:5173",
+    "http://127.0.0.1",
+    "http://127.0.0.1:1420",
+    "http://127.0.0.1:5173",
+    "tauri://localhost",
+    "https://tauri.localhost",
+    "http://tauri.localhost",
+]
+
+# Enable CORS for explicit local webview and dev origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost",
-        "http://localhost:1420",
-        "http://localhost:5173",
-        "http://127.0.0.1:1420",
-        "http://127.0.0.1:5173",
-        "tauri://localhost",
-        "https://tauri.localhost",
-        "*",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,7 +87,7 @@ def get_health() -> HealthResponse:
     return HealthResponse(
         status="healthy",
         service="FileMind Backend",
-        version="0.1.0",
+        version=__version__,
         port=PORT,
     )
 
@@ -294,7 +298,7 @@ def execute_safe_action(payload: ActionRequest) -> ActionResponse:
     registered FileMind folder.  This prevents arbitrary filesystem access even
     when the API is reachable locally.
     """
-    from app.core.security import is_path_within_root
+    from app.core.security import is_path_within_root, is_symlink_or_junction, contains_symlink_or_junction
 
     try:
         target_path = normalize_path(payload.target_path)
@@ -308,33 +312,34 @@ def execute_safe_action(payload: ActionRequest) -> ActionResponse:
         )
 
     # -----------------------------------------------------------------------
-    # Registered-folder scope check
+    # Registered-folder scope & symlink/junction check
     # -----------------------------------------------------------------------
-    # For OPEN_FOLDER on a file path, the OS opens the file's containing
-    # directory (existing semantics: explorer /select,<file>).  The scope check
-    # must pass for the file itself (or its parent dir) to be within a
-    # registered folder — we check the canonical file path, which implicitly
-    # covers its parent.
     with db_manager.session() as _scope_conn:
         _scope_repo = Repository(_scope_conn)
         registered_folders = _scope_repo.list_folders()
 
-    allowed = False
+    matched_rf_path = None
     for rf in registered_folders:
         rf_path = rf.get("path", "")
         if not rf_path:
             continue
         try:
             if is_path_within_root(target_path, rf_path):
-                allowed = True
+                matched_rf_path = rf_path
                 break
         except Exception:
             continue
 
-    if not allowed:
+    if not matched_rf_path:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: target path is outside all registered FileMind folders.",
+        )
+
+    if is_symlink_or_junction(target_path) or contains_symlink_or_junction(target_path, matched_rf_path):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: symlinks and junctions are not permitted for filesystem actions.",
         )
     # -----------------------------------------------------------------------
 
