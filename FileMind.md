@@ -62,7 +62,10 @@ Phase 5.5 Batch 1 — Document Understanding Core:
 COMPLETE & PUSHED (`document_insights` schema v6, `DocumentUnderstandingService`, structural summaries, grounded executive summaries, key topics, decisions, citation validation, Ollama temperature forwarding — Commit `4d12526`)
 
 Phase 5.5 Batch 2 — Related Content:
-IMPLEMENTED LOCALLY (`RelatedContentService`, Max Chunk Score file grouping, strict self-exclusion, provenance snippet preservation, `GET /retrieval/related/{file_id}`, frontend client & TypeScript interfaces, zero migrations)
+COMPLETE & PUSHED (`RelatedContentService`, Max Chunk Score file grouping, strict self-exclusion, provenance snippet preservation, `GET /retrieval/related/{file_id}`, frontend client & TypeScript interfaces, zero migrations — Commit `7442402`)
+
+Phase 5.5 Batch 3 — Folder Understanding Core & Knowledge Connections:
+NOT STARTED / NEXT PLANNED
 
 Full Backend Regression Suite:
 423 / 424 PASS (423 passed, 1 skipped, 0 failed)
@@ -1714,36 +1717,65 @@ The packaged Windows application was freshly rebuilt, packaged via Tauri into NS
 
 ---
 
-### Phase 5.4 Batch 2: Ask UX Polish (Upcoming / Planned)
+### Phase 5.4 Batch 2: Ask UX Polish
+
+- **Status**: **COMPLETE & PUSHED** (Commit `ba45128`: `feat: implement phase 5.4 ask ux polish`).
+- **Implemented Scope**:
+  1. **Staged Ask Progress**: 4-stage visual progress tracker during synchronous generation (`"Analyzing question…"`, `"Searching local files…"`, `"Assembling grounded context…"`, `"Generating with local LLM…"`, `"Verifying citations…"`) with accessible live region (`aria-live="polite"`).
+  2. **Copy Answer**: One-click clipboard copy of generated answer text with visual feedback (`"Copied!"`) and clipboard error handling.
+  3. **Citation Auto-Scroll / Navigation**: Clicking citation pills (`[E1]`) or cards scrolls the corresponding evidence section smoothly into view and briefly flashes the target card.
+  4. **Transient In-Session Query History**: Ephemeral in-memory recent questions list (max 10, deduplicated, most-recent first) allowing one-click query restoration into input without auto-submitting. No database or disk persistence.
+
+---
+
+### Phase 5.5 Batch 1: Document Understanding Core
+
+- **Status**: **COMPLETE & PUSHED** (Commit `4d12526`: `feat: implement phase 5.5 document understanding`).
+- **Implemented Scope**:
+  1. **Structural Summary Engine**: Sub-millisecond deterministic structural document metrics (size, chunk count, estimated tokens, headings, sections) calculated directly from indexed chunks.
+  2. **Grounded Insight Generation**: Generates grounded executive summaries, key topics, key decisions, and cited evidence using local Ollama (`qwen3:4b`).
+  3. **Atomic Schema v6 Persistence**: `document_insights` SQLite table with foreign key cascade, unique constraint `(file_id, model_name)`, and invalidation tracking (`content_hash`, `parser_version`, `chunker_version`, `model_name`).
+  4. **Citation Validation & Provenance**: Reuses `CitationValidator` to resolve inline `[E{n}]` markers against representative source chunks.
+  5. **Endpoints & Frontend Contracts**: Mounted `GET /ai/document-insight/{file_id}` and `POST /ai/document-insight/{file_id}/generate`.
+
+---
+
+### Phase 5.5 Batch 2: Related Content
+
+- **Status**: **COMPLETE & PUSHED** (Commit `7442402`: `feat: implement phase 5.5 related content`).
+- **Implemented Scope**:
+  1. **Deterministic Related Retrieval**: Discovers meaningfully related files by reusing existing BM25 + Dense + RRF retrieval infrastructure without mandatory LLM calls.
+  2. **Representative Query Generation**: Deterministically combines filename stem, unique section headings, and introductory text snippet bounded to $\le 400$ characters.
+  3. **Strict Self-Exclusion**: Guarantees source file is never returned in its own related content.
+  4. **Max Chunk Score Grouping**: Aggregates multi-chunk candidates into a single file result ranked by highest-scoring chunk with tie-breaking `(-score, -matching_chunk_count, file_id ASC)`.
+  5. **Authentic Provenance**: Provides `primary_matched_chunk`, up to 2 `supporting_chunks`, and deterministic explanation strings.
+  6. **Dynamic On-Demand Execution**: Zero database migrations (`SCHEMA_VERSION = 6`), zero auxiliary vector stores, instant freshness upon index modification.
+  7. **Endpoints & Frontend Contracts**: Mounted `GET /retrieval/related/{file_id}` with `limit` and `quality` (`fast` / `quality`) parameters.
+
+---
+
+### Phase 5.5 Batch 3: Folder Understanding Core & Knowledge Connections (Upcoming)
 
 - **Status**: **NOT STARTED / NEXT PLANNED**.
-- **Planned Scope**:
-  1. **Staged Ask Progress**: Truthful progress states during synchronous generation (`"Searching files…"`, `"Preparing evidence…"`, `"Generating locally…"`, `"Checking citations…"`) with accessible live region (`aria-live="polite"`).
-  2. **Copy Answer**: One-click clipboard copy of generated answer text with visual feedback (`"Copied!"`) and safe failure handling.
-  3. **Citation Auto-Scroll / Navigation**: Clicking citation pills (`[E1]`) or cards scrolls the corresponding evidence section into view smoothly.
-  4. **Transient In-Session Query History**: In-memory recent questions list (max 10, deduplicated, most-recent first) allowing one-click query restoration without auto-submitting. No database or disk persistence.
-- **Implementation Constraints**:
-  - Frontend-focused UX enhancements only; synchronous backend pipeline preserved.
-  - Zero API contract changes; zero changes to retrieval or reranking algorithms.
-  - No streaming, no persistent conversation memory, no cross-session storage.
+- **Scope**: Folder-level structural summaries, grounded folder insights, and lightweight knowledge connections.
 
 ---
 
 ### Explicit Phase 5 Boundaries & Out-of-Scope Items
 
 The following capabilities belong to later milestones and are **STRICTLY NOT IMPLEMENTED**:
-- **No Streaming / SSE / WebSockets**: The Ask pipeline is currently 100% synchronous.
+- **No Streaming / SSE / WebSockets**: The Ask and Document Understanding pipelines are currently 100% synchronous.
 - **No Conversational Memory / Multi-Turn History**: Each Ask query is stateless and independent.
 - **No Database Chat Tables / Persistent Conversations**: In-session history is ephemeral memory only.
-- **No Knowledge Cards / Graph**: Second-brain graph connections and knowledge cards belong to future phases.
-- **No Autonomous Agents / Write Actions**: Read-only question answering only; zero tool execution or file edits.
+- **No Knowledge Graph Database**: Second-brain graph databases belong to future phases.
+- **No Autonomous Agents / Write Actions**: Read-only question answering and insights only; zero tool execution or file edits.
 - **No Cloud Fallback**: 100% local-first privacy architecture strictly preserved.
 - **No Multimodal AI**: Text-only document parsing and local generation.
 
 > [!IMPORTANT]
-> **PHASE 5.1–5.3 & PHASE 5.4 BATCH 1 VERIFIED COMPLETE & PUSHED (COMMIT a55030f).**
-> **FULL BACKEND REGRESSION: 393 / 394 PASS (393 PASSED, 1 SKIPPED, 0 FAILED).**
-> **PHASE 5 AI SUITES: 63 / 63 PASS.**
+> **PHASE 5.1–5.4 & PHASE 5.5 BATCHES 1 & 2 VERIFIED COMPLETE & PUSHED (COMMIT 7442402).**
+> **FULL BACKEND REGRESSION: 423 / 424 PASS (423 PASSED, 1 SKIPPED, 0 FAILED).**
+> **PHASE 5 / 5.5 AI SUITES: 93 / 93 PASS.**
 > **FRONTEND PRODUCTION BUILD & TAURI CARGO CHECK VERIFIED PASS.**
 
 
@@ -2321,9 +2353,9 @@ Reranking produced reordered top-3 candidates across 23 queries:
 - **Honest Search Footer**: Displayed as `"100% Local Deterministic Search • Fast & Quality Modes"`. No false claims of LLM answer generation.
 
 ### 13.11 Automated Test Verification & Regression
-- **Phase 5 AI Test Suites**: **63 / 63 PASS** (`test_ask_pipeline.py`, `test_grounded_generation.py`, `test_context_budget.py`, `test_ollama_provider.py`, `test_batch4_ai_status.py`).
+- **Phase 5 / 5.5 AI Test Suites**: **93 / 93 PASS** (`test_document_understanding.py`, `test_related_content.py`, `test_ask_pipeline.py`, `test_grounded_generation.py`, `test_context_budget.py`, `test_ollama_provider.py`, `test_batch4_ai_status.py`).
 - **AI Status Readiness Tests** (`backend/tests/test_batch4_ai_status.py`): **9 / 9 PASS**.
-- **Full Backend Regression Suite** (`pytest backend/tests/`): **393 passed, 0 failed, 1 skipped** (out of 394 total tests).
+- **Full Backend Regression Suite** (`pytest backend/tests/`): **423 passed, 0 failed, 1 skipped** (out of 424 total tests).
   *(Note: 1 skipped test is `test_watcher_symlink_ignored_on_windows`, which skips on non-elevated Windows environments lacking symlink creation privileges).*
 - **Frontend Production Build** (`tsc && vite build`): **PASS** (1,604 modules transformed, 0 errors).
 - **Tauri Desktop Shell** (`cargo check`): **PASS** (0 errors).
@@ -2360,12 +2392,16 @@ Reranking produced reordered top-3 candidates across 23 queries:
 ### 13.16 Current Status & Explicit Future Boundaries
 - **Local RAG & Generation (Phase 5.1–5.3)**: Fully implemented and verified.
 - **Ask Readiness & Concurrency (Phase 5.4 Batch 1)**: Fully implemented and pushed.
-- **Ask UX Polish (Phase 5.4 Batch 2)**: Next planned / upcoming.
+- **Ask UX Polish (Phase 5.4 Batch 2)**: Fully implemented and pushed.
+- **Document Understanding Core (Phase 5.5 Batch 1)**: Fully implemented and pushed.
+- **Related Content (Phase 5.5 Batch 2)**: Fully implemented and pushed.
+- **Folder Understanding & Knowledge Connections (Phase 5.5 Batch 3)**: Next planned.
 - **Streaming / SSE**: NOT implemented (synchronous on-device pipeline preserved).
 - **Conversational Memory / Multi-Turn History**: NOT implemented (stateless Q&A).
 - **Persistent Chat Database**: NOT implemented.
-- **Knowledge Cards & Graph**: NOT implemented (deferred to future milestones).
+- **Knowledge Graph Database**: NOT implemented (deferred to future milestones).
 - **Autonomous Agents**: NOT implemented.
+
 
 ---
 

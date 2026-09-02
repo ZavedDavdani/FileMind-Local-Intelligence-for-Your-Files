@@ -2,7 +2,7 @@
 
 > Local Intelligence for Your Files. Windows-first, privacy-first desktop search & local RAG.
 
-FileMind is a local-first, privacy-first Windows desktop application that indexes user-selected folders and provides multi-stage hybrid evidence retrieval combined with grounded local AI question-answering: SQLite FTS5 BM25 lexical matching, local dense vector embeddings, Reciprocal Rank Fusion (RRF), optional neural cross-encoder reranking, and local-only LLM synthesis via Ollama.
+FileMind is a local-first, privacy-first Windows desktop application that indexes user-selected folders and provides multi-stage hybrid evidence retrieval combined with grounded local AI question-answering and Second Brain document understanding: SQLite FTS5 BM25 lexical matching, local dense vector embeddings, Reciprocal Rank Fusion (RRF), optional neural cross-encoder reranking, and local-only LLM synthesis via Ollama.
 
 **Core Principle**: *"FileMind is a local knowledge layer over the user's existing files — not a new note-taking app."* The user's files on disk remain the authoritative single source of truth.
 
@@ -21,25 +21,28 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Phase 5.1** | Context & Token Budgeting (`ContextBudgetConfig`, `TokenEstimator`, `ContextBuilder`) | ✅ Complete / IMPLEMENTED |
 | **Phase 5.2** | Grounded Generation Contract (`PromptBuilder`, `CitationValidator`, `OllamaProvider`) | ✅ Complete / IMPLEMENTED |
 | **Phase 5.3** | Ask FileMind Local RAG Pipeline & UI (`POST /ai/ask`, `AskService`, `AskModal`) | ✅ Complete / IMPLEMENTED |
-| **Phase 5.4 Batch 1** | Ask Readiness & Concurrency Hardening (`GET /ai/status`, tag probe, request sequencing) | ✅ Complete / PUSHED |
-| **Phase 5.4 Batch 2** | Ask UX Polish (Staged progress, Copy Answer, Citation navigation, In-session history) | ⏳ **NEXT PLANNED** |
+| **Phase 5.4 Batch 1** | Ask Readiness & Concurrency Hardening (`GET /ai/status`, tag probe, request sequencing) | ✅ Complete / PUSHED (`a55030f`) |
+| **Phase 5.4 Batch 2** | Ask UX Polish (Staged progress, Copy Answer, Citation navigation, In-session history) | ✅ Complete / PUSHED (`ba45128`) |
+| **Phase 5.5 Batch 1** | Document Understanding Core (`document_insights` schema v6, grounded insight generation) | ✅ Complete / PUSHED (`4d12526`) |
+| **Phase 5.5 Batch 2** | Related Content (`RelatedContentService`, hybrid retrieval, Max Chunk Score grouping) | ✅ Complete / PUSHED (`7442402`) |
+| **Phase 5.5 Batch 3** | Folder Understanding Core & Knowledge Connections | ⏳ **NEXT PLANNED** |
 | **Phase 6** | Evaluation / MLOps (Expanded evaluation dataset, Ragas metrics, regression gates) | ⏳ PENDING |
 | **Phase 7** | Multimodal Intelligence (Optional: OCR, complex visual tables, ColPali) | ⏳ PENDING |
 | **Phase 8** | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
 | **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
 | **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
 
-> **Current Boundary & Scope Note**: Phase 5.1–5.3 (Local RAG / Ask FileMind) and Phase 5.4 Batch 1 (Ask Readiness & Concurrency) are **fully implemented and verified**. The pipeline operates synchronously on-device. Streaming, persistent chat history, cloud fallbacks, autonomous tool agents, and knowledge graphs belong to future milestones and are **strictly not implemented**.
+> **Current Boundary & Scope Note**: Phase 5.1–5.4 (Local RAG / Ask FileMind) and Phase 5.5 Batches 1 & 2 (Document Understanding & Related Content) are **fully implemented and verified**. The pipeline operates synchronously and locally on-device. Streaming, persistent chat databases, cloud fallbacks, autonomous tool-calling agents, and graph databases belong to future milestones and are **strictly not implemented**.
 
 ---
 
 ## Core Architecture
 
 ```
-User Query (Search Ctrl+K / Ask Ctrl+J)
+User Action (Search Ctrl+K / Ask Ctrl+J / Document Insight / Related Files)
   │
   ▼
-[ Query Normalizer (Unicode NFKC, Quoted Phrases, Identifier Preservation) ]
+[ Query Normalizer / Representative Signal Extractor ]
   │
   ├──────────────────────────────────┐
   ▼                                  ▼
@@ -58,26 +61,21 @@ User Query (Search Ctrl+K / Ask Ctrl+J)
          \                        /
           └─────────┬────────────┘
                     │
-      ┌─────────────┴─────────────┐
-      ▼                           ▼
-[ Search Results UI ]       [ Context Assembly & Token Budget Guard ]
-(Spotlight Ctrl+K)          (ContextBudgetConfig: 4096 tokens, system/output reserve)
-                                  │
-                                  ▼
-                            [ Grounded Prompt Builder ]
-                            (System grounding rules + [E1], [E2] evidence blocks)
-                                  │
-                                  ▼
-                            [ Local Ollama Provider (qwen3:4b) ]
-                            (Strict loopback http://127.0.0.1:11434, zero cloud)
-                                  │
-                                  ▼
-                            [ Citation Validator ]
-                            (Resolves inline citations against evidence provenance)
-                                  │
-                                  ▼
-                            [ Ask FileMind UI (Ctrl+J) ]
-                            (Grounded answer, verified citation cards, readiness badges)
+       ┌────────────┼──────────────────────────┐
+       ▼            ▼                          ▼
+[ Spotlight UI ] [ Ask FileMind Pipeline ]  [ Second Brain Layer ]
+(Search Ctrl+K)   │ (Context Budget 4096)     │
+                  ▼                           ├─► [ Document Understanding ]
+                 [ Grounded Prompt Builder ]  │   (Structural summary, executive
+                  │ (System rules + [E1].. )  │    summary, key topics/decisions,
+                  ▼                           │    grounded citations via Ollama)
+                 [ Local Ollama Provider ]    │
+                  │ (Strict 127.0.0.1:11434)  └─► [ Related Content ]
+                  ▼                               (Max Chunk Score grouping,
+                 [ Citation Validator ]            self-exclusion, authentic
+                  │ (Inline provenance map)        provenance, zero migrations)
+                  ▼
+                 [ Ask FileMind UI (Ctrl+J) ]
 ```
 
 ---
@@ -102,11 +100,24 @@ User Query (Search Ctrl+K / Ask Ctrl+J)
 - **No-Evidence Short-Circuiting**: If no evidence chunks match the query, the LLM is never invoked; an immediate `NO_EVIDENCE` response is returned.
 - **Local Ollama Provider (`OllamaProvider`)**: Executes generation via loopback `http://127.0.0.1:11434` with model `qwen3:4b`. Zero cloud fallback.
 
-### 4. Proactive AI Readiness & Concurrency Protection (Phase 5.4 Batch 1)
+### 4. Proactive AI Readiness & UX Polish (Phase 5.4 Batches 1 & 2)
 - **Ollama Readiness Probe (`check_ollama_readiness`)**: Probes `GET /api/tags` with a 1.0s timeout to verify daemon availability and model presence without loading weights or triggering generation.
 - **Status API (`GET /ai/status`)**: Exposes non-breaking `local_ai.ollama` readiness metadata (`is_ollama_online`, `has_default_model`, `model_name`, `endpoint`).
-- **AskModal Concurrency Protection**: Monotonically increasing request sequence numbers (`requestSeqRef.current`) suppress stale responses, handle in-flight aborts, and protect loading states across rapid queries or modal close/reopen.
-- **Ambient Readiness UI**: AskModal displays live status indicators (🟢 Ready, 🟡 Offline, 🔴 Model Missing) with contextual guidance commands (`ollama serve`, `ollama run qwen3:4b`).
+- **AskModal UX Polish**: Monotonically increasing request sequence numbers, 4-stage visual progress tracker (Analyzing, Retrieving, Budgeting, Generating), Markdown answer formatting with citation pill anchors, auto-scroll to citations, copy-to-clipboard, and in-session query history navigation.
+
+### 5. Local Second Brain Foundation (Phase 5.5 Batches 1 & 2)
+- **Document Understanding (`DocumentUnderstandingService`)**:
+  - Computes deterministic structural metrics ($< 1\text{ms}$): size, chunk count, estimated tokens, headings, and sections.
+  - Generates grounded, locally stored document insights: executive summaries, key topics, key decisions, and cited evidence.
+  - Persists atomic cache entries in `document_insights` (SQLite schema v6) with content hash, parser/chunker version, and model identity invalidation checks.
+  - Supports `GET /ai/document-insight/{file_id}` and `POST /ai/document-insight/{file_id}/generate`.
+- **Related Content (`RelatedContentService`)**:
+  - Discovers meaningfully related files using existing BM25 + Dense + RRF retrieval without mandatory LLM calls.
+  - Extracts bounded representative signals from the source file (filename stem, unique headings, introductory snippet).
+  - Enforces strict source-file self-exclusion and aggregates candidates at the file level using **Max Chunk Score**.
+  - Provides authentic provenance with `primary_matched_chunk`, up to 2 `supporting_chunks`, and deterministic explanation strings.
+  - Computes dynamically on demand with zero database migrations and zero auxiliary vector stores.
+  - Supports `GET /retrieval/related/{file_id}` with `limit` and `quality` (`fast` / `quality`) parameters.
 
 ---
 
@@ -137,6 +148,8 @@ The API and UI separate **Search Mode** (`hybrid`, `bm25`, `dense`) from **Quali
 | **Search** | **Hybrid + Quality** | BM25 + Dense $\rightarrow$ RRF $\rightarrow$ Cross-Encoder $\rightarrow$ Results | **~4.8 s** |
 | **Ask** | **Hybrid + Fast** *(Default)* | Hybrid Search $\rightarrow$ Context Budget $\rightarrow$ Grounded Prompt $\rightarrow$ Ollama $\rightarrow$ Citations | **~1–3 s** |
 | **Ask** | **Hybrid + Quality** | Quality Search (Reranked) $\rightarrow$ Context Budget $\rightarrow$ Grounded Prompt $\rightarrow$ Ollama $\rightarrow$ Citations | **~5–8 s** |
+| **Related** | **Hybrid + Fast** *(Default)* | Source Signals $\rightarrow$ Hybrid Search $\rightarrow$ Self-Exclusion $\rightarrow$ Max Chunk Score $\rightarrow$ Results | **~15–30 ms** |
+| **Related** | **Hybrid + Quality** | Source Signals $\rightarrow$ Quality Search (Reranked) $\rightarrow$ Self-Exclusion $\rightarrow$ Max Chunk Score $\rightarrow$ Results | **~60–140 ms** |
 
 ### Graceful Degradation & Diagnostic States
 - **Model Unavailable**: When Ollama is offline or model is missing, returns `MODEL_UNAVAILABLE` with setup instructions.
@@ -159,19 +172,20 @@ The API and UI separate **Search Mode** (`hybrid`, `bm25`, `dense`) from **Quali
 
 ## Verification & Release Gate Status
 
-Previously verified baseline (Commit `a55030f`):
+Authoritative baseline status:
 
-- **AI Status Readiness Tests** (`backend/tests/test_batch4_ai_status.py`): **9 / 9 PASS**
-- **Phase 5 AI Test Suites**: **63 / 63 PASS**
+- **Phase 5 / 5.5 AI Test Suites**: **93 / 93 PASS**
+  - `test_document_understanding.py`: 17 / 17 PASS
+  - `test_related_content.py`: 13 / 13 PASS
   - `test_ask_pipeline.py`: 12 / 12 PASS
   - `test_grounded_generation.py`: 18 / 18 PASS
   - `test_context_budget.py`: 19 / 19 PASS
   - `test_ollama_provider.py`: 5 / 5 PASS
   - `test_batch4_ai_status.py`: 9 / 9 PASS
-- **Full Backend Regression Suite**: **393 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
+- **Full Backend Regression Suite**: **423 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
 - **Frontend Production Build**: **PASS** (1,604 modules transformed, 0 errors)
 - **Tauri Desktop Verification**: **PASS** (`cargo check`, 0 errors)
-- **Whitespace Check**: **PASS** (0 violations)
+- **Whitespace / Formatting Check**: **PASS** (`git diff --check`, 0 violations)
 
 ---
 
@@ -191,10 +205,10 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# Run Phase 5 AI test suites
-pytest tests/test_ask_pipeline.py tests/test_grounded_generation.py tests/test_context_budget.py tests/test_ollama_provider.py tests/test_batch4_ai_status.py -v
+# Run Phase 5 / 5.5 AI test suites
+pytest tests/test_document_understanding.py tests/test_related_content.py tests/test_ask_pipeline.py tests/test_grounded_generation.py tests/test_context_budget.py tests/test_ollama_provider.py tests/test_batch4_ai_status.py -v
 
-# Run full backend regression suite (394 tests)
+# Run full backend regression suite (424 tests)
 pytest tests/ -v
 ```
 
