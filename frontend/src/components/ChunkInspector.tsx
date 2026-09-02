@@ -109,6 +109,7 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close Chunk Inspector"
             style={{
               background: "#313244",
               border: "none",
@@ -162,7 +163,15 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
                 return (
                   <div
                     key={chunk.chunk_id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Inspect chunk ${idx + 1} with ID ${chunk.chunk_id}`}
                     onClick={() => setSelectedChunk(chunk)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        setSelectedChunk(chunk);
+                      }
+                    }}
                     style={{
                       padding: "12px 16px",
                       borderBottom: "1px solid #313244",

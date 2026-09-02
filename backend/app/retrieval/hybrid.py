@@ -379,6 +379,12 @@ class HybridRetriever:
             degraded = True
             degraded_reason = f"lexical_retrieval_unavailable: {str(lex_error)}"
 
+        # Ensure deterministic candidate sorting with chunk_id tie-breaker
+        if lexical_candidates:
+            lexical_candidates.sort(key=lambda x: (-(x.get("score") or 0.0), str(x.get("chunk_id", ""))))
+        if dense_candidates:
+            dense_candidates.sort(key=lambda x: (-(x.get("score") or 0.0), str(x.get("chunk_id", ""))))
+
         # Stage E: Fusion & Ranking
         t0 = time.perf_counter()
         final_results: List[Dict[str, Any]] = []

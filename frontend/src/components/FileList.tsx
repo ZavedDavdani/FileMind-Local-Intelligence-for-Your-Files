@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { FileItem, IndexStatus } from "../types";
 import { fetchFiles, executeSafeAction } from "../services/api";
 import { ChunkInspector } from "./ChunkInspector";
@@ -27,64 +27,77 @@ interface FileListProps {
 
 const PAGE_SIZE = 50;
 
-function getFileIcon(ext: string) {
-  const cleanExt = ext.toLowerCase();
-  if ([".ts", ".tsx", ".js", ".jsx", ".py", ".rs", ".json", ".html", ".css"].includes(cleanExt)) {
-    return <FileCode className="w-4 h-4 text-cyan-400 shrink-0" />;
-  }
-  if ([".csv", ".xlsx", ".xls"].includes(cleanExt)) {
-    return <FileSpreadsheet className="w-4 h-4 text-emerald-400 shrink-0" />;
-  }
-  if ([".pdf", ".txt", ".md", ".docx", ".doc", ".pptx"].includes(cleanExt)) {
-    return <FileText className="w-4 h-4 text-indigo-400 shrink-0" />;
-  }
-  return <FileGeneric className="w-4 h-4 text-slate-400 shrink-0" />;
-}
-
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+function getFileIcon(ext: string) {
+  switch (ext.toLowerCase()) {
+    case ".pdf":
+    case ".docx":
+    case ".txt":
+    case ".md":
+      return <FileText className="w-4 h-4 text-indigo-400" />;
+    case ".py":
+    case ".rs":
+    case ".ts":
+    case ".tsx":
+    case ".js":
+    case ".jsx":
+    case ".json":
+    case ".yaml":
+    case ".yml":
+    case ".toml":
+      return <FileCode className="w-4 h-4 text-emerald-400" />;
+    case ".csv":
+    case ".xlsx":
+      return <FileSpreadsheet className="w-4 h-4 text-amber-400" />;
+    default:
+      return <FileGeneric className="w-4 h-4 text-slate-400" />;
+  }
 }
 
 function getStatusBadge(status: IndexStatus) {
   switch (status) {
     case "INDEXED":
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/60 text-emerald-300 border border-emerald-500/40">
-          INDEXED
+        <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 rounded-full flex items-center space-x-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span>INDEXED</span>
         </span>
       );
     case "PROCESSING":
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950/60 text-amber-300 border border-amber-500/40 animate-pulse">
-          PROCESSING
+        <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-950/80 text-amber-400 border border-amber-800/60 rounded-full flex items-center space-x-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-spin" />
+          <span>PROCESSING</span>
         </span>
       );
     case "QUEUED":
-    case "DISCOVERED":
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950/60 text-indigo-300 border border-indigo-500/40">
+        <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-950/80 text-blue-400 border border-blue-800/60 rounded-full">
           QUEUED
         </span>
       );
     case "FAILED":
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-950/60 text-rose-300 border border-rose-500/40">
+        <span className="px-2 py-0.5 text-[10px] font-semibold bg-rose-950/80 text-rose-400 border border-rose-800/60 rounded-full">
           FAILED
         </span>
       );
     case "SKIPPED":
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
+        <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded-full">
           SKIPPED
         </span>
       );
     case "MISSING":
       return (
-        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-dark-900 text-slate-500 border border-dark-700 line-through">
+        <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-900/40 text-amber-500 border border-amber-700/60 rounded-full">
           MISSING
         </span>
       );
@@ -109,6 +122,14 @@ export function FileList({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [inspectingFile, setInspectingFile] = useState<{ id: string; name: string } | null>(null);
+  const latestRequestIdRef = useRef(0);
+  const loadedCountRef = useRef(files.length);
+  const isInitialMountRef = useRef(true);
+
+  // Synchronize loaded count with files array length
+  useEffect(() => {
+    loadedCountRef.current = files.length;
+  }, [files]);
 
   // Debounce search query changes by 250ms
   useEffect(() => {
@@ -118,29 +139,53 @@ export function FileList({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Load first page on statusFilter, debouncedSearch, or refreshTrigger change
+  // Effect 1: Filter / Search Change
+  // When user actively modifies statusFilter or debouncedSearch, reset pagination to page 1
   useEffect(() => {
-    let isMounted = true;
+    const requestId = ++latestRequestIdRef.current;
     setIsLoading(true);
 
     fetchFiles(undefined, statusFilter || undefined, PAGE_SIZE, 0, debouncedSearch || undefined)
       .then((res) => {
-        if (!isMounted) return;
+        if (requestId !== latestRequestIdRef.current) return;
         setFiles(res.files || []);
         setTotal(typeof res.total === "number" ? res.total : (res.files || []).length);
       })
       .catch((err) => {
-        if (!isMounted) return;
-        console.error("[FileList] Failed to load files:", err);
+        if (requestId !== latestRequestIdRef.current) return;
+        console.error("[FileList] Failed to load files on filter change:", err);
       })
       .finally(() => {
-        if (isMounted) setIsLoading(false);
+        if (requestId === latestRequestIdRef.current) {
+          setIsLoading(false);
+        }
       });
+  }, [statusFilter, debouncedSearch]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [statusFilter, debouncedSearch, refreshTrigger]);
+  // Effect 2: Background Status Refresh / Mutation Sync
+  // Preserves current pagination depth (e.g. 50, 100, 150 files) and does NOT set isLoading (no flicker)
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+
+    const requestId = ++latestRequestIdRef.current;
+    const currentDepth = Math.max(PAGE_SIZE, loadedCountRef.current);
+
+    fetchFiles(undefined, statusFilter || undefined, currentDepth, 0, debouncedSearch || undefined)
+      .then((res) => {
+        if (requestId !== latestRequestIdRef.current) return;
+        setFiles(res.files || []);
+        if (typeof res.total === "number") {
+          setTotal(res.total);
+        }
+      })
+      .catch((err) => {
+        if (requestId !== latestRequestIdRef.current) return;
+        console.error("[FileList] Background refresh failed:", err);
+      });
+  }, [refreshTrigger]);
 
   const handleLoadMore = async () => {
     if (isLoadingMore || files.length >= total) return;
@@ -154,7 +199,11 @@ export function FileList({
         nextOffset,
         debouncedSearch || undefined
       );
-      setFiles((prev) => [...prev, ...(res.files || [])]);
+      setFiles((prev) => {
+        const seenIds = new Set(prev.map((f) => f.file_id || f.path));
+        const newItems = (res.files || []).filter((f) => !seenIds.has(f.file_id || f.path));
+        return [...prev, ...newItems];
+      });
       if (typeof res.total === "number") {
         setTotal(res.total);
       }
@@ -203,6 +252,7 @@ export function FileList({
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
+              aria-label="Search files by filename, path, or SHA"
               placeholder="Search filename, relative path, or SHA-256 across corpus..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -213,6 +263,7 @@ export function FileList({
           {/* Status Filter Dropdown */}
           <select
             value={statusFilter || ""}
+            aria-label="Filter files by index status"
             onChange={(e) => onStatusFilterChange(e.target.value || null)}
             className="bg-dark-900 border border-dark-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
           >
@@ -281,6 +332,7 @@ export function FileList({
                       onClick={() => setInspectingFile({ id: file.file_id!, name: file.filename })}
                       className="p-1 hover:text-cyan-300 hover:bg-dark-600 rounded flex items-center space-x-1 px-1.5 py-0.5 bg-dark-700/60 border border-dark-600 text-cyan-400"
                       title="Inspect extracted chunks and provenance"
+                      aria-label={`Inspect chunks for ${file.filename}`}
                     >
                       <Layers className="w-3 h-3" />
                       <span className="text-[10px]">Chunks</span>
@@ -290,6 +342,7 @@ export function FileList({
                     onClick={() => handleAction("OPEN_FILE", file.path)}
                     className="p-1 hover:text-indigo-300 hover:bg-dark-600 rounded"
                     title="Open file with default app"
+                    aria-label={`Open ${file.filename} with default app`}
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
@@ -297,6 +350,7 @@ export function FileList({
                     onClick={() => handleAction("OPEN_FOLDER", file.path)}
                     className="p-1 hover:text-indigo-300 hover:bg-dark-600 rounded"
                     title="Show in Explorer"
+                    aria-label={`Show ${file.filename} in Explorer`}
                   >
                     <FolderOpen className="w-3.5 h-3.5" />
                   </button>
@@ -304,6 +358,7 @@ export function FileList({
                     onClick={() => handleAction("COPY_PATH", file.path)}
                     className="p-1 hover:text-indigo-300 hover:bg-dark-600 rounded"
                     title="Copy full path"
+                    aria-label={`Copy full path of ${file.filename}`}
                   >
                     {copiedPath === file.path ? (
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -323,6 +378,7 @@ export function FileList({
             <button
               onClick={handleLoadMore}
               disabled={isLoadingMore}
+              aria-label="Load more files"
               className="px-4 py-1.5 text-xs font-medium text-indigo-400 hover:text-indigo-200 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-800/60 rounded-lg transition disabled:opacity-50 cursor-pointer"
             >
               {isLoadingMore

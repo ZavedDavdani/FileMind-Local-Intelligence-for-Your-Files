@@ -220,6 +220,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           <input
             ref={inputRef}
             type="text"
+            aria-label="Search query"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search documents, code, tables, headings across local vault..."
@@ -231,6 +232,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           {query && (
             <button
               onClick={() => setQuery("")}
+              aria-label="Clear search query"
               className="text-slate-400 hover:text-slate-200 text-sm px-2 py-1 bg-slate-800 rounded"
             >
               Clear
@@ -238,6 +240,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           )}
           <button
             onClick={onClose}
+            aria-label="Close search modal"
             className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 border border-slate-700 rounded bg-slate-800/50"
             title="Press Esc to close"
           >
@@ -249,9 +252,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         <div className="px-4 py-2 bg-slate-950/60 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex flex-wrap items-center gap-2">
             {/* Retrieval Mode Radio */}
-            <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+            <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800" role="radiogroup" aria-label="Retrieval mode">
               <button
                 onClick={() => handleModeChange("hybrid")}
+                aria-label="Hybrid RRF retrieval mode"
                 className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
                   mode === "hybrid"
                     ? "bg-indigo-600 text-white shadow-sm"
@@ -262,6 +266,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               </button>
               <button
                 onClick={() => handleModeChange("bm25")}
+                aria-label="Lexical BM25 retrieval mode"
                 className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
                   mode === "bm25"
                     ? "bg-indigo-600 text-white shadow-sm"
@@ -272,6 +277,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               </button>
               <button
                 onClick={() => handleModeChange("dense")}
+                aria-label="Dense semantic retrieval mode"
                 className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
                   mode === "dense"
                     ? "bg-indigo-600 text-white shadow-sm"
@@ -283,9 +289,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             </div>
 
             {/* Quality Selector */}
-            <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+            <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800" role="radiogroup" aria-label="Pipeline quality">
               <button
                 onClick={() => setQuality("fast")}
+                aria-label="Fast retrieval quality"
                 className={`px-2 py-1 rounded-md font-medium transition-colors ${
                   quality === "fast"
                     ? "bg-slate-700 text-white shadow-sm"
@@ -298,6 +305,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               <button
                 onClick={() => mode === "hybrid" && setQuality("quality")}
                 disabled={mode !== "hybrid"}
+                aria-label="Quality reranked retrieval"
                 className={`px-2 py-1 rounded-md font-medium transition-colors ${
                   quality === "quality" && mode === "hybrid"
                     ? "bg-purple-600 text-white shadow-sm"

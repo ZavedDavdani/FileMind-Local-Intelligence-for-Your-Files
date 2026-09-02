@@ -68,24 +68,20 @@ The `JobObjectGuard` struct wraps the raw `HANDLE` to the Win32 Job Object:
 
 ## 4. Test Methodology & Evidence
 
-The integration test suite is located in [`backend/tests/test_sidecar_job_object.py`](file:///c:/dev/FileMind/backend/tests/test_sidecar_job_object.py) and executes 3 sequential lifecycle scenarios:
+The integration test suite is located in [`backend/tests/test_sidecar_job_object.py`](file:///c:/dev/FileMind/backend/tests/test_sidecar_job_object.py) and executes reproducible Win32 process lifecycle scenarios:
 
 1. **Scenario A (Graceful Close)**:
-   - Spawns isolated parent Tauri instance (PID 7484).
-   - Verifies exact child backend PID (19676) is assigned to Job Object via Win32 `IsProcessInJob`.
-   - Sends graceful `terminate()` to parent.
-   - Verifies backend child terminated and port 24823 released in **304.29 ms**.
+   - Spawns isolated helper parent process and assigns child to Job Object.
+   - Verifies exact child PID is assigned via Win32 `IsProcessInJob`.
+   - Helper signals normal exit and closes Job Object handle.
+   - Verifies child process is terminated cleanly upon Job Object close via bounded monotonic polling.
 2. **Scenario B (Forced Abnormal Parent Termination)**:
-   - Spawns second isolated parent Tauri instance (PID 10112).
-   - Verifies exact child backend PID (12608) is assigned to Job Object.
-   - Issues forced termination `taskkill /F /PID 10112` strictly on parent PID.
-   - Confirms parent is dead.
-   - Verifies Windows kernel Job Object terminates child PID 12608 in **201.25 ms**.
-   - Verifies port 24823 released in **309.65 ms**.
+   - Spawns isolated helper parent process and assigns child to Job Object.
+   - Verifies exact child PID is assigned to Job Object.
+   - Issues abrupt forced termination strictly on parent PID without executing graceful exit handlers or Drop.
+   - Verifies Windows kernel Job Object automatically and unconditionally terminates the orphan child process.
 3. **Scenario C (Relaunch & Health)**:
-   - Spawns third fresh instance (PID 8892, child PID 14448).
-   - Verifies `/health` returns HTTP 200 OK with `status: "healthy"`.
-   - Cleanly shuts down test instance.
+   - Status: `NOT_AUTOMATED` in automated CI (requires interactive Tauri GUI supervisor harness; verified via manual smoke testing).
 
 ---
 

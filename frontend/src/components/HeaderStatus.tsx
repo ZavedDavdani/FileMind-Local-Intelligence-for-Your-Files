@@ -27,7 +27,7 @@ export function HeaderStatus({
           <div className="flex items-center space-x-2">
             <h1 className="font-bold text-sm tracking-tight text-white">FileMind</h1>
             <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-500/30">
-              Phase 1
+              Local Intelligence
             </span>
           </div>
           <p className="text-[11px] text-slate-400">Local Filesystem Engine</p>

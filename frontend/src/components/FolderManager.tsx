@@ -8,6 +8,8 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronRight,
+  HardDrive,
+  AlertTriangle,
 } from "lucide-react";
 
 interface FolderManagerProps {
@@ -28,6 +30,8 @@ export function FolderManager({
   disabled,
 }: FolderManagerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showFullSystemModal, setShowFullSystemModal] = useState(false);
+  const [systemRootPath, setSystemRootPath] = useState("C:\\Users");
   const [newPath, setNewPath] = useState("");
   const [newRecursive, setNewRecursive] = useState(true);
   const [newMode, setNewMode] = useState<IntegrityMode>("NORMAL");
@@ -69,6 +73,29 @@ export function FolderManager({
     setShowAddForm(false);
   };
 
+  const handleFullSystemSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!systemRootPath.trim()) return;
+
+    // Standard high-noise system exclusions for broad root scans
+    const systemExclusions = [
+      "*.tmp",
+      "*.log",
+      "AppData",
+      "Windows",
+      "Program Files",
+      "Program Files (x86)",
+      "node_modules",
+      ".git",
+      ".venv",
+      "$Recycle.Bin",
+      "System Volume Information",
+    ];
+
+    onAddFolder(systemRootPath.trim(), true, "NORMAL", systemExclusions);
+    setShowFullSystemModal(false);
+  };
+
   return (
     <div className="bg-dark-800/60 border border-dark-700/60 rounded-2xl p-5 shadow-lg space-y-4">
       <div className="flex items-center justify-between">
@@ -80,14 +107,28 @@ export function FolderManager({
           </span>
         </div>
 
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          disabled={disabled}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium transition-colors shadow-sm"
-        >
-          <FolderPlus className="w-4 h-4" />
-          <span>Add Folder</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowFullSystemModal(true)}
+            disabled={disabled}
+            aria-label="Index Full System"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 disabled:opacity-50 text-slate-200 hover:text-white text-xs font-medium border border-dark-600 transition-colors shadow-sm"
+            title="Index all files across your Windows user environment"
+          >
+            <HardDrive className="w-4 h-4 text-purple-400" />
+            <span>Index Full System</span>
+          </button>
+
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            disabled={disabled}
+            aria-label="Add Folder"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium transition-colors shadow-sm"
+          >
+            <FolderPlus className="w-4 h-4" />
+            <span>Add Folder</span>
+          </button>
+        </div>
       </div>
 
       {/* Add Folder Modal / Drawer */}
@@ -348,6 +389,78 @@ export function FolderManager({
                 Remove Folder
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Index Full System Confirmation Dialog */}
+      {showFullSystemModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Index Full System Confirmation"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+        >
+          <div className="bg-dark-900 border border-purple-500/30 rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3 text-purple-400">
+              <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                <HardDrive className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Index Full System (Windows)</h3>
+                <p className="text-xs text-slate-400">Broad filesystem discovery and local intelligence indexing</p>
+              </div>
+            </div>
+
+            {/* Warning Box */}
+            <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 flex items-start space-x-2.5 text-xs text-amber-200">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-amber-300">Resource & Time Notice</p>
+                <p className="text-slate-300 leading-relaxed">
+                  Full-system indexing scans your Windows storage environment (e.g. <code className="text-amber-300 font-mono">C:\Users</code>). This operation may consume significant CPU, RAM, disk I/O, and time depending on your drive size.
+                </p>
+              </div>
+            </div>
+
+            {/* Scope Information */}
+            <div className="space-y-2 text-xs text-slate-300 bg-dark-800/60 border border-dark-700/60 rounded-xl p-3">
+              <p className="font-medium text-slate-200">Indexing Scope & Security Boundaries:</p>
+              <ul className="list-disc list-inside space-y-1 text-slate-400">
+                <li>Only supported document formats (PDF, DOCX, Markdown, Code, Spreadsheets, Text) up to 50 MB are indexed.</li>
+                <li>System directories, AppData, Windows, Program Files, <code className="text-indigo-300">node_modules</code>, and caches are automatically excluded.</li>
+                <li>You can Pause, Resume, or Cancel indexing at any time via Indexing Controls.</li>
+              </ul>
+            </div>
+
+            {/* Path Configuration */}
+            <form onSubmit={handleFullSystemSubmit} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[11px] text-slate-400 font-medium">System / User Storage Root</label>
+                <input
+                  type="text"
+                  value={systemRootPath}
+                  onChange={(e) => setSystemRootPath(e.target.value)}
+                  className="w-full bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-dark-800">
+                <button
+                  type="button"
+                  onClick={() => setShowFullSystemModal(false)}
+                  className="px-3 py-1.5 bg-dark-800 hover:bg-dark-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-medium transition-colors shadow-sm"
+                >
+                  Start Full System Indexing
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

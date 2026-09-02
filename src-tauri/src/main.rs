@@ -4,7 +4,6 @@
 mod job_object;
 
 use job_object::JobObjectGuard;
-use std::fs;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
@@ -422,35 +421,6 @@ fn terminate_backend(backend_state: &ManagedBackend) {
     }
 }
 
-fn get_appdata_state_file() -> Option<PathBuf> {
-    if let Some(app_data) = dirs::data_dir() {
-        let dir = app_data.join("FileMind");
-        let _ = fs::create_dir_all(&dir);
-        return Some(dir.join("state.json"));
-    }
-    None
-}
-
-#[tauri::command]
-fn save_app_state(state_json: String) -> Result<bool, String> {
-    if let Some(path) = get_appdata_state_file() {
-        fs::write(path, state_json).map_err(|e| e.to_string())?;
-        return Ok(true);
-    }
-    Err("Could not locate AppData directory".to_string())
-}
-
-#[tauri::command]
-fn load_app_state() -> Result<String, String> {
-    if let Some(path) = get_appdata_state_file() {
-        if path.exists() {
-            let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
-            return Ok(content);
-        }
-    }
-    Ok("{}".to_string())
-}
-
 fn get_registered_folders() -> Vec<PathBuf> {
     let mut folders = Vec::new();
     let addr = SocketAddr::from(([127, 0, 0, 1], BACKEND_PORT));
@@ -570,8 +540,6 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
-            save_app_state,
-            load_app_state,
             open_in_explorer
         ])
 

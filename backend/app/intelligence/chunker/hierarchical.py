@@ -46,6 +46,89 @@ def estimate_token_count(text: str) -> int:
     return max(1, estimated)
 
 
+def split_oversized_table(
+    table_elem: DocumentElement,
+    max_chunk_chars: int,
+    target_chunk_chars: int,
+) -> List[DocumentElement]:
+    """
+    Deterministically splits an oversized table element into smaller table sub-elements,
+    preserving table headers on every slice to retain column semantics and prevent
+    embedding context truncation.
+    """
+    raw_text = table_elem.text.strip()
+    if len(raw_text) <= max_chunk_chars:
+        return [table_elem]
+
+    lines = [line for line in raw_text.splitlines() if line.strip()]
+    if not lines:
+        return [table_elem]
+
+    # Detect markdown table header (e.g. header row + separator row '| --- |')
+    header_lines: List[str] = []
+    data_lines: List[str] = []
+
+    if len(lines) >= 2 and "|" in lines[0] and ("---" in lines[1] or "-|-" in lines[1] or "|:" in lines[1]):
+        header_lines = lines[:2]
+        data_lines = lines[2:]
+    elif len(lines) >= 1 and "|" in lines[0]:
+        header_lines = lines[:1]
+        data_lines = lines[1:]
+    else:
+        data_lines = lines
+
+    header_text = "\n".join(header_lines)
+    header_len = len(header_text)
+    effective_target = max(200, target_chunk_chars - (header_len + 2))
+
+    sub_elements: List[DocumentElement] = []
+    current_rows: List[str] = []
+    current_chars = 0
+
+    for row in data_lines:
+        row_len = len(row) + 1
+        if current_rows and (current_chars + row_len > effective_target or (header_len + current_chars + row_len > max_chunk_chars)):
+            slice_body = "\n".join(current_rows)
+            slice_text = f"{header_text}\n{slice_body}".strip() if header_text else slice_body
+            sub_elements.append(
+                DocumentElement(
+                    element_id=f"{table_elem.element_id}_slice_{len(sub_elements) + 1}",
+                    element_type=ElementType.TABLE,
+                    text=slice_text,
+                    page_number=table_elem.page_number,
+                    line_start=table_elem.line_start,
+                    line_end=table_elem.line_end,
+                    char_start=table_elem.char_start,
+                    char_end=table_elem.char_end,
+                    metadata=dict(table_elem.metadata or {}),
+                )
+            )
+            current_rows = []
+            current_chars = 0
+
+        current_rows.append(row)
+        current_chars += row_len
+
+    if current_rows or not sub_elements:
+        slice_body = "\n".join(current_rows)
+        slice_text = f"{header_text}\n{slice_body}".strip() if header_text else slice_body
+        sub_elements.append(
+            DocumentElement(
+                element_id=f"{table_elem.element_id}_slice_{len(sub_elements) + 1}",
+                element_type=ElementType.TABLE,
+                text=slice_text,
+                page_number=table_elem.page_number,
+                line_start=table_elem.line_start,
+                line_end=table_elem.line_end,
+                char_start=table_elem.char_start,
+                char_end=table_elem.char_end,
+                metadata=dict(table_elem.metadata or {}),
+            )
+        )
+
+    return sub_elements
+
+
 class HierarchicalChunker:
     """
     Structure-first chunker that traverses document heading hierarchies,
@@ -197,10 +280,12 @@ class HierarchicalChunker:
                 continue
 
             if elem.element_type == ElementType.TABLE:
-                # Table preservation: Flush previous text, keep table intact
+                # Table preservation: Flush previous text, split if oversized, and flush each table slice
                 flush_accumulator(retain_overlap=False)
-                accum_elements.append(elem)
-                flush_accumulator(retain_overlap=False)
+                table_slices = split_oversized_table(elem, self.max_chunk_chars, self.target_chunk_chars)
+                for t_slice in table_slices:
+                    accum_elements.append(t_slice)
+                    flush_accumulator(retain_overlap=False)
                 continue
 
             # Check if adding this element would exceed max chunk size OR target size

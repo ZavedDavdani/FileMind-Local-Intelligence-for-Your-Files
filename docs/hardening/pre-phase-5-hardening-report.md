@@ -24,7 +24,7 @@ Prior to initiating Phase 5 (Local RAG / LLM Integration), FileMind underwent a 
 - **Index Metadata**: Validated `embedding_index_metadata` schema ensuring vector store dimensions and embedding models (`sentence-transformers/all-MiniLM-L6-v2`, 384-dim) match at runtime.
 
 ### Batch A2 — Corpus Decoding & PDF Integrity
-- **Text Encoding Recovery**: Implemented layered encoding fallback (UTF-8 $\to$ cp1252 $\to$ latin-1 with error replacement) preventing parser crashes during ingestion of non-UTF-8 files.
+- **Strict UTF-8 & BOM Decoding**: Implemented deterministic `read_text_file_strictly` and `decode_bytes_strictly` with strict UTF-8 (`utf-8-sig`) decoding. Undecodable non-UTF-8 byte sequences explicitly raise `CorruptedDocumentError` to prevent silent evidence corruption with Unicode replacement characters.
 - **Fault-Tolerant PDF Extraction**: Implemented page-by-page PyMuPDF extraction, ensuring valid pages are preserved and indexed even when individual PDF pages contain damaged streams or broken xrefs.
 - **Document Metadata**: Normalized structural metadata across all supported document types.
 

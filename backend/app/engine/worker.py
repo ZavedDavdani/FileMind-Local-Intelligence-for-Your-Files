@@ -159,8 +159,32 @@ class WorkerPool:
                 parser = default_parser_registry.get_parser_for_file(file_path, mime_type)
 
                 if not parser:
-                    # Non-parseable or unsupported format -> complete hashing, skip chunking
-                    self.queue.complete_job(job_id, file_id, sha256=sha256_hash)
+                    # Non-parseable or unsupported format -> complete hashing, skip chunking truthfully
+                    is_image = (mime_type and mime_type.startswith("image/")) or file_path.lower().endswith(
+                        (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico", ".tiff")
+                    )
+                    diag_reason = (
+                        "Image indexing deferred to Phase 7 (no text parser registered)"
+                        if is_image
+                        else "Unsupported file format (no parser registered)"
+                    )
+                    logger.info("File %s skipped: %s", file_path, diag_reason)
+
+                    # Purge any stale vectors and relational chunks if file was previously indexed
+                    with self.db.session() as conn:
+                        repo = Repository(conn)
+                        from app.retrieval.vector_store import SqliteVecStore
+                        vec_store = SqliteVecStore(conn)
+                        vec_store.delete_by_file_id(file_id)
+                        repo.delete_chunks_by_file(file_id)
+
+                    self.queue.complete_job(
+                        job_id,
+                        file_id,
+                        sha256=sha256_hash,
+                        final_status="SKIPPED",
+                        indexing_error=diag_reason,
+                    )
                     return
 
                 # Check unchanged hash & version bypass for Strict Integrity verification

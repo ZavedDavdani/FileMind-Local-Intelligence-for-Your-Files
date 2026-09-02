@@ -9,6 +9,7 @@ Features:
 
 import logging
 import os
+import re
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
@@ -22,6 +23,45 @@ from app.core.config import (
 )
 
 _LOGGING_INITIALIZED = False
+
+SENSITIVE_PATTERNS = [
+    # Bearer tokens
+    (re.compile(r"(Bearer\s+)[A-Za-z0-9\-\._~\+\/]+=*", re.IGNORECASE), r"\1[REDACTED]"),
+    # API key / password / secret assignments (e.g. api_key="...", password=...)
+    (re.compile(r"((?:api[_-]?key|password|secret|token)\s*[:=]\s*['\"]?)(?:[^\s,'\"]+)(['\"]?)", re.IGNORECASE), r"\1[REDACTED]\2"),
+    # Non-bearer Authorization headers (e.g. Authorization: Basic ...)
+    (re.compile(r"(Authorization\s*:\s*(?!Bearer\b))['\"]?[^\s,'\"]+['\"]?", re.IGNORECASE), r"Authorization: [REDACTED]"),
+    # OpenAI / Gemini / Ollama style sk- keys
+    (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), r"sk-[REDACTED]"),
+    # Basic auth embedded in URLs
+    (re.compile(r"(https?://[^:\s]+:)[^@\s]+(@)", re.IGNORECASE), r"\1[REDACTED]\2"),
+]
+
+
+def redact_sensitive_text(text: str) -> str:
+    """Deterministically redacts sensitive keys, tokens, and passwords from log strings."""
+    if not isinstance(text, str) or not text:
+        return text
+    redacted = text
+    for pattern, repl in SENSITIVE_PATTERNS:
+        redacted = pattern.sub(repl, redacted)
+    return redacted
+
+
+class SensitiveDataFilter(logging.Filter):
+    """Logging filter that sanitizes sensitive authentication tokens and credentials."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            record.msg = redact_sensitive_text(record.msg)
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {k: (redact_sensitive_text(v) if isinstance(v, str) else v) for k, v in record.args.items()}
+            elif isinstance(record.args, tuple):
+                record.args = tuple((redact_sensitive_text(a) if isinstance(a, str) else a) for a in record.args)
+            elif isinstance(record.args, list):
+                record.args = [redact_sensitive_text(a) if isinstance(a, str) else a for a in record.args]
+        return True
 
 
 def setup_logging(
@@ -47,6 +87,7 @@ def setup_logging(
         fmt="%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    redaction_filter = SensitiveDataFilter()
 
     # Clean existing FileMind handlers to avoid duplicate log entries
     existing_handlers = list(root_logger.handlers)
@@ -64,6 +105,7 @@ def setup_logging(
         )
         file_handler.setLevel(numeric_level)
         file_handler.setFormatter(formatter)
+        file_handler.addFilter(redaction_filter)
         file_handler._is_filemind_handler = True
         root_logger.addHandler(file_handler)
     except Exception as exc:
@@ -74,6 +116,7 @@ def setup_logging(
         console_handler = logging.StreamHandler()
         console_handler.setLevel(numeric_level)
         console_handler.setFormatter(formatter)
+        console_handler.addFilter(redaction_filter)
         console_handler._is_filemind_handler = True
         root_logger.addHandler(console_handler)
 
