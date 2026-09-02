@@ -29,7 +29,7 @@ VERIFIED PASS
 Phase 4 — Fast / Quality Retrieval & Benchmark Exit Gate:
 VERIFIED CLOSED (All 17 Exit Gate Items Passed)
 
-Pre-Phase-5 Hardening Checkpoint (c7c6bd7):
+Pre-Phase-5 Hardening Checkpoint (c7c6bd7 / 0d508e6):
 - Batch A1 — Vector-Layer Integrity: VERIFIED PASS
 - Batch A2 — Corpus Encoding & PDF Integrity: VERIFIED PASS
 - Batch A3 — Chunking & Evidence Integrity: VERIFIED PASS
@@ -40,20 +40,32 @@ Pre-Phase-5 Practical Audit Fixes:
 - Issue 2 — Same-File Candidate Grouping & Provenance Preservation: VERIFIED PASS
 - Issue 3 — Explicit Filename Intent Detection & Consistent Not-Found State: VERIFIED PASS
 
-Architecture & Product Contract:
-- Second Brain Architecture Document (`FileMind_Second_Brain_Architecture.md`): VERIFIED & LOCKED
+Phase 5.1 — Context & Token Budgeting:
+VERIFIED COMPLETE (`ContextBudgetConfig`, `TokenEstimator`, `ContextBuilder`)
+
+Phase 5.2 — Grounded Prompt Construction & Local Generation Contract:
+VERIFIED COMPLETE (`PromptBuilder`, `CitationValidator`, `OllamaProvider`)
+
+Phase 5.3 — Ask FileMind End-to-End Local RAG Pipeline & UI:
+VERIFIED COMPLETE (`POST /ai/ask`, `AskService`, `AskModal`)
+
+Phase 5.4 Batch 1 — Ask Readiness & Concurrency Hardening:
+VERIFIED COMPLETE & PUSHED (`GET /ai/status`, tag probe, request sequencing — Commit `a55030f`)
+
+Phase 5.4 Batch 2 — Ask UX Polish:
+NOT STARTED / NEXT PLANNED (Staged Progress, Copy Answer, Citation Auto-Scroll, In-Session History)
 
 Full Backend Regression Suite:
-323 / 324 PASS (323 passed, 1 skipped, 0 failed)
+393 / 394 PASS (393 passed, 1 skipped, 0 failed)
+
+Phase 5 AI Test Suites:
+63 / 63 PASS (Ask Pipeline, Grounded Generation, Context Budget, Ollama Provider, AI Status)
 
 Frontend Production Build:
-VERIFIED PASS (TypeScript + Vite, 0 errors)
+VERIFIED PASS (TypeScript + Vite, 1,604 modules, 0 errors)
 
 Tauri v2 Desktop Check:
 VERIFIED PASS (`cargo check`, 0 errors)
-
-Phase 5:
-STRICTLY NOT STARTED (Next Planned: Phase 5 — Batch 1: Ollama Client + Local LLM Foundation)
 
 
 
@@ -1668,18 +1680,60 @@ The packaged Windows application was freshly rebuilt, packaged via Tauri into NS
 
 ---
 
-### Explicit Phase 5 Boundaries (Status After Phase 5.3)
+### Phase 5.4 Batch 1: Ask Readiness & Concurrency Hardening
+
+- **Status**: **COMPLETE & PUSHED** (Commit `a55030f`: `feat: harden phase 5.4 ask readiness`).
+- **Files**: `backend/app/ai/ollama_provider.py`, `backend/app/ai/__init__.py`, `backend/app/schemas.py`, `backend/app/main.py`, `frontend/src/types/index.ts`, `frontend/src/services/api.ts`, `frontend/src/components/AskModal.tsx`, `backend/tests/test_batch4_ai_status.py`.
+- **AskModal Concurrency & Sequence Protection**:
+  - Monotonically increasing sequence tracker (`requestSeqRef = useRef(0)`).
+  - Each request captures `seq = ++requestSeqRef.current`. Responses and loading state updates are strictly guarded (`if (seq === requestSeqRef.current)`).
+  - Stale responses, aborted requests, and stale errors from rapid consecutive submissions are discarded without clobbering newer results.
+  - Closing the modal increments sequence and aborts active fetches, guaranteeing that pending microtasks cannot clear loading states upon reopening.
+- **Proactive Local Ollama Readiness Probing (`check_ollama_readiness`)**:
+  - Probes `GET http://127.0.0.1:11434/api/tags` with a 1.0s timeout.
+  - Normalizes model tags (`qwen3:4b` matches `qwen3:4b`, `qwen3:4b:latest`, or base name).
+  - Non-generating metadata probe (never invokes `/api/generate` or loads model weights merely to check readiness).
+  - Rejects non-loopback endpoints immediately.
+  - Safe error handling: network unreachable, missing model, or non-200 responses return structured failure states without crashing `/ai/status` or FastAPI.
+- **Non-Breaking Status API (`GET /ai/status`)**:
+  - Adds optional `local_ai.ollama` (`OllamaReadinessStatus`: `is_ollama_online`, `has_default_model`, `model_name`, `endpoint`, `error`).
+- **AskModal Ambient Readiness UX**:
+  - Live status pills in modal header: 🟢 `Local LLM Ready (qwen3:4b)`, 🟡 `Ollama Offline`, 🔴 `Model Missing (qwen3:4b)`.
+  - Actionable guidance banners suggesting exact terminal commands (`ollama serve`, `ollama run qwen3:4b`).
+
+---
+
+### Phase 5.4 Batch 2: Ask UX Polish (Upcoming / Planned)
+
+- **Status**: **NOT STARTED / NEXT PLANNED**.
+- **Planned Scope**:
+  1. **Staged Ask Progress**: Truthful progress states during synchronous generation (`"Searching files…"`, `"Preparing evidence…"`, `"Generating locally…"`, `"Checking citations…"`) with accessible live region (`aria-live="polite"`).
+  2. **Copy Answer**: One-click clipboard copy of generated answer text with visual feedback (`"Copied!"`) and safe failure handling.
+  3. **Citation Auto-Scroll / Navigation**: Clicking citation pills (`[E1]`) or cards scrolls the corresponding evidence section into view smoothly.
+  4. **Transient In-Session Query History**: In-memory recent questions list (max 10, deduplicated, most-recent first) allowing one-click query restoration without auto-submitting. No database or disk persistence.
+- **Implementation Constraints**:
+  - Frontend-focused UX enhancements only; synchronous backend pipeline preserved.
+  - Zero API contract changes; zero changes to retrieval or reranking algorithms.
+  - No streaming, no persistent conversation memory, no cross-session storage.
+
+---
+
+### Explicit Phase 5 Boundaries & Out-of-Scope Items
 
 The following capabilities belong to later milestones and are **STRICTLY NOT IMPLEMENTED**:
-- **No Conversational Memory / Multi-Turn History**: Each Ask request is stateless and independent.
-- **No Knowledge Cards / Graph**: Second-brain graph connections and knowledge cards are not implemented.
-- **No Autonomous Agents / Write Actions**: Read-only question answering only; zero tool execution, file edits, or deletions.
+- **No Streaming / SSE / WebSockets**: The Ask pipeline is currently 100% synchronous.
+- **No Conversational Memory / Multi-Turn History**: Each Ask query is stateless and independent.
+- **No Database Chat Tables / Persistent Conversations**: In-session history is ephemeral memory only.
+- **No Knowledge Cards / Graph**: Second-brain graph connections and knowledge cards belong to future phases.
+- **No Autonomous Agents / Write Actions**: Read-only question answering only; zero tool execution or file edits.
 - **No Cloud Fallback**: 100% local-first privacy architecture strictly preserved.
+- **No Multimodal AI**: Text-only document parsing and local generation.
 
 > [!IMPORTANT]
-> **PHASE 5.3 ASK FILEMIND END-TO-END LOCAL RAG PIPELINE & UI VERIFIED COMPLETE.**
-> **FULL BACKEND REGRESSION: 387 / 388 PASS (387 PASSED, 1 SKIPPED, 0 FAILED).**
-> **FRONTEND BUILD & TAURI DESKTOP VERIFIED.**
+> **PHASE 5.1–5.3 & PHASE 5.4 BATCH 1 VERIFIED COMPLETE & PUSHED (COMMIT a55030f).**
+> **FULL BACKEND REGRESSION: 393 / 394 PASS (393 PASSED, 1 SKIPPED, 0 FAILED).**
+> **PHASE 5 AI SUITES: 63 / 63 PASS.**
+> **FRONTEND PRODUCTION BUILD & TAURI CARGO CHECK VERIFIED PASS.**
 
 
 
@@ -2256,16 +2310,12 @@ Reranking produced reordered top-3 candidates across 23 queries:
 - **Honest Search Footer**: Displayed as `"100% Local Deterministic Search • Fast & Quality Modes"`. No false claims of LLM answer generation.
 
 ### 13.11 Automated Test Verification & Regression
-- **Phase 4 Closure Tests** (`backend/tests/test_phase4_closure.py`): **6 / 6 PASS**
-- **Reranker Tests** (`backend/tests/test_reranker.py`): **17 / 17 PASS**
-- **Hybrid Fallback Tests** (`backend/tests/test_hybrid_fallback.py`): **14 / 14 PASS**
-- **Embedding Identity Tests** (`backend/tests/test_batch4_embedding_identity.py`): **4 / 4 PASS**
-- **Audit Cleanup Tests** (`backend/tests/test_audit_cleanup.py`): **3 / 3 PASS**
-- **Full Backend Regression Suite** (`pytest backend/tests/`): **254 passed, 0 failed, 1 skipped** (out of 255 total tests).
+- **Phase 5 AI Test Suites**: **63 / 63 PASS** (`test_ask_pipeline.py`, `test_grounded_generation.py`, `test_context_budget.py`, `test_ollama_provider.py`, `test_batch4_ai_status.py`).
+- **AI Status Readiness Tests** (`backend/tests/test_batch4_ai_status.py`): **9 / 9 PASS**.
+- **Full Backend Regression Suite** (`pytest backend/tests/`): **393 passed, 0 failed, 1 skipped** (out of 394 total tests).
   *(Note: 1 skipped test is `test_watcher_symlink_ignored_on_windows`, which skips on non-elevated Windows environments lacking symlink creation privileges).*
-- **Frontend Production Build** (`tsc && vite build`): **PASS in 42.48s** (1,603 modules transformed, 0 errors).
-
-
+- **Frontend Production Build** (`tsc && vite build`): **PASS** (1,604 modules transformed, 0 errors).
+- **Tauri Desktop Shell** (`cargo check`): **PASS** (0 errors).
 
 ### 13.12 Security & Privacy Model
 - **Registered-Root Containment**: File operations restricted to registered vault directories.
@@ -2275,6 +2325,7 @@ Reranking produced reordered top-3 candidates across 23 queries:
 - **Backend Supervision**: Win32 Job Objects guarantee zero orphaned child processes.
 - **Single-Instance Enforcement**: Tauri single-instance plugin focuses existing application.
 - **Local-First Privacy**: 100% on-device model execution with zero telemetry or silent cloud fallback.
+- **Prompt Injection Defense**: Retrieved document evidence is strictly bounded in untrusted data delimiters.
 - **Sensitive-Data-Safe Logging**: Document text and secrets are strictly excluded from persistent logs.
 
 ### 13.13 Data & Index Integrity
@@ -2289,18 +2340,21 @@ Reranking produced reordered top-3 candidates across 23 queries:
 - **Rotation**: 5 MB per file, up to 5 backups.
 - **Privacy Rule**: Document body text and secrets are never intentionally logged.
 
-### 13.15 AI Readiness Foundation
+### 13.15 AI Readiness & Status Probing
 - **Model Registry**: Centralized registry (`app.retrieval.model_registry`) managing model lifecycle states (`not_ready`, `loading`, `ready`, `failed`).
-- **Status API**: `GET /ai/status` reporting local embedding, reranker, and vector store readiness.
+- **Status API**: `GET /ai/status` reporting local embedding, reranker, vector store, and proactive Ollama daemon/model readiness (`local_ai.ollama`).
 - **First-Run Preparation**: FastEmbed models initialized asynchronously on daemon threads without blocking startup.
+- **Ollama Probe**: Non-generating `GET /api/tags` probe with 1.0s timeout and model tag normalization.
 
-### 13.16 Current Limitation: Phase 5 NOT STARTED
-- **Ollama Integration**: NOT implemented.
-- **RAG Generation**: NOT implemented.
-- **Answer Synthesis**: NOT implemented.
-- **Citation Generation**: NOT implemented.
+### 13.16 Current Status & Explicit Future Boundaries
+- **Local RAG & Generation (Phase 5.1–5.3)**: Fully implemented and verified.
+- **Ask Readiness & Concurrency (Phase 5.4 Batch 1)**: Fully implemented and pushed.
+- **Ask UX Polish (Phase 5.4 Batch 2)**: Next planned / upcoming.
+- **Streaming / SSE**: NOT implemented (synchronous on-device pipeline preserved).
+- **Conversational Memory / Multi-Turn History**: NOT implemented (stateless Q&A).
+- **Persistent Chat Database**: NOT implemented.
+- **Knowledge Cards & Graph**: NOT implemented (deferred to future milestones).
 - **Autonomous Agents**: NOT implemented.
-- FileMind currently operates strictly as a high-precision, 100% local, deterministic evidence retrieval engine.
 
 ---
 

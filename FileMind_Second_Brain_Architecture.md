@@ -1,8 +1,8 @@
 # FileMind — Second Brain Architecture
 
-> **Document Status**: Authoritative Architecture Direction Document  
-> **Phase Context**: Pre-Phase-5 Integrity Hardening Complete (Commit `c7c6bd7`), Phase 4 CLOSED, Phase 5 NOT STARTED  
-> **Target Audience**: Core Engineering & Product Architecture  
+> **Document Status**: Authoritative Architecture Direction Document
+> **Phase Context**: Phase 5.1–5.3 Complete & Verified, Phase 5.4 Batch 1 Complete & Pushed (Commit `a55030f`), Phase 5.4 Batch 2 Next
+> **Target Audience**: Core Engineering & Product Architecture
 
 ---
 
@@ -10,23 +10,26 @@
 
 FileMind is evolving along a deliberate, incremental trajectory:
 
-- **CURRENT**: *Local Intelligence for Your Files* (High-performance structural parsing, lexical/dense hybrid retrieval, cross-encoder reranking, and local vector storage).
+- **CURRENT**: *Local Intelligence for Your Files & Grounded Local RAG* (High-performance structural parsing, lexical/dense hybrid retrieval, cross-encoder reranking, local vector storage, context/token budgeting, and grounded local Q&A via Ollama with citation validation).
 - **TARGET**: *Private Local Second Brain* (A private local knowledge layer that searches, understands, connects, reviews, and remembers information across user files).
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ CURRENT BASELINE (Phases 1–4 Complete · Commit c7c6bd7)                 │
-│ Local Intelligence for Your Files                                       │
+│ CURRENT BASELINE (Phases 1–5.3 & Phase 5.4 Batch 1 · Commit a55030f)   │
+│ Local Intelligence for Your Files & Grounded Local RAG                  │
 │ • Deep structural document parsing (PDF, Office, Code, Data)            │
 │ • Strict UTF-8 & integrity-first decoding (No U+FFFD corruption)        │
-│ • Deterministic hierarchical chunking, token estimation, bounded overlap│
+│ • Deterministic hierarchical chunking & immutable provenance records   │
 │ • Fast & Quality hybrid retrieval (FTS5 BM25 + sqlite-vec Dense + RRF)   │
-│ • FlashRank cross-encoder reranking & verified vector-first lifecycle   │
+│ • BGE cross-encoder neural reranking with graceful fallback             │
+│ • Context assembly, token budget guard, and prompt injection defense    │
+│ • Grounded local LLM generation (Ollama qwen3:4b) & citation validation │
+│ • Ask FileMind Q&A with proactive Ollama readiness & concurrency guards │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ TARGET VISION (Phase 5 & Second Brain Layer)                            │
+│ TARGET VISION (Second Brain Layer & Beyond)                             │
 │ Private Local Second Brain                                              │
 │ • SEARCH: Sub-100ms multi-format lexical, semantic & reranked discovery │
 │ • UNDERSTAND: Evidence-grounded document & folder summaries / decisions │
@@ -284,10 +287,12 @@ The complete strategic engineering roadmap is defined as follows:
 
 | Phase / Milestone | Focus Area | Status |
 | :--- | :--- | :--- |
-| **A1–A3.1** | Vector, Corpus Encoding, Chunker & Reprocessing Hardening | **COMPLETE** (`c7c6bd7`) |
+| **A1–A3.1** | Vector, Corpus Encoding, Chunker & Reprocessing Hardening | **COMPLETE** |
 | **Phase 4** | Fast / Quality Retrieval, Cross-Encoder Reranker, Exit Gate | **CLOSED** |
-| **Phase 5** | **Local AI / RAG Foundation** (Local Model Runtime, Context Pipeline) | **NEXT** |
-| **Phase 5.x** | **Second Brain Capabilities** (Ask FileMind, Summaries, Connections, Cards) | **AFTER FOUNDATIONAL RAG** |
+| **Phase 5.1–5.3** | **Local AI / RAG Foundation & Ask FileMind** (Context, Prompts, Citations, Ask UI) | **COMPLETE** |
+| **Phase 5.4 Batch 1** | **Ask Readiness & Concurrency Hardening** (`/ai/status`, tag probe, request sequencing) | **COMPLETE** |
+| **Phase 5.4 Batch 2** | **Ask UX Polish** (Staged progress, Copy Answer, Citation navigation, In-session history) | **NEXT PLANNED** |
+| **Phase 5.x** | **Higher-Level Second Brain Capabilities** (Document/Folder Summaries, Connections, Cards) | **AFTER PHASE 5.4** |
 | **Phase 6** | Evaluation, MLOps, Automated Regression Benchmarks | **PLANNED** |
 | **Phase 7** | Multimodal Intelligence (Images, Scans, OCR Integration) | **PLANNED** |
 | **Phase 8** | Desktop Packaging, Performance Optimization & Production Hardening | **PLANNED** |
