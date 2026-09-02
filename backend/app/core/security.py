@@ -106,3 +106,30 @@ def contains_symlink_or_junction(target_path: str, root_path: Optional[str] = No
     except Exception:
         pass
     return False
+
+
+def paths_overlap(path_a: str, path_b: str) -> bool:
+    """Returns True if path_a equals path_b, path_a is a subpath of path_b, or path_b is a subpath of path_a."""
+    try:
+        norm_a = normalize_path(path_a)
+        norm_b = normalize_path(path_b)
+
+        # 1. Exact canonical or case-insensitive match
+        if norm_a == norm_b or os.path.normcase(norm_a) == os.path.normcase(norm_b):
+            return True
+
+        # 2. Check if a is inside b or b is inside a
+        if is_path_within_root(norm_a, norm_b) or is_path_within_root(norm_b, norm_a):
+            return True
+
+        return False
+    except Exception:
+        return False
+
+
+def find_overlapping_path(candidate_path: str, existing_paths: List[str]) -> Optional[str]:
+    """Finds the first existing path that overlaps with candidate_path, or None."""
+    for existing in existing_paths:
+        if paths_overlap(candidate_path, existing):
+            return existing
+    return None

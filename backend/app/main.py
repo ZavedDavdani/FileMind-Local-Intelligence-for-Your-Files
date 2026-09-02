@@ -13,7 +13,7 @@ import uvicorn
 
 from app import __version__
 from app.core.logging_config import setup_logging
-from app.core.security import normalize_path
+from app.core.security import is_path_within_root, normalize_path, paths_overlap
 from app.db.connection import db_manager
 from app.db.repository import Repository
 from app.engine.coordinator import coordinator
@@ -194,9 +194,32 @@ def register_folder(payload: FolderCreate) -> FolderResponse:
 
     with db_manager.session() as conn:
         repo = Repository(conn)
-        existing = repo.get_folder_by_path(norm_path)
-        if existing:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Folder is already registered")
+        existing_folders = repo.list_folders()
+        for f in existing_folders:
+            existing_path = f["path"]
+            if paths_overlap(norm_path, existing_path):
+                norm_cand = os.path.normcase(norm_path)
+                norm_exist = os.path.normcase(existing_path)
+                if norm_cand == norm_exist:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Folder is already registered: '{existing_path}'",
+                    )
+                elif is_path_within_root(norm_path, existing_path):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Cannot register subdirectory '{norm_path}' because parent root '{existing_path}' is already registered.",
+                    )
+                elif is_path_within_root(existing_path, norm_path):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Cannot register parent directory '{norm_path}' because subdirectory root '{existing_path}' is already registered.",
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Cannot register folder '{norm_path}' because it overlaps with existing registered root '{existing_path}'.",
+                    )
 
         folder = repo.create_folder(
             path=norm_path,
