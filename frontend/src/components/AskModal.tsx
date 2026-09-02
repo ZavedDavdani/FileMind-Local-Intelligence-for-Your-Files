@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   AskRequest,
   AskResponse,
+  OllamaReadinessStatus,
 } from "../types";
-import { askFileMind } from "../services/api";
+import { askFileMind, fetchAIStatus } from "../services/api";
 import {
   Sparkles,
   Search,
@@ -37,15 +38,34 @@ export const AskModal: React.FC<AskModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCitationId, setSelectedCitationId] = useState<string | null>(null);
+  const [readiness, setReadiness] = useState<OllamaReadinessStatus | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const readinessAbortRef = useRef<AbortController | null>(null);
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50);
+
+      readinessAbortRef.current?.abort();
+      const ctrl = new AbortController();
+      readinessAbortRef.current = ctrl;
+
+      fetchAIStatus(ctrl.signal)
+        .then((res) => {
+          if (res?.local_ai?.ollama) {
+            setReadiness(res.local_ai.ollama);
+          }
+        })
+        .catch(() => {
+          // Non-blocking fallback
+        });
     } else {
       abortControllerRef.current?.abort();
+      readinessAbortRef.current?.abort();
+      requestSeqRef.current++;
       setLoading(false);
     }
   }, [isOpen]);
@@ -59,6 +79,7 @@ export const AskModal: React.FC<AskModalProps> = ({
       abortControllerRef.current?.abort();
       const controller = new AbortController();
       abortControllerRef.current = controller;
+      const seq = ++requestSeqRef.current;
 
       setLoading(true);
       setError(null);
@@ -72,16 +93,22 @@ export const AskModal: React.FC<AskModalProps> = ({
           top_k: 10,
         };
         const res = await askFileMind(req, controller.signal);
+        if (seq !== requestSeqRef.current || controller.signal.aborted) {
+          return;
+        }
         setResponse(res);
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
+        const isAbort = err instanceof Error && err.name === "AbortError";
+        if (isAbort || seq !== requestSeqRef.current) {
           return;
         }
         console.error("[AskModal] Generation error:", err);
         const msg = err instanceof Error ? err.message : "Failed to generate answer";
         setError(msg);
       } finally {
-        setLoading(false);
+        if (seq === requestSeqRef.current) {
+          setLoading(false);
+        }
       }
     },
     [query, quality, loading]
@@ -197,11 +224,39 @@ export const AskModal: React.FC<AskModalProps> = ({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 id="ask-modal-title" className="text-base font-semibold text-slate-100">
-                Ask FileMind
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 id="ask-modal-title" className="text-base font-semibold text-slate-100">
+                  Ask FileMind
+                </h2>
+                {readiness && (
+                  <div className="flex items-center">
+                    {readiness.is_ollama_online && readiness.has_default_model ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Local LLM Ready ({readiness.model_name})
+                      </span>
+                    ) : readiness.is_ollama_online && !readiness.has_default_model ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                        title={`Model '${readiness.model_name}' missing. Run 'ollama run ${readiness.model_name}'`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                        Model Missing ({readiness.model_name})
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        title="Ollama daemon is offline. Start it with 'ollama serve'"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        Ollama Offline
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-slate-400">
-                Grounded local file intelligence powered by Ollama ({response?.model_identity.model_name || "qwen3:4b"})
+                Grounded local file intelligence powered by Ollama ({response?.model_identity.model_name || readiness?.model_name || "qwen3:4b"})
               </p>
             </div>
           </div>
@@ -213,6 +268,20 @@ export const AskModal: React.FC<AskModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Proactive Guidance Banner if Ollama is offline or model is missing */}
+        {readiness && !readiness.is_ollama_online && (
+          <div className="px-6 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-300 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>Ollama daemon is offline. Start it with <code className="px-1 py-0.5 bg-dark-950 rounded text-amber-200 font-mono text-[11px]">ollama serve</code> to enable local generation.</span>
+          </div>
+        )}
+        {readiness && readiness.is_ollama_online && !readiness.has_default_model && (
+          <div className="px-6 py-2 bg-rose-500/10 border-b border-rose-500/20 text-xs text-rose-300 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>Model <code className="px-1 py-0.5 bg-dark-950 rounded text-rose-200 font-mono text-[11px]">{readiness.model_name}</code> is not installed. Run <code className="px-1 py-0.5 bg-dark-950 rounded text-rose-200 font-mono text-[11px]">ollama run {readiness.model_name}</code>.</span>
+          </div>
+        )}
 
         {/* Query Input Section */}
         <form onSubmit={handleAsk} className="p-6 border-b border-slate-800 space-y-3 bg-dark-900/60">

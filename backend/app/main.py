@@ -43,6 +43,7 @@ from app.schemas import (
     JobItem,
     JobListResponse,
     LocalAIStatus,
+    OllamaReadinessStatus,
     SearchRequest,
     SearchResponse,
 )
@@ -153,11 +154,22 @@ def get_ai_status() -> AIStatusResponse:
     else:
         local_status = "ready"
 
+    from app.ai.ollama_provider import check_ollama_readiness
+    ollama_info = check_ollama_readiness()
+    ollama_status = OllamaReadinessStatus(
+        is_ollama_online=ollama_info["is_ollama_online"],
+        has_default_model=ollama_info["has_default_model"],
+        model_name=ollama_info["model_name"],
+        endpoint=ollama_info["endpoint"],
+        error=ollama_info.get("error"),
+    )
+
     return AIStatusResponse(
         local_ai=LocalAIStatus(
             status=local_status,
             embedding=emb_status,
             reranker=rerank_status,
+            ollama=ollama_status,
         ),
         cloud_ai=CloudAIStatus(
             enabled=False,

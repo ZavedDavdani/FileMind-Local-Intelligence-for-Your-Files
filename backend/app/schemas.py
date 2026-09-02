@@ -312,10 +312,19 @@ class ComponentAIStatus(BaseModel):
     error: Optional[str] = None
 
 
+class OllamaReadinessStatus(BaseModel):
+    is_ollama_online: bool = False
+    has_default_model: bool = False
+    model_name: str = "qwen3:4b"
+    endpoint: str = "http://127.0.0.1:11434"
+    error: Optional[str] = None
+
+
 class LocalAIStatus(BaseModel):
     status: str
     embedding: ComponentAIStatus
     reranker: ComponentAIStatus
+    ollama: Optional[OllamaReadinessStatus] = None
 
 
 class CloudAIStatus(BaseModel):

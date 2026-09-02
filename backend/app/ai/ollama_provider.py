@@ -151,3 +151,83 @@ class OllamaProvider:
                 else None
             ),
         )
+
+
+def check_ollama_readiness(
+    base_url: Optional[str] = None,
+    target_model: Optional[str] = None,
+    timeout_sec: float = 1.0,
+) -> Dict[str, Any]:
+    """
+    Probes local Ollama daemon reachability and determines whether target_model is installed.
+    Local-only, non-generating, non-blocking failure semantics.
+    """
+    from app.core.config import OLLAMA_BASE_URL, OLLAMA_MODEL
+
+    url = (base_url or OLLAMA_BASE_URL).rstrip("/")
+    model = target_model or OLLAMA_MODEL
+
+    if not url.startswith("http://127.0.0.1:"):
+        return {
+            "is_ollama_online": False,
+            "has_default_model": False,
+            "model_name": model,
+            "endpoint": url,
+            "error": "Non-local Ollama endpoint rejected.",
+        }
+
+    try:
+        resp = httpx.get(
+            f"{url}/api/tags",
+            timeout=httpx.Timeout(timeout_sec, connect=timeout_sec),
+        )
+        if resp.status_code != 200:
+            return {
+                "is_ollama_online": False,
+                "has_default_model": False,
+                "model_name": model,
+                "endpoint": url,
+                "error": f"Ollama HTTP {resp.status_code}",
+            }
+
+        data = resp.json()
+        models = data.get("models", []) if isinstance(data, dict) else []
+        installed_names = []
+        for m in models:
+            if isinstance(m, dict):
+                n = m.get("name") or m.get("model")
+                if n:
+                    installed_names.append(str(n).lower().strip())
+
+        target_lower = model.lower().strip()
+        target_base = target_lower.split(":", 1)[0]
+        has_model = False
+        for inst in installed_names:
+            inst_base = inst.split(":", 1)[0]
+            if inst == target_lower or inst == f"{target_lower}:latest" or (inst_base == target_base and ":" not in target_lower):
+                has_model = True
+                break
+
+        return {
+            "is_ollama_online": True,
+            "has_default_model": has_model,
+            "model_name": model,
+            "endpoint": url,
+            "error": None if has_model else f"Model '{model}' not found in installed Ollama models.",
+        }
+    except httpx.ConnectError:
+        return {
+            "is_ollama_online": False,
+            "has_default_model": False,
+            "model_name": model,
+            "endpoint": url,
+            "error": f"Unable to connect to Ollama daemon at {url}.",
+        }
+    except Exception as exc:
+        return {
+            "is_ollama_online": False,
+            "has_default_model": False,
+            "model_name": model,
+            "endpoint": url,
+            "error": str(exc),
+        }

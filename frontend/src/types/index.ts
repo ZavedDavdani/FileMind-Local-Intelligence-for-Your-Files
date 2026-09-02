@@ -308,3 +308,36 @@ export interface AskResponse {
   context_budget: AskBudgetAccounting;
   error?: string | null;
 }
+
+export interface OllamaReadinessStatus {
+  is_ollama_online: boolean;
+  has_default_model: boolean;
+  model_name: string;
+  endpoint: string;
+  error?: string | null;
+}
+
+export interface ComponentAIStatus {
+  model_name: string;
+  provider: string;
+  dimension?: number | null;
+  status: string;
+  error?: string | null;
+}
+
+export interface LocalAIStatus {
+  status: string;
+  embedding: ComponentAIStatus;
+  reranker: ComponentAIStatus;
+  ollama?: OllamaReadinessStatus | null;
+}
+
+export interface CloudAIStatus {
+  enabled: boolean;
+  status: string;
+}
+
+export interface AIStatusResponse {
+  local_ai: LocalAIStatus;
+  cloud_ai: CloudAIStatus;
+}

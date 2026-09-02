@@ -35,6 +35,7 @@ from app.ai.ollama_provider import (
     OllamaProvider,
     OllamaResponse,
     OllamaTimeoutError,
+    check_ollama_readiness,
 )
 from app.ai.prompt import (
     SYSTEM_GROUNDING_INSTRUCTIONS,
@@ -78,4 +79,5 @@ __all__ = [
     "OllamaProvider",
     "OllamaResponse",
     "OllamaTimeoutError",
+    "check_ollama_readiness",
 ]

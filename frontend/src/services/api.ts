@@ -15,6 +15,7 @@ import {
   SearchResultItem,
   AskRequest,
   AskResponse,
+  AIStatusResponse,
 } from "../types";
 
 const BACKEND_BASE_URL = "http://127.0.0.1:24823";
@@ -587,4 +588,24 @@ export async function askFileMind(
   }
 
   return data as AskResponse;
+}
+
+/**
+ * AI Readiness Status API
+ */
+export async function fetchAIStatus(
+  signal?: AbortSignal
+): Promise<AIStatusResponse> {
+  const data = await requestJson<unknown>(
+    `${BACKEND_BASE_URL}/ai/status`,
+    { method: "GET", signal },
+    "Fetch AI Status"
+  );
+
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /ai/status response shape:", data);
+    throw new Error("Invalid /ai/status response shape");
+  }
+
+  return data as AIStatusResponse;
 }

@@ -99,3 +99,120 @@ def test_fresh_registry_registers_as_unavailable():
     model = registry.get_active_model(ModelType.EMBEDDING)
     assert model is not None
     assert model.readiness == ModelReadiness.UNAVAILABLE
+
+
+def test_ollama_readiness_online_and_model_present(monkeypatch):
+    """When local Ollama responds with tags including the target model, returns online and present."""
+    from app.ai.ollama_provider import check_ollama_readiness
+    import httpx
+
+    def mock_get(url, *args, **kwargs):
+        assert url == "http://127.0.0.1:11434/api/tags"
+        return httpx.Response(
+            status_code=200,
+            json={"models": [{"name": "qwen3:4b", "size": 2500000000}]},
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx, "get", mock_get)
+
+    res = check_ollama_readiness("http://127.0.0.1:11434", "qwen3:4b")
+    assert res["is_ollama_online"] is True
+    assert res["has_default_model"] is True
+    assert res["model_name"] == "qwen3:4b"
+    assert res["error"] is None
+
+
+def test_ollama_readiness_tag_normalization(monkeypatch):
+    """Target 'qwen3:4b' correctly matches installed 'qwen3:4b:latest'."""
+    from app.ai.ollama_provider import check_ollama_readiness
+    import httpx
+
+    def mock_get(url, *args, **kwargs):
+        return httpx.Response(
+            status_code=200,
+            json={"models": [{"name": "qwen3:4b:latest"}]},
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx, "get", mock_get)
+
+    res = check_ollama_readiness("http://127.0.0.1:11434", "qwen3:4b")
+    assert res["is_ollama_online"] is True
+    assert res["has_default_model"] is True
+
+
+def test_ollama_readiness_online_model_missing(monkeypatch):
+    """When Ollama is online but the target model is missing, returns online=True, has_default_model=False."""
+    from app.ai.ollama_provider import check_ollama_readiness
+    import httpx
+
+    def mock_get(url, *args, **kwargs):
+        return httpx.Response(
+            status_code=200,
+            json={"models": [{"name": "llama3.2:3b"}]},
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx, "get", mock_get)
+
+    res = check_ollama_readiness("http://127.0.0.1:11434", "qwen3:4b")
+    assert res["is_ollama_online"] is True
+    assert res["has_default_model"] is False
+    assert "not found" in res["error"]
+
+
+def test_ollama_readiness_unreachable(monkeypatch):
+    """When Ollama is offline or uncontactable, fails safely without crashing."""
+    from app.ai.ollama_provider import check_ollama_readiness
+    import httpx
+
+    def mock_get(url, *args, **kwargs):
+        raise httpx.ConnectError("Connection refused")
+
+    monkeypatch.setattr(httpx, "get", mock_get)
+
+    res = check_ollama_readiness("http://127.0.0.1:11434", "qwen3:4b")
+    assert res["is_ollama_online"] is False
+    assert res["has_default_model"] is False
+    assert "Unable to connect" in res["error"]
+
+
+def test_ollama_readiness_non_local_rejected():
+    """Non-loopback URLs are rejected immediately for privacy and security."""
+    from app.ai.ollama_provider import check_ollama_readiness
+
+    res = check_ollama_readiness("http://remote.server.com:11434", "qwen3:4b")
+    assert res["is_ollama_online"] is False
+    assert res["has_default_model"] is False
+    assert "Non-local Ollama endpoint rejected" in res["error"]
+
+
+def test_ai_status_endpoint_includes_ollama(monkeypatch):
+    """GET /ai/status includes local_ai.ollama readiness metadata."""
+    import httpx
+
+    def mock_get(url, *args, **kwargs):
+        if "api/tags" in url:
+            return httpx.Response(
+                status_code=200,
+                json={"models": [{"name": "qwen3:4b"}]},
+                request=httpx.Request("GET", url),
+            )
+        raise RuntimeError(f"Unexpected GET {url}")
+
+    monkeypatch.setattr(httpx, "get", mock_get)
+
+    resp = client.get("/ai/status")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert "local_ai" in data
+    local_ai = data["local_ai"]
+    assert "ollama" in local_ai
+    ollama = local_ai["ollama"]
+    assert ollama is not None
+    assert ollama["is_ollama_online"] is True
+    assert ollama["has_default_model"] is True
+    assert ollama["model_name"] == "qwen3:4b"
+    assert ollama["endpoint"] == "http://127.0.0.1:11434"
