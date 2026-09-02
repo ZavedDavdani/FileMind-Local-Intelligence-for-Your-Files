@@ -48,7 +48,7 @@ Installed Application Practical Verification:
 VERIFIED PASS
 
 Full Backend Regression:
-253 / 253 PASS (252 passed, 1 skipped)
+255 / 255 PASS (254 passed, 1 skipped)
 
 Reranker Suite:
 17 / 17 PASS
@@ -65,11 +65,15 @@ Batch 4 Hardening:
 Pre-Phase-5 Audit Cleanup:
 3 / 3 PASS (4c569e8)
 
+Vector-Store Embedding Identity Fix:
+4 / 4 PASS (c3e4e98)
+
 Phase 4 — Fast / Quality Retrieval & Benchmark Exit Gate:
 VERIFIED CLOSED (All 17 Exit Gate Items Passed)
 
 Phase 5:
 NOT STARTED (Next Planned: Phase 5 — Batch 1: Ollama Client + Local LLM Foundation)
+
 
 
 
@@ -1935,7 +1939,7 @@ future packaging regression occurs. Do not implement it speculatively.
 | H3 | PDF extraction-quality gate and observability | ✅ Complete / PASS |
 | H4 | SQLite WAL observability and transaction-boundary hardening | ✅ Complete / PASS |
 | B1–B4 | Hardening Batches 1–4 (Security, Isolation, Index Metadata, Logging, Size Guards) | ✅ Complete / PASS |
-| 4 | Reranking / Search Quality (Fast vs Quality modes, benchmark exit gate, PR #1 / `624c010`, cleanup `4c569e8`) | ✅ Complete / CLOSED |
+| 4 | Reranking / Search Quality (Fast vs Quality modes, benchmark exit gate, PR #1 / `624c010`, cleanups `4c569e8`, `c3e4e98`) | ✅ Complete / CLOSED |
 | 5 | RAG / Local AI (Local LLM via Ollama, citation verification, cloud/local policy) | ⏳ **NOT STARTED** |
 | 6 | Evaluation / MLOps (Expanded dataset, Ragas, MLflow, CI regression gates) | ⏳ PENDING |
 | 7 | Multimodal (Optional: OCR, complex tables, ColPali) | ⏳ PENDING |
@@ -1949,7 +1953,7 @@ not mark a phase complete without measurable evidence matching its exit conditio
 
 ---
 
-## 12. Pre-Phase-5 Hardening & Audit History (Batches 1–4 & Audit Cleanup)
+## 12. Pre-Phase-5 Hardening & Audit History (Batches 1–4 & Pre-Phase-5 Fixes)
 
 ### Batch 1: Security, API & Frontend Hardening
 - **CORS Hardening**: Removed insecure wildcard origins; strictly bounded loopback HTTP origins (`localhost`, `127.0.0.1`, `tauri://localhost`).
@@ -2027,6 +2031,32 @@ Following the merge of PR #1 (`624c010`), a focused pre-Phase-5 audit cleanup wa
    - Targeted Suites: **43 / 43 PASS**.
    - Full Backend Regression: **252 passed / 0 failed / 1 skipped** (out of 253 total tests).
    - Frontend Source: Untouched.
+
+### Model-Agnostic Vector Store Embedding Identity Fix (Commit: `c3e4e98`)
+Following the audit cleanup, a latent bug in `SqliteVecStore.upsert_vectors()` was resolved at commit `c3e4e98`:
+
+1. **Problem**:
+   - `SqliteVecStore.upsert_vectors()` previously created hardcoded embedding metadata on first write if uninitialized (`provider="fastembed"`, `model_name="sentence-transformers/all-MiniLM-L6-v2"`, `model_version="1.0.0"`, `dimension=self.dimension`).
+   - This caused the generic vector storage layer to falsely assume that the default production embedding model produced all incoming vectors, even when vectors originated from custom/experimental models or custom dimensions (e.g. `dimension=4`).
+
+2. **Fix**:
+   - Removed hardcoded default embedding metadata creation from `SqliteVecStore.upsert_vectors()`.
+   - Vector storage is now completely model-identity agnostic; `upsert_vectors()` strictly performs vector insertion/replacement.
+   - The embedding producer (`backend/app/engine/worker.py` via `default_embedding_engine.get_identity()`) remains authoritative for recording active model identity (`vec_store.set_index_metadata(...)`).
+   - Existing `get_index_metadata()`, `set_index_metadata()`, and `verify_index_validity()` mechanisms remain fully intact.
+
+3. **Regression Coverage**:
+   - Updated `backend/tests/test_batch4_embedding_identity.py` (4/4 PASS):
+     - Verified that fresh vector indices directly receiving `upsert_vectors()` retain `get_index_metadata() == None` (no fabricated default metadata).
+     - Verified that small/custom dimension vector stores (e.g. `dimension=4`) do not get falsely stamped with 384-dim MiniLM metadata.
+     - Verified that explicit model identity recording and verification correctly accept matching models and reject mismatched model names, versions, providers, and dimensions.
+
+4. **Verification**:
+   - Focused Retrieval/Vector Store Suites: **74 / 74 PASS** (34.32s).
+   - Full Backend Regression: **254 passed / 0 failed / 1 skipped** (out of 255 total tests in 119.09s).
+   - Frontend Production Build: **PASS in 42.48s** (1,603 modules transformed, 0 errors).
+   - `git diff --check`: **PASS (clean)**.
+
 
 
 ---
@@ -2132,10 +2162,12 @@ Reranking produced reordered top-3 candidates across 23 queries:
 - **Phase 4 Closure Tests** (`backend/tests/test_phase4_closure.py`): **6 / 6 PASS**
 - **Reranker Tests** (`backend/tests/test_reranker.py`): **17 / 17 PASS**
 - **Hybrid Fallback Tests** (`backend/tests/test_hybrid_fallback.py`): **14 / 14 PASS**
+- **Embedding Identity Tests** (`backend/tests/test_batch4_embedding_identity.py`): **4 / 4 PASS**
 - **Audit Cleanup Tests** (`backend/tests/test_audit_cleanup.py`): **3 / 3 PASS**
-- **Full Backend Regression Suite** (`pytest backend/tests/`): **252 passed, 0 failed, 1 skipped** (out of 253 total tests).
+- **Full Backend Regression Suite** (`pytest backend/tests/`): **254 passed, 0 failed, 1 skipped** (out of 255 total tests).
   *(Note: 1 skipped test is `test_watcher_symlink_ignored_on_windows`, which skips on non-elevated Windows environments lacking symlink creation privileges).*
-- **Frontend Production Build** (`tsc && vite build`): **PASS in 4.67s** (1,603 modules transformed, 0 errors).
+- **Frontend Production Build** (`tsc && vite build`): **PASS in 42.48s** (1,603 modules transformed, 0 errors).
+
 
 
 ### 13.12 Security & Privacy Model
