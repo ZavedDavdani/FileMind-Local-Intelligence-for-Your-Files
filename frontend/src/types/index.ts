@@ -226,4 +226,85 @@ export interface SearchRequest {
   file_id?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 5: Ask FileMind Types
+// ---------------------------------------------------------------------------
 
+export interface CitationItem {
+  citation_id: string;
+  chunk_id: string;
+  file_id: string;
+  source_file: string;
+  source_path: string;
+  page?: number | null;
+  section?: string | null;
+  h1_parent?: string | null;
+  h2_parent?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+  char_start?: number | null;
+  char_end?: number | null;
+  content_hash?: string | null;
+  score?: number | null;
+  reranker_score?: number | null;
+  retrieval_method?: string | null;
+}
+
+export interface ModelIdentityInfo {
+  provider: string;
+  model_name: string;
+  is_local: boolean;
+  model_tag?: string | null;
+}
+
+export interface AskRetrievalMetadata {
+  mode: string;
+  quality: string;
+  total_found: number;
+  latency_breakdown_ms?: Record<string, number>;
+  degraded?: boolean;
+  degraded_reason?: string | null;
+}
+
+export interface AskBudgetAccounting {
+  total_budget?: number;
+  system_reserved?: number;
+  output_reserved?: number;
+  evidence_budget?: number;
+  evidence_used?: number;
+  evidence_remaining?: number;
+  candidates_considered?: number;
+  candidates_included?: number;
+  candidates_omitted?: number;
+}
+
+export interface AskRequest {
+  query: string;
+  mode?: "hybrid" | "bm25" | "dense";
+  quality?: "fast" | "quality";
+  top_k?: number;
+  folder_id?: string;
+  extension?: string;
+  file_id?: string;
+}
+
+export interface AskResponse {
+  answer: string;
+  query: string;
+  generation_status:
+    | "READY"
+    | "NO_EVIDENCE"
+    | "BUDGET_LIMITED"
+    | "MODEL_UNAVAILABLE"
+    | "TIMEOUT"
+    | "GENERATION_FAILED"
+    | "INVALID_RESPONSE"
+    | string;
+  evidence_status: "READY" | "NO_EVIDENCE" | "BUDGET_LIMITED" | string;
+  citations: CitationItem[];
+  unresolved_citations: string[];
+  model_identity: ModelIdentityInfo;
+  retrieval_metadata: AskRetrievalMetadata;
+  context_budget: AskBudgetAccounting;
+  error?: string | null;
+}

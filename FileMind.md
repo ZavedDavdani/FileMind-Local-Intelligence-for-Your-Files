@@ -1567,7 +1567,7 @@ The packaged Windows application was freshly rebuilt, packaged via Tauri into NS
 - **Index Metadata Schema**: Validated `embedding_index_metadata` table tracking active embedding model identity (`sentence-transformers/all-MiniLM-L6-v2`, dim 384) to reject mismatched vector dimensions.
 
 #### 2. Batch A2 — Corpus Encoding & PDF Extraction Integrity
-- **Robust Text Encoding Fallback**: Enhanced text/markdown parsers with layered encoding recovery (UTF-8 $\to$ cp1252 $\to$ latin-1 with error replacement), preventing UTF-8 `UnicodeDecodeError` crashes during full corpus ingestion.
+- **Strict UTF-8 & BOM Decoding**: Implemented deterministic `read_text_file_strictly` and `decode_bytes_strictly` with strict UTF-8 (`utf-8-sig`) decoding. Undecodable non-UTF-8 byte sequences explicitly raise `CorruptedDocumentError` to prevent silent evidence corruption with Unicode replacement characters.
 - **Corrupted PDF Extraction Handling**: Enhanced `PDFParser` with PyMuPDF fault-tolerant page-by-page extraction, preserving valid pages when individual pages contain broken streams or invalid xref tables.
 - **Document Metadata Normalization**: Preserved structural metadata across multi-format documents (`page`, `section`, `h1_parent`, `h2_parent`, `line_start`, `line_end`).
 
@@ -1604,18 +1604,83 @@ The packaged Windows application was freshly rebuilt, packaged via Tauri into NS
 
 ---
 
-### Explicit Phase 5 Boundaries (Strictly NOT Authorized)
+### Phase 5.1 Foundation: Context Assembly & Token Budget Guard
 
-The following capabilities belong to Phase 5 and are **STRICTLY NOT STARTED / NOT IMPLEMENTED**:
-- **No LLM**: No local Ollama, llama.cpp, OpenAI, or HuggingFace generative models integrated.
-- **No RAG pipeline**: No context packing, generative prompting, citation generation by LLM, or question-answering flows.
-- **No Agents**: No autonomous agent loops, tools, or generative reasoning engines.
-- **No Phase 5 implementation**: Zero code for Phase 5 exists in the repository.
+- **Status**: **FOUNDATION COMPLETE** (`backend/app/ai/context.py`, `backend/tests/test_context_budget.py`).
+- **Role in Architecture**: Sits between retrieval (`SearchResponse` / `SearchResultItem` / `ChunkItem`) and future LLM invocation (`Retrieval → Context Builder → Token Budget Guard → Bounded Context Package → Future RAG`).
+- **Token Budget Accounting**:
+  - `ContextBudgetConfig`: `max_context_tokens` (default 4096), `reserved_system_tokens` (500), `reserved_output_tokens` (1000), `max_chunks` (20).
+  - Derived invariant: `evidence_budget = max(0, max_context_tokens - reserved_system_tokens - reserved_output_tokens)`.
+  - Non-negative telemetry: `total_budget`, `system_reserved`, `output_reserved`, `evidence_budget`, `evidence_used`, `evidence_remaining`, `candidates_considered`, `candidates_included`, `candidates_omitted`.
+- **Deterministic Token Estimation**:
+  - `TokenEstimator`: Conservative heuristic estimation (~3.5 chars/token non-CJK, 1 char/token CJK) with framing overhead calculation. Note: this is a conservative heuristic estimate, not a model BPE tokenizer.
+- **Safety & Provenance Guarantees**:
+  - Deduplication by `chunk_id` preserving deterministic retrieval relevance order.
+  - Zero silent tail truncation of chunks. Oversized single chunks or budget breaches emit explicit `OmissionReason` (`budget_exceeded`, `oversized_single_chunk`, `duplicate_chunk`, `invalid_empty_content`, `max_chunks_reached`).
+  - Exact provenance (file ID, chunk ID, paths, pages, sections, line ranges, scores, and parser metadata) survives assembly for grounded citations.
+- **Phase Boundary & Scope**:
+  - Zero Ollama generation calls, prompt templates, RAG generation, chat UI, or cloud fallbacks are active in this foundation milestone.
+
+---
+
+### Phase 5.2 Foundation: Grounded Prompt Construction & Local Generation Contract
+
+- **Status**: **FOUNDATION COMPLETE** (`backend/app/ai/prompt.py`, `backend/app/ai/citation.py`, `backend/app/ai/generation.py`, `backend/tests/test_grounded_generation.py`).
+- **Role in Architecture**:
+  $$\text{Query} \to \text{Retrieval} \to \text{Reranking} \to \text{Context Budget} \to \text{Grounded Prompt} \to \text{Local Ollama} \to \text{Citation Validation} \to \text{Structured Response}$$
+- **Prompt Construction & Injection Defense**:
+  - `PromptBuilder`: Generates structured prompts with strict system grounding rules, numbered evidence blocks (`[E1]`, `[E2]`), and bounded user queries (max 1000 chars).
+  - Untrusted data boundary: Evidence text is explicitly treated as untrusted document data that cannot override system rules or request external tools.
+- **Citation & Provenance Mapping**:
+  - `CitationSource`: Maps each `[E{n}]` identifier back to exact file ID, chunk ID, source path, page, section, lines, content hash, and retrieval scores.
+  - `CitationValidator`: Extracts referenced `[E{n}]` keys from generated answers, resolves them against the active citation map, and detects unresolved/hallucinated citation keys.
+- **No-Evidence Short-Circuiting**:
+  - If `EvidenceStatus.NO_EVIDENCE`, the LLM is **never** invoked. The pipeline returns an immediate, deterministic insufficient evidence response.
+  - If `EvidenceStatus.BUDGET_LIMITED`, generation proceeds on the bounded evidence subset while preserving `BUDGET_LIMITED` telemetry.
+- **Local-Only Generation**:
+  - Uses `OllamaProvider` targeting loopback `http://127.0.0.1:11434` with `qwen3:4b`.
+  - Zero cloud fallback; handles connection, timeout, and generation errors with explicit status codes.
+- **Validation Contract**:
+  - Validates citation identifier existence and provenance mapping. Does not claim semantic factual entailment verification (deferred to Phase 6 evaluation framework).
+
+---
+
+### Phase 5.3: Ask FileMind End-to-End Local RAG Pipeline & UI
+
+- **Status**: **COMPLETE & VERIFIED** (`backend/app/ai/ask_service.py`, `backend/app/main.py` (`POST /ai/ask`), `frontend/src/components/AskModal.tsx`, `backend/tests/test_ask_pipeline.py`).
+- **Role in Architecture**:
+  $$\text{User Query} \to \text{Hybrid Retrieval} \to \text{Quality Reranking} \to \text{Context Budget Guard} \to \text{Grounded Prompt} \to \text{Local Ollama} \to \text{Citation Validation} \to \text{Ask Response} \to \text{Ask FileMind UI}$$
+- **API Endpoint (`POST /ai/ask`)**:
+  - `AskRequest`: `query` (1..1000 chars), `mode` (`hybrid`, `bm25`, `dense`), `quality` (`fast`, `quality`), `top_k` (1..50), optional `folder_id`, `extension`, `file_id`.
+  - `AskResponse`: `answer`, `query`, `generation_status`, `evidence_status`, `citations` (`CitationItem[]`), `unresolved_citations` (`string[]`), `model_identity`, `retrieval_metadata`, `context_budget`, `error`.
+- **Ask Orchestration Service (`AskService`)**:
+  - Direct integration with `HybridRetriever`, `ContextBuilder`, and `GroundedGenerationService`.
+  - No-Evidence Guard: Automatically short-circuits with `NO_EVIDENCE` status and skips Ollama execution if 0 evidence chunks are retrieved.
+  - Budget-Limited Preservation: Preserves `BUDGET_LIMITED` flag and candidate omission telemetry when context is constrained by token limits.
+  - Safe Local Failures: Explicitly maps connection errors to `MODEL_UNAVAILABLE`, timeouts to `TIMEOUT`, and HTTP/generation errors to `GENERATION_FAILED` without cloud fallback.
+- **Ask FileMind UI (`frontend/src/components/AskModal.tsx`)**:
+  - Interactive modal accessible via `Ctrl + J` / header button with dark glassmorphism design.
+  - Quality selector toggle (Fast ~20ms default vs Quality reranked).
+  - Grounded answer view with clickable citation pills (`[E1]`, `[E2]`).
+  - Source citations cards with source filename, section, page, line ranges, relevance score, and direct "Inspect Evidence" chunk exploration.
+  - Explicit diagnostic states: `READY`, `NO_EVIDENCE`, `BUDGET_LIMITED`, `MODEL_UNAVAILABLE` (with actionable `ollama serve` / `ollama run` guidance), `TIMEOUT`, `GENERATION_FAILED`.
+  - Full keyboard accessibility, ARIA labels, and focus management.
+
+---
+
+### Explicit Phase 5 Boundaries (Status After Phase 5.3)
+
+The following capabilities belong to later milestones and are **STRICTLY NOT IMPLEMENTED**:
+- **No Conversational Memory / Multi-Turn History**: Each Ask request is stateless and independent.
+- **No Knowledge Cards / Graph**: Second-brain graph connections and knowledge cards are not implemented.
+- **No Autonomous Agents / Write Actions**: Read-only question answering only; zero tool execution, file edits, or deletions.
+- **No Cloud Fallback**: 100% local-first privacy architecture strictly preserved.
 
 > [!IMPORTANT]
-> **HARD STOP — PRE-PHASE-5 HARDENING (A1, A2, A3, A3.1) & PRACTICAL AUDIT FIXES (ISSUES 1, 2, 3) VERIFIED COMPLETE.**
-> **FULL BACKEND REGRESSION: 323 / 324 PASS (323 PASSED, 1 SKIPPED, 0 FAILED).**
-> **PHASE 5 NOT STARTED.**
+> **PHASE 5.3 ASK FILEMIND END-TO-END LOCAL RAG PIPELINE & UI VERIFIED COMPLETE.**
+> **FULL BACKEND REGRESSION: 387 / 388 PASS (387 PASSED, 1 SKIPPED, 0 FAILED).**
+> **FRONTEND BUILD & TAURI DESKTOP VERIFIED.**
+
 
 
 

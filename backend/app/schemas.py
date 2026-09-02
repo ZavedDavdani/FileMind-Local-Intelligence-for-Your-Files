@@ -328,3 +328,64 @@ class AIStatusResponse(BaseModel):
     cloud_ai: CloudAIStatus
 
 
+# ---------------------------------------------------------------------------
+# Phase 5: Ask FileMind / Grounded Question-Answering Schemas
+# ---------------------------------------------------------------------------
+
+class AskRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=1000, description="User question to answer using grounded FileMind evidence")
+    mode: str = Field("hybrid", description="Retrieval mode: hybrid, bm25, or dense")
+    quality: str = Field("fast", description="Search quality: fast or quality")
+    top_k: int = Field(10, ge=1, le=50, description="Max candidate chunks to retrieve")
+    folder_id: Optional[str] = Field(None, description="Optional folder filter")
+    extension: Optional[str] = Field(None, description="Optional file extension filter")
+    file_id: Optional[str] = Field(None, description="Optional file filter")
+
+
+class CitationItem(BaseModel):
+    citation_id: str
+    chunk_id: str
+    file_id: str
+    source_file: str
+    source_path: str
+    page: Optional[int] = None
+    section: Optional[str] = None
+    h1_parent: Optional[str] = None
+    h2_parent: Optional[str] = None
+    line_start: Optional[int] = None
+    line_end: Optional[int] = None
+    char_start: Optional[int] = None
+    char_end: Optional[int] = None
+    content_hash: Optional[str] = None
+    score: Optional[float] = None
+    reranker_score: Optional[float] = None
+    retrieval_method: Optional[str] = None
+
+
+class ModelIdentitySchema(BaseModel):
+    provider: str
+    model_name: str
+    is_local: bool
+    model_tag: Optional[str] = None
+
+
+class RetrievalMetadata(BaseModel):
+    mode: str
+    quality: str
+    total_found: int
+    latency_breakdown_ms: Dict[str, float] = Field(default_factory=dict)
+    degraded: bool = False
+    degraded_reason: Optional[str] = None
+
+
+class AskResponse(BaseModel):
+    answer: str
+    query: str
+    generation_status: str
+    evidence_status: str
+    citations: List[CitationItem] = Field(default_factory=list)
+    unresolved_citations: List[str] = Field(default_factory=list)
+    model_identity: ModelIdentitySchema
+    retrieval_metadata: RetrievalMetadata
+    context_budget: Dict[str, Any] = Field(default_factory=dict)
+    error: Optional[str] = None

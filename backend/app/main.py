@@ -22,6 +22,8 @@ from app.schemas import (
     ActionRequest,
     ActionResponse,
     ActionType,
+    AskRequest,
+    AskResponse,
     CloudAIStatus,
     ComponentAIStatus,
     EnumerateRequest,
@@ -656,6 +658,33 @@ def search_evidence(req: SearchRequest) -> SearchResponse:
             quality=quality_lower,
         )
         return SearchResponse(**resp)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: Ask FileMind API
+# ---------------------------------------------------------------------------
+
+@app.post("/ai/ask", response_model=AskResponse, tags=["Ask FileMind"])
+def ask_filemind(req: AskRequest) -> AskResponse:
+    """
+    End-to-end grounded question-answering endpoint for local files.
+    Orchestrates hybrid retrieval, context budgeting, grounded prompt assembly,
+    local Ollama generation, and citation validation.
+    """
+    try:
+        from app.ai import default_ask_service
+        return default_ask_service.ask(req)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        _app_logger.error("Ask FileMind pipeline error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing the request.",
+        )
 
 
 

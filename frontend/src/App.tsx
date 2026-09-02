@@ -6,6 +6,7 @@ import { FileList } from "./components/FileList";
 import { EventAuditLog } from "./components/EventAuditLog";
 import { StateIndicator } from "./components/StateIndicator";
 import { SearchModal } from "./components/SearchModal";
+import { AskModal } from "./components/AskModal";
 import { ChunkInspector } from "./components/ChunkInspector";
 import { useBackendHealth } from "./hooks/useBackendHealth";
 import {
@@ -18,7 +19,7 @@ import {
   fetchEvents,
 } from "./services/api";
 import { Folder, IndexingStatus, EventItem, IntegrityMode } from "./types";
-import { AlertCircle, Search } from "lucide-react";
+import { AlertCircle, Search, Sparkles } from "lucide-react";
 
 export function App() {
   const { status, healthData, latencyMs, errorMessage, recheck } = useBackendHealth();
@@ -32,6 +33,7 @@ export function App() {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAskOpen, setIsAskOpen] = useState(false);
   const [inspectedChunk, setInspectedChunk] = useState<{
     fileId: string;
     filename: string;
@@ -54,10 +56,22 @@ export function App() {
         fetchEvents(undefined, 20),
       ]);
       setFolders(Array.isArray(foldersData) ? foldersData : []);
-      setIndexingStatus(statusData);
+      setIndexingStatus((prev) => {
+        // Only trigger FileList refresh if indexing status/counts changed
+        if (
+          !prev ||
+          prev.total_files !== statusData.total_files ||
+          prev.indexed !== statusData.indexed ||
+          prev.processing !== statusData.processing ||
+          prev.failed !== statusData.failed ||
+          prev.queued !== statusData.queued
+        ) {
+          setRefreshTick((t) => t + 1);
+        }
+        return statusData;
+      });
       setEvents(Array.isArray(eventsData) ? eventsData : []);
       setLastSyncTime(new Date().toISOString());
-      setRefreshTick((t) => t + 1);
       setErrorBanner(null);
     } catch (err: unknown) {
       console.error("[App] refreshAll error:", err);
@@ -73,12 +87,15 @@ export function App() {
     return () => clearInterval(interval);
   }, [refreshAll]);
 
-  // Global Ctrl+K / Cmd+K shortcut
+  // Global Ctrl+K (Search) and Ctrl+J (Ask) shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setIsSearchOpen((prev) => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        setIsAskOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -95,6 +112,7 @@ export function App() {
     try {
       const created = await createFolder(path, recursive, mode, true, exclusions);
       notify(`Registered folder: ${created.path}`);
+      setRefreshTick((t) => t + 1);
       refreshAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to register folder";
@@ -105,7 +123,8 @@ export function App() {
   const handleUpdateFolder = async (id: string, updates: Partial<Folder>) => {
     try {
       await updateFolder(id, updates);
-      notify("Folder settings updated");
+      notify("Folder configuration updated");
+      setRefreshTick((t) => t + 1);
       refreshAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update folder";
@@ -117,6 +136,7 @@ export function App() {
     try {
       await deleteFolder(id);
       notify("Folder removed from tracking");
+      setRefreshTick((t) => t + 1);
       refreshAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to delete folder";
@@ -124,23 +144,25 @@ export function App() {
     }
   };
 
-  const handleRescanFolder = async (folderId: string) => {
+  const handleRescanFolder = async (id: string) => {
     try {
-      await controlIndexing("RESCAN", folderId);
-      notify("Rescan triggered");
+      await controlIndexing("RESCAN", id);
+      notify("Rescan initiated for folder");
+      setRefreshTick((t) => t + 1);
       refreshAll();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to rescan folder";
+      const msg = err instanceof Error ? err.message : "Rescan failed";
       setErrorBanner(msg);
     }
   };
 
-  // Indexing Controls
+  // Global Indexing Control Actions
   const handleIndexingControl = async (action: "START" | "PAUSE" | "RESUME" | "STOP" | "RESCAN") => {
     try {
       const newStatus = await controlIndexing(action);
       setIndexingStatus(newStatus);
-      notify(`Indexing action: ${action}`);
+      notify(`Action triggered: ${action}`);
+      setRefreshTick((t) => t + 1);
       refreshAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Control action failed";
@@ -165,17 +187,28 @@ export function App() {
         <div className="flex items-center justify-between bg-dark-800/90 border border-slate-700/60 rounded-xl px-4 py-2.5 shadow-sm">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setIsSearchOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow transition"
+              onClick={() => setIsAskOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold rounded-lg shadow transition"
             >
-              <Search className="w-3.5 h-3.5" />
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Ask FileMind</span>
+              <kbd className="bg-purple-800/80 px-1.5 py-0.5 rounded font-mono text-[10px] text-purple-200">
+                Ctrl + J
+              </kbd>
+            </button>
+
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-dark-700 hover:bg-dark-600 text-slate-200 text-xs font-semibold rounded-lg border border-slate-600/70 shadow transition"
+            >
+              <Search className="w-3.5 h-3.5 text-slate-400" />
               <span>Search Evidence</span>
-              <kbd className="bg-indigo-700/80 px-1.5 py-0.5 rounded font-mono text-[10px] text-indigo-200">
+              <kbd className="bg-dark-800 px-1.5 py-0.5 rounded font-mono text-[10px] text-slate-400">
                 Ctrl + K
               </kbd>
             </button>
             <span className="text-xs text-slate-400 hidden sm:inline">
-              Deterministic local hybrid retrieval (BM25 + Dense + RRF)
+              Deterministic local hybrid retrieval & grounded AI
             </span>
           </div>
           {indexingStatus && (
@@ -253,6 +286,13 @@ export function App() {
         totalFiles={indexingStatus?.total_files || 0}
       />
 
+      {/* Phase 5: Grounded Ask FileMind Modal */}
+      <AskModal
+        isOpen={isAskOpen}
+        onClose={() => setIsAskOpen(false)}
+        onInspectChunk={(fileId, filename, chunkId) => setInspectedChunk({ fileId, filename, chunkId })}
+      />
+
       {/* Phase 3: Spotlight / Raycast Search Modal */}
       <SearchModal
         isOpen={isSearchOpen}
@@ -275,4 +315,3 @@ export function App() {
 }
 
 export default App;
-

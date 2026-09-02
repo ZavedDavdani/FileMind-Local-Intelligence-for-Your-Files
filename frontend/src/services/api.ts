@@ -13,6 +13,8 @@ import {
   SearchRequest,
   SearchResponse,
   SearchResultItem,
+  AskRequest,
+  AskResponse,
 } from "../types";
 
 const BACKEND_BASE_URL = "http://127.0.0.1:24823";
@@ -559,5 +561,30 @@ export async function searchEvidence(
     degraded_reason: degradedReason,
     retrieval_method: retrievalMethod,
   };
+}
 
+/**
+ * Phase 5: Ask FileMind API
+ */
+export async function askFileMind(
+  request: AskRequest,
+  signal?: AbortSignal
+): Promise<AskResponse> {
+  const data = await requestJson<unknown>(
+    `${BACKEND_BASE_URL}/ai/ask`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+      signal,
+    },
+    "Ask FileMind"
+  );
+
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /ai/ask response shape:", data);
+    throw new Error("Invalid /ai/ask response shape");
+  }
+
+  return data as AskResponse;
 }
