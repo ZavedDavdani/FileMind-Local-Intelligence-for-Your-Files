@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app import __version__
+from app.core.logging_config import setup_logging
 from app.core.security import normalize_path
 from app.db.connection import db_manager
 from app.db.repository import Repository
@@ -49,12 +50,22 @@ from app.retrieval.model_registry import ModelType, default_model_registry
 PORT = 24823
 HOST = "127.0.0.1"
 
+# Initialize persistent rotating application logging as early as possible so
+# that all subsequent module-level and lifespan-level log calls (coordinator,
+# watcher, worker, retrieval, etc.) are actually captured. Previously this
+# infrastructure existed (app.core.logging_config.setup_logging) but was
+# never invoked anywhere, so every logger.info/warning/error call in the app
+# silently went nowhere (no handlers configured on the root logger).
+_app_logger = setup_logging()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager: initializes database migrations, crash recovery, and worker pool."""
+    _app_logger.info("FileMind backend starting up (version=%s)", __version__)
     coordinator.initialize()
     yield
+    _app_logger.info("FileMind backend shutting down")
     coordinator.shutdown()
 
 
@@ -104,11 +115,16 @@ def get_ai_status() -> AIStatusResponse:
     emb_model = default_model_registry.get_active_model(ModelType.EMBEDDING)
     rerank_model = default_model_registry.get_active_model(ModelType.RERANKER)
 
+    # NOTE: the "else" fallbacks below only trigger if the registry has no
+    # entry at all for this model type (should not happen in practice, since
+    # both models are registered at import time in model_registry.py). We
+    # deliberately default to "unavailable" here, not "ready" — a missing
+    # registry entry must never be reported as a verified-ready model.
     emb_status = ComponentAIStatus(
         model_name=emb_model.name if emb_model else "sentence-transformers/all-MiniLM-L6-v2",
         provider=emb_model.provider if emb_model else "fastembed",
         dimension=emb_model.dimension if emb_model else 384,
-        status=emb_model.readiness.value if emb_model else "ready",
+        status=emb_model.readiness.value if emb_model else "unavailable",
         error=emb_model.error if emb_model else None,
     )
 
@@ -116,17 +132,24 @@ def get_ai_status() -> AIStatusResponse:
         model_name=rerank_model.name if rerank_model else "BAAI/bge-reranker-base",
         provider=rerank_model.provider if rerank_model else "fastembed",
         dimension=None,
-        status=rerank_model.readiness.value if rerank_model else "ready",
+        status=rerank_model.readiness.value if rerank_model else "unavailable",
         error=rerank_model.error if rerank_model else None,
     )
 
-    local_status = "ready"
+    # Aggregate local AI status. Models use deferred lazy loading, so on a
+    # fresh backend start (before the first search request) both components
+    # legitimately report "unavailable" — that must surface as a non-ready
+    # aggregate state, not silently fall through to "ready".
     if emb_status.status == "failed" and rerank_status.status == "failed":
         local_status = "failed"
     elif emb_status.status in ("failed", "degraded") or rerank_status.status in ("failed", "degraded"):
         local_status = "degraded"
     elif emb_status.status in ("loading", "downloading", "preparing") or rerank_status.status in ("loading", "downloading", "preparing"):
         local_status = "loading"
+    elif emb_status.status == "unavailable" or rerank_status.status == "unavailable":
+        local_status = "unavailable"
+    else:
+        local_status = "ready"
 
     return AIStatusResponse(
         local_ai=LocalAIStatus(

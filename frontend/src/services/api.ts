@@ -65,11 +65,17 @@ async function requestJson<T>(
   } catch (netErr: unknown) {
     const isAbort =
       netErr instanceof DOMException && netErr.name === "AbortError";
-    const netMsg = isAbort
-      ? "Request timed out"
-      : netErr instanceof Error
-      ? netErr.message
-      : String(netErr);
+    if (isAbort) {
+      // Deliberate cancellation (e.g. a superseded debounced search request
+      // via AbortController): rethrow as a distinguishable AbortError rather
+      // than wrapping it into a generic Error, so callers can tell a
+      // cancelled request apart from a genuine network failure and choose to
+      // silently ignore it instead of surfacing a user-facing error message.
+      const abortErr = new Error("Request aborted");
+      abortErr.name = "AbortError";
+      throw abortErr;
+    }
+    const netMsg = netErr instanceof Error ? netErr.message : String(netErr);
     console.error(`[API Network Error] ${operationName} (${url}):`, netErr);
     throw new Error(`Network failure during ${operationName}: ${netMsg}`);
   }
@@ -481,7 +487,8 @@ export async function executeSafeAction(
  * Phase 3: Local Retrieval Search API
  */
 export async function searchEvidence(
-  request: SearchRequest
+  request: SearchRequest,
+  signal?: AbortSignal
 ): Promise<SearchResponse> {
   const data = await requestJson<unknown>(
     `${BACKEND_BASE_URL}/search`,
@@ -489,6 +496,7 @@ export async function searchEvidence(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
+      signal,
     },
     "Search evidence"
   );

@@ -42,6 +42,32 @@ class EngineCoordinator:
                 if recovered > 0:
                     logger.info("Crash recovery: recovered %d interrupted jobs to PENDING", recovered)
 
+                # 2b. Embedding index validity check: surface any embedding
+                # model/version/dimension mismatch against the previously
+                # recorded vector index identity as early as possible (at
+                # startup), rather than only discovering it lazily the next
+                # time a file happens to be written. This does not block
+                # startup — dense search degradation/reindexing decisions
+                # are handled by the retrieval layer and worker — but it
+                # ensures the mismatch is never silent.
+                try:
+                    from app.retrieval.embeddings import default_embedding_engine
+                    from app.retrieval.vector_store import SqliteVecStore
+                    vec_store = SqliteVecStore(conn, dimension=default_embedding_engine.dimension)
+                    stored_identity = vec_store.get_index_metadata()
+                    if stored_identity is not None:
+                        active_identity = default_embedding_engine.get_identity()
+                        if not vec_store.verify_index_validity(active_identity):
+                            logger.error(
+                                "Embedding model mismatch detected at startup: stored vector "
+                                "index identity %s does not match the currently configured "
+                                "embedding model %s. Dense search results may be invalid "
+                                "until the corpus is fully re-embedded.",
+                                stored_identity, active_identity,
+                            )
+                except Exception as exc:
+                    logger.warning("Embedding index validity check failed at startup: %s", str(exc))
+
             # 3. Start background workers & filesystem watchers
             self.worker_pool.start()
             self.watcher_service.start()

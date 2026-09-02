@@ -117,7 +117,17 @@ class ModelRegistry:
             return [m for m in self._models.values() if m.model_type == model_type]
 
 
-# Global authoritative model registry initialized with default Phase 3 & 4 models
+# Global authoritative model registry initialized with default Phase 3 & 4 models.
+#
+# NOTE: readiness is intentionally registered as UNAVAILABLE, not READY. Both
+# EmbeddingEngine and Reranker use deferred lazy loading (see embeddings.py /
+# reranker.py) — the actual FastEmbed model is only loaded into memory on the
+# first real call to _ensure_loaded(), which then transitions this registry
+# entry through LOADING -> READY (or FAILED). Registering as READY at import
+# time would make /ai/status report a false "ready" state for a model that
+# has not been instantiated yet, defeating the purpose of the readiness state
+# machine (it would look identical to a freshly-loaded, verified-working
+# model to anyone consuming /ai/status).
 default_model_registry = ModelRegistry()
 
 default_model_registry.register_model(
@@ -129,7 +139,7 @@ default_model_registry.register_model(
         version="1.0.0",
         dimension=384,
         hardware_profile="cpu",
-        readiness=ModelReadiness.READY,
+        readiness=ModelReadiness.UNAVAILABLE,
         is_active=True,
     )
 )
@@ -143,7 +153,7 @@ default_model_registry.register_model(
         version="1.0.0",
         dimension=None,
         hardware_profile="cpu",
-        readiness=ModelReadiness.READY,
+        readiness=ModelReadiness.UNAVAILABLE,
         is_active=True,
     )
 )

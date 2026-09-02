@@ -27,6 +27,16 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   const [showLatencyDetail, setShowLatencyDetail] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  // Tracks the AbortController for the most recently *sent* search request,
+  // so that an in-flight request can be cancelled when a newer one supersedes
+  // it (e.g. the user keeps typing before the previous request resolves).
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Monotonically increasing counter identifying the most recently *sent*
+  // request. Used as a belt-and-suspenders guard against stale responses
+  // clobbering newer ones, in case a response resolves before its abort
+  // signal is observed (e.g. it was already in-flight past the point where
+  // fetch() honors cancellation).
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -45,12 +55,23 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   // Execute debounced search when inputs change
   useEffect(() => {
     if (!isOpen || !query.trim()) {
+      // A new empty/closed state supersedes any in-flight request too.
+      abortControllerRef.current?.abort();
       setResponse(null);
       setLoading(false);
       return;
     }
 
     const timer = setTimeout(async () => {
+      // Cancel any previous request that might still be in flight before
+      // starting a new one, and record a sequence id for this request so
+      // that even a response which resolves despite cancellation (or races
+      // past the abort signal) can be detected as stale and ignored.
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const seq = ++requestSeqRef.current;
+
       setLoading(true);
       setError(null);
       try {
@@ -62,16 +83,32 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           folder_id: selectedFolder || undefined,
           extension: selectedExt || undefined,
         };
-        const data = await searchEvidence(req);
+        const data = await searchEvidence(req, controller.signal);
+        // Ignore this response if a newer request has since been issued or
+        // this request was aborted (superseded) while in flight.
+        if (seq !== requestSeqRef.current || controller.signal.aborted) {
+          return;
+        }
         setResponse(data);
       } catch (err: any) {
+        // A deliberate abort (superseded request) should not surface as a
+        // user-facing error; only report genuine failures for the latest
+        // request.
+        const isAbort = err?.name === "AbortError";
+        if (isAbort || seq !== requestSeqRef.current) {
+          return;
+        }
         setError(err.message || "Failed to execute search");
       } finally {
-        setLoading(false);
+        if (seq === requestSeqRef.current) {
+          setLoading(false);
+        }
       }
     }, 180);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [query, mode, quality, selectedFolder, selectedExt, isOpen]);
 
 

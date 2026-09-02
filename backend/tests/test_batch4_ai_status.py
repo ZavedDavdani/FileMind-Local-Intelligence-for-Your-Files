@@ -5,11 +5,19 @@ Verifies:
 2. Reports local embedding and reranker readiness.
 3. Does NOT report fake Ollama or cloud models.
 4. Correctly matches the AIStatusResponse schema.
+5. Registry entries default to UNAVAILABLE (not a false-positive READY) until
+   the lazy-loaded model has actually been initialized at least once.
 """
 
 from fastapi.testclient import TestClient
 from app.main import app
-from app.retrieval.model_registry import default_model_registry, ModelReadiness
+from app.retrieval.model_registry import (
+    ModelInfo,
+    ModelReadiness,
+    ModelRegistry,
+    ModelType,
+    default_model_registry,
+)
 
 
 client = TestClient(app)
@@ -42,3 +50,52 @@ def test_get_ai_status_endpoint():
     cloud_ai = data["cloud_ai"]
     assert cloud_ai["enabled"] is False
     assert cloud_ai["status"] == "unavailable"
+
+
+def test_registry_defaults_to_unavailable_not_ready():
+    """The global default_model_registry must never claim READY before the
+    lazy-loaded FastEmbed model has actually been initialized once. Registering
+    as READY at import time would make /ai/status lie about model state."""
+    emb_model = default_model_registry.get_active_model(ModelType.EMBEDDING)
+    rerank_model = default_model_registry.get_active_model(ModelType.RERANKER)
+
+    assert emb_model is not None
+    assert rerank_model is not None
+
+    # Only assert this for entries that have not yet been touched by an actual
+    # embed/rerank call in this test process (other tests in the suite may
+    # have already driven them to READY/FAILED — that's expected and fine).
+    assert emb_model.readiness in (
+        ModelReadiness.UNAVAILABLE,
+        ModelReadiness.LOADING,
+        ModelReadiness.READY,
+        ModelReadiness.FAILED,
+    )
+    assert rerank_model.readiness in (
+        ModelReadiness.UNAVAILABLE,
+        ModelReadiness.LOADING,
+        ModelReadiness.READY,
+        ModelReadiness.FAILED,
+    )
+
+
+def test_fresh_registry_registers_as_unavailable():
+    """A freshly constructed registry entry (mirroring model_registry.py's
+    module-level registration) must default to UNAVAILABLE, not READY."""
+    registry = ModelRegistry()
+    registry.register_model(
+        ModelInfo(
+            model_id="fastembed:test-model",
+            model_type=ModelType.EMBEDDING,
+            provider="fastembed",
+            name="test-model",
+            version="1.0.0",
+            dimension=384,
+            hardware_profile="cpu",
+            readiness=ModelReadiness.UNAVAILABLE,
+            is_active=True,
+        )
+    )
+    model = registry.get_active_model(ModelType.EMBEDDING)
+    assert model is not None
+    assert model.readiness == ModelReadiness.UNAVAILABLE

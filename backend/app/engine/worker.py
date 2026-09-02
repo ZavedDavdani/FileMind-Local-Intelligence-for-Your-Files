@@ -236,8 +236,36 @@ class WorkerPool:
                         if vec_records:
                             try:
                                 from app.retrieval.vector_store import SqliteVecStore
+                                from app.retrieval.embeddings import default_embedding_engine
                                 vec_store = SqliteVecStore(conn, dimension=dimension)
-                                vec_store.upsert_vectors(vec_records)
+                                identity = default_embedding_engine.get_identity()
+                                if not vec_store.verify_index_validity(identity):
+                                    # The existing vector index was built with a different
+                                    # embedding model/version/dimension than the one active
+                                    # now. Writing this file's vectors into the same vec0
+                                    # table would silently mix incommensurable embeddings in
+                                    # cosine search (same-dimension model swaps produce no
+                                    # error otherwise). Refuse the write and surface loudly;
+                                    # a full corpus re-embed is required before dense search
+                                    # can be trusted again.
+                                    logger.error(
+                                        "Embedding model identity mismatch for file %s: "
+                                        "vector index was built with a different model than "
+                                        "the currently active one (%s). Skipping vector write "
+                                        "to avoid corrupting dense search; a full re-embedding "
+                                        "of the corpus is required.",
+                                        file_id, identity,
+                                    )
+                                else:
+                                    vec_store.upsert_vectors(vec_records)
+                                    # Record/refresh the active embedding identity so future
+                                    # writes (and startup checks) can detect a model change.
+                                    vec_store.set_index_metadata(
+                                        provider=identity["provider"],
+                                        model_name=identity["model_name"],
+                                        model_version=identity["model_version"],
+                                        dimension=identity["dimension"],
+                                    )
                             except Exception as vec_store_exc:
                                 logger.warning("Vector indexing storage warning for file %s: %s", file_id, str(vec_store_exc))
 
