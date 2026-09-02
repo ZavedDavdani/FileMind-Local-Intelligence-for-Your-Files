@@ -251,6 +251,20 @@ class WorkerPool:
                     # 4. Atomic Persistence & Vector Indexing
                     with self.db.session() as conn:
                         repo = Repository(conn)
+                        file_rec_current = repo.get_file_by_id(file_id)
+                        if file_rec_current is None or file_rec_current.get("index_status") == "MISSING":
+                            logger.info("File %s was deleted or marked missing during processing — skipping chunk persistence", file_id)
+                            return
+                        if not repo.is_current_processing_job(job_id, file_id):
+                            # A filesystem event queued a successor while this
+                            # job parsed an older snapshot.  Leave chunks/vectors
+                            # and file state for that newer job to own.
+                            logger.info("File %s changed during processing — skipping stale chunk persistence", file_id)
+                            # Use this transaction's repository rather than
+                            # opening a second SQLite write transaction.
+                            repo.complete_job(job_id, file_id)
+                            return
+
                         from app.retrieval.vector_store import SqliteVecStore
                         from app.retrieval.embeddings import default_embedding_engine
                         vec_store = SqliteVecStore(conn, dimension=dimension)
@@ -321,16 +335,10 @@ class WorkerPool:
 
                 except CorruptedDocumentError as corp_exc:
                     logger.warning("File %s is corrupted: %s", file_path, str(corp_exc))
-                    with self.db.session() as conn:
-                        repo = Repository(conn)
-                        repo.update_file_status(file_id, "FAILED", error=f"Corrupted: {str(corp_exc)}")
                     self.queue.fail_job(job_id, file_id, str(corp_exc), permanent=True)
 
                 except Exception as parse_exc:
                     logger.error("Parser failed on %s: %s", file_path, str(parse_exc), exc_info=True)
-                    with self.db.session() as conn:
-                        repo = Repository(conn)
-                        repo.update_file_status(file_id, "FAILED", error=f"Parse Error: {str(parse_exc)}")
                     self.queue.fail_job(job_id, file_id, f"Parse failure: {str(parse_exc)}", permanent=True)
 
             else:

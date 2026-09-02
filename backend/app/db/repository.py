@@ -448,11 +448,13 @@ class Repository:
         jid = job_id or str(uuid.uuid4())
         now = _utcnow_iso()
 
-        # Check if an active job of the same type already exists for this file
+        # A pending job already represents the newest queued work.  A processing
+        # job, however, represents a snapshot which may have become stale while it
+        # was running; in that case retain one successor job for the new version.
         cursor = self.conn.execute(
             """
             SELECT * FROM indexing_jobs
-            WHERE file_id = ? AND job_type = ? AND status IN ('PENDING', 'PROCESSING');
+            WHERE file_id = ? AND job_type = ? AND status = 'PENDING';
             """,
             (file_id, job_type),
         )
@@ -468,6 +470,32 @@ class Repository:
         cursor = self.conn.execute(query, (jid, file_id, folder_id, job_type, priority, now))
         row = cursor.fetchone()
         return dict(row)
+
+    def is_current_processing_job(self, job_id: str, file_id: str) -> bool:
+        """Whether a runnable job still owns the latest write for its file.
+
+        Once a newer filesystem event queues a successor, the older processing
+        job must not replace chunks/vectors or update the file's current status.
+        This check is made inside the caller's write transaction.
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT 1
+            FROM indexing_jobs AS current_job
+            WHERE current_job.job_id = ?
+              AND current_job.file_id = ?
+              AND current_job.status IN ('PENDING', 'PROCESSING')
+              AND NOT EXISTS (
+                  SELECT 1 FROM indexing_jobs AS newer_job
+                  WHERE newer_job.file_id = current_job.file_id
+                    AND newer_job.job_id != current_job.job_id
+                    AND newer_job.status = 'PENDING'
+                    AND newer_job.created_at >= current_job.created_at
+              );
+            """,
+            (job_id, file_id),
+        )
+        return cursor.fetchone() is not None
 
     def claim_next_job(self) -> Optional[Dict[str, Any]]:
         """Atomically claims the highest-priority pending or retryable job."""
@@ -517,30 +545,38 @@ class Repository:
         final_status: Optional[str] = None,
         indexing_error: Optional[str] = None,
     ) -> bool:
+        status_to_set = (final_status.upper() if final_status else "INDEXED")
+        if status_to_set not in ("DISCOVERED", "QUEUED", "PROCESSING", "INDEXED", "FAILED", "SKIPPED", "MISSING"):
+            raise ValueError(f"Invalid file index_status: {status_to_set}")
+
         now = _utcnow_iso()
-        self.conn.execute(
+        current_job = self.is_current_processing_job(job_id, file_id)
+        job_cursor = self.conn.execute(
             """
             UPDATE indexing_jobs
             SET status = 'COMPLETED', completed_at = ?, error = NULL
-            WHERE job_id = ?;
+            WHERE job_id = ? AND status != 'CANCELLED';
             """,
             (now, job_id),
         )
-        if final_status:
+        # Do not let an older job overwrite the file state when a successor is
+        # pending.  The job itself is still completed so it cannot be reclaimed.
+        if final_status and (job_cursor.rowcount > 0) and current_job:
             self.conn.execute(
                 """
                 UPDATE files
-                SET index_status = ?, sha256 = COALESCE(?, sha256), indexing_error = ?, indexed_at = CASE WHEN ? = 'INDEXED' THEN ? ELSE indexed_at END
-                WHERE file_id = ?;
+                SET index_status = ?, sha256 = COALESCE(?, sha256), indexing_error = ?,
+                    indexed_at = CASE WHEN ? = 'INDEXED' THEN ? ELSE indexed_at END
+                WHERE file_id = ? AND index_status != 'MISSING';
                 """,
-                (final_status, sha256, indexing_error, final_status, now, file_id),
+                (status_to_set, sha256, indexing_error, status_to_set, now, file_id),
             )
-        else:
+        elif (job_cursor.rowcount > 0) and current_job:
             self.conn.execute(
                 """
                 UPDATE files
                 SET index_status = 'INDEXED', sha256 = COALESCE(?, sha256), indexing_error = NULL, indexed_at = ?
-                WHERE file_id = ?;
+                WHERE file_id = ? AND index_status != 'MISSING';
                 """,
                 (sha256, now, file_id),
             )
@@ -549,19 +585,21 @@ class Repository:
     def fail_job(self, job_id: str, file_id: str, error_message: str, retry_at: Optional[str] = None) -> bool:
         now = _utcnow_iso()
         status = "PENDING" if retry_at else "FAILED"
-        self.conn.execute(
+        current_job = self.is_current_processing_job(job_id, file_id)
+        job_cursor = self.conn.execute(
             """
             UPDATE indexing_jobs
             SET status = ?, error = ?, retry_at = ?
-            WHERE job_id = ?;
+            WHERE job_id = ? AND status != 'CANCELLED';
             """,
             (status, error_message, retry_at, job_id),
         )
         file_status = "QUEUED" if retry_at else "FAILED"
-        self.conn.execute(
-            "UPDATE files SET index_status = ?, indexing_error = ? WHERE file_id = ?;",
-            (file_status, error_message, file_id),
-        )
+        if job_cursor.rowcount > 0 and current_job:
+            self.conn.execute(
+                "UPDATE files SET index_status = ?, indexing_error = ? WHERE file_id = ? AND index_status != 'MISSING';",
+                (file_status, error_message, file_id),
+            )
         return True
 
     def cancel_pending_jobs_for_file(self, file_id: str) -> int:
