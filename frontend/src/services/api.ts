@@ -16,6 +16,7 @@ import {
   AskRequest,
   AskResponse,
   AIStatusResponse,
+  DocumentInsight,
 } from "../types";
 
 const BACKEND_BASE_URL = "http://127.0.0.1:24823";
@@ -608,4 +609,47 @@ export async function fetchAIStatus(
   }
 
   return data as AIStatusResponse;
+}
+
+/**
+ * Phase 5.5: Document Understanding API
+ */
+export async function fetchDocumentInsight(
+  fileId: string,
+  signal?: AbortSignal
+): Promise<DocumentInsight> {
+  const data = await requestJson<unknown>(
+    `${BACKEND_BASE_URL}/ai/document-insight/${fileId}`,
+    { method: "GET", signal },
+    "Fetch Document Insight"
+  );
+
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /ai/document-insight response shape:", data);
+    throw new Error("Invalid /ai/document-insight response shape");
+  }
+
+  return data as DocumentInsight;
+}
+
+export async function generateDocumentInsight(
+  fileId: string,
+  signal?: AbortSignal
+): Promise<DocumentInsight> {
+  const data = await requestJson<unknown>(
+    `${BACKEND_BASE_URL}/ai/document-insight/${fileId}/generate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal,
+    },
+    "Generate Document Insight"
+  );
+
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /ai/document-insight/generate response shape:", data);
+    throw new Error("Invalid /ai/document-insight/generate response shape");
+  }
+
+  return data as DocumentInsight;
 }

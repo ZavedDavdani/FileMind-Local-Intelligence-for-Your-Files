@@ -37,6 +37,9 @@ from app.ai.ollama_provider import (
     OllamaTimeoutError,
     check_ollama_readiness,
 )
+from app.ai.document_understanding import (
+    DocumentUnderstandingService,
+)
 from app.ai.prompt import (
     SYSTEM_GROUNDING_INSTRUCTIONS,
     CitationSource,
@@ -80,4 +83,5 @@ __all__ = [
     "OllamaResponse",
     "OllamaTimeoutError",
     "check_ollama_readiness",
+    "DocumentUnderstandingService",
 ]

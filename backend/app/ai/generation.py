@@ -82,7 +82,7 @@ class GenerationConfig:
 
 class BaseLLMProvider(Protocol):
     """Protocol satisfied by OllamaProvider and test fake providers."""
-    def generate(self, prompt: str) -> OllamaResponse:
+    def generate(self, prompt: str, **kwargs: Any) -> OllamaResponse:
         ...
 
 
@@ -190,7 +190,13 @@ class GroundedGenerationService:
 
         # 3. Invoke Local Provider
         try:
-            response: OllamaResponse = self.provider.generate(prompt.full_prompt)
+            try:
+                response: OllamaResponse = self.provider.generate(
+                    prompt.full_prompt,
+                    temperature=gen_cfg.temperature,
+                )
+            except TypeError:
+                response = self.provider.generate(prompt.full_prompt)
         except OllamaConnectionError as exc:
             logger.warning("Local Ollama endpoint unreachable: %s", exc)
             return GroundedGenerationResponse(

@@ -275,20 +275,20 @@ def test_health_response_authoritative_version():
 
 def test_schema_migration_version_consistency():
     """SCHEMA_VERSION constant equals active version and apply_migrations returns version idempotently."""
-    assert SCHEMA_VERSION == 5
+    assert SCHEMA_VERSION == 6
 
     conn = sqlite3.connect(":memory:")
     v_first = apply_migrations(conn)
-    assert v_first == 5
+    assert v_first == 6
 
-    # Verify schema_migrations table has records 1, 2, 3, 4, 5
+    # Verify schema_migrations table has records 1, 2, 3, 4, 5, 6
     cursor = conn.cursor()
     cursor.execute("SELECT version FROM schema_migrations ORDER BY version;")
     versions = [r[0] for r in cursor.fetchall()]
-    assert versions == [1, 2, 3, 4, 5]
+    assert versions == [1, 2, 3, 4, 5, 6]
 
     # Re-running migrations is idempotent
     v_second = apply_migrations(conn)
-    assert v_second == 5
+    assert v_second == 6
 
     conn.close()

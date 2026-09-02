@@ -26,6 +26,7 @@ from app.schemas import (
     AskResponse,
     CloudAIStatus,
     ComponentAIStatus,
+    DocumentInsightResponse,
     EnumerateRequest,
     EnumerateResponse,
     EventItem,
@@ -697,6 +698,58 @@ def ask_filemind(req: AskRequest) -> AskResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while processing the request.",
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.5: Document Understanding API
+# ---------------------------------------------------------------------------
+
+@app.get("/ai/document-insight/{file_id}", response_model=DocumentInsightResponse, tags=["Document Understanding"])
+def get_document_insight(file_id: str) -> DocumentInsightResponse:
+    """Retrieves cached document insight or returns NOT_GENERATED/STALE."""
+    try:
+        from app.ai.document_understanding import DocumentUnderstandingService
+        svc = DocumentUnderstandingService(db_manager=db_manager)
+        res = svc.get_insight(file_id)
+        return DocumentInsightResponse(**res)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        _app_logger.error("Failed to retrieve document insight: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while retrieving document insight.",
+        )
+
+
+@app.post("/ai/document-insight/{file_id}/generate", response_model=DocumentInsightResponse, tags=["Document Understanding"])
+def generate_document_insight(file_id: str) -> DocumentInsightResponse:
+    """Generates grounded document understanding with local LLM and stores insight atomically."""
+    try:
+        from app.ai.document_understanding import DocumentUnderstandingService
+        svc = DocumentUnderstandingService(db_manager=db_manager)
+        res = svc.generate_insight(file_id)
+        return DocumentInsightResponse(**res)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        _app_logger.error("Failed to generate document insight: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while generating document insight.",
+        )
+
 
 
 

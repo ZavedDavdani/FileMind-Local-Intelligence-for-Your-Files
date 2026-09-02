@@ -65,17 +65,29 @@ class OllamaProvider:
                 "http://127.0.0.1:<port>."
             )
 
-    def generate(self, prompt: str) -> OllamaResponse:
+    def generate(
+        self,
+        prompt: str,
+        temperature: Optional[float] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> OllamaResponse:
         """Generate a non-streaming response from the configured local model."""
 
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("Prompt must be a non-empty string.")
 
-        payload = {
+        payload: Dict[str, Any] = {
             "model": self.model,
             "prompt": prompt,
             "stream": False,
         }
+
+        opts: Dict[str, Any] = dict(options or {})
+        if temperature is not None:
+            opts["temperature"] = float(temperature)
+
+        if opts:
+            payload["options"] = opts
 
         timeout = httpx.Timeout(
             self.read_timeout,

@@ -53,19 +53,26 @@ Phase 5.4 Batch 1 — Ask Readiness & Concurrency Hardening:
 VERIFIED COMPLETE & PUSHED (`GET /ai/status`, tag probe, request sequencing — Commit `a55030f`)
 
 Phase 5.4 Batch 2 — Ask UX Polish:
-NOT STARTED / NEXT PLANNED (Staged Progress, Copy Answer, Citation Auto-Scroll, In-Session History)
+COMPLETE & PUSHED (Staged Progress, Copy Answer, Citation Auto-Scroll, In-Session History — Commit `ba45128`)
+
+Phase 5.5 — Private Local Second Brain Knowledge Layer:
+IN PROGRESS (Document Understanding, Folder Understanding, Related Content, Lightweight Connections)
+
+Phase 5.5 Batch 1 — Document Understanding Core:
+IMPLEMENTED LOCALLY (`document_insights` schema v6, `DocumentUnderstandingService`, structural summaries, grounded executive summaries, key topics, decisions, citation validation, Ollama temperature forwarding)
 
 Full Backend Regression Suite:
-393 / 394 PASS (393 passed, 1 skipped, 0 failed)
+410 / 411 PASS (410 passed, 1 skipped, 0 failed)
 
-Phase 5 AI Test Suites:
-63 / 63 PASS (Ask Pipeline, Grounded Generation, Context Budget, Ollama Provider, AI Status)
+Phase 5 / 5.5 AI Test Suites:
+80 / 80 PASS (Document Understanding, Ask Pipeline, Grounded Generation, Context Budget, Ollama Provider, AI Status)
 
 Frontend Production Build:
 VERIFIED PASS (TypeScript + Vite, 1,604 modules, 0 errors)
 
 Tauri v2 Desktop Check:
 VERIFIED PASS (`cargo check`, 0 errors)
+
 
 
 

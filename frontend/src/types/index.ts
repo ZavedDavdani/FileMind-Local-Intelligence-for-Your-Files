@@ -341,3 +341,47 @@ export interface AIStatusResponse {
   local_ai: LocalAIStatus;
   cloud_ai: CloudAIStatus;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 5.5: Document Understanding Types
+// ---------------------------------------------------------------------------
+
+export interface StructuralSummary {
+  filename: string;
+  extension: string;
+  mime_type?: string | null;
+  size_bytes: number;
+  total_chunks: number;
+  estimated_tokens: number;
+  sections: string[];
+  pages: number[];
+  headings: string[];
+}
+
+export interface DocumentInsight {
+  insight_id?: string | null;
+  file_id: string;
+  filename: string;
+  status:
+    | "NOT_GENERATED"
+    | "GENERATING"
+    | "READY"
+    | "STALE"
+    | "MODEL_UNAVAILABLE"
+    | "FAILED"
+    | string;
+  content_hash?: string | null;
+  parser_version?: string | null;
+  chunker_version?: string | null;
+  model_identity: ModelIdentityInfo;
+  structural_summary: StructuralSummary;
+  executive_summary?: string | null;
+  key_topics: string[];
+  key_decisions: string[];
+  citations: CitationItem[];
+  unresolved_citations: string[];
+  is_stale: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+  error?: string | null;
+}

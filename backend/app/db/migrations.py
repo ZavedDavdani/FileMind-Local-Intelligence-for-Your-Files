@@ -3,7 +3,7 @@
 import sqlite3
 from typing import List, Tuple
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 MIGRATION_V1_SQL = """
@@ -186,6 +186,35 @@ CREATE TABLE IF NOT EXISTS embedding_index_metadata (
 );
 """
 
+MIGRATION_V6_SQL = """
+-- Phase 5.5: Document Insights & Grounded Second Brain Understanding
+CREATE TABLE IF NOT EXISTS document_insights (
+    insight_id TEXT PRIMARY KEY,
+    file_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('NOT_GENERATED', 'GENERATING', 'READY', 'STALE', 'MODEL_UNAVAILABLE', 'FAILED')),
+    content_hash TEXT NOT NULL,
+    parser_version TEXT NOT NULL,
+    chunker_version TEXT NOT NULL,
+    model_provider TEXT NOT NULL DEFAULT 'ollama',
+    model_name TEXT NOT NULL,
+    model_tag TEXT,
+    structural_summary_json TEXT DEFAULT '{}',
+    executive_summary TEXT,
+    key_topics_json TEXT DEFAULT '[]',
+    key_decisions_json TEXT DEFAULT '[]',
+    citations_json TEXT DEFAULT '[]',
+    error TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (file_id) REFERENCES files(file_id) ON DELETE CASCADE,
+    UNIQUE(file_id, model_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_doc_insights_file_id ON document_insights(file_id);
+CREATE INDEX IF NOT EXISTS idx_doc_insights_status ON document_insights(status);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_doc_insights_file_model ON document_insights(file_id, model_name);
+"""
+
 
 
 def apply_migrations(conn: sqlite3.Connection) -> int:
@@ -231,6 +260,9 @@ def apply_migrations(conn: sqlite3.Connection) -> int:
         cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (5);")
         current_version = 5
 
+    if current_version < 6:
+        cursor.executescript(MIGRATION_V6_SQL)
+        cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (6);")
+        current_version = 6
+
     return current_version
-
-

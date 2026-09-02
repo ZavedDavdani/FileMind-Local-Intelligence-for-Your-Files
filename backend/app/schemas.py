@@ -398,3 +398,40 @@ class AskResponse(BaseModel):
     retrieval_metadata: RetrievalMetadata
     context_budget: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.5: Document Understanding Schemas
+# ---------------------------------------------------------------------------
+
+class StructuralSummarySchema(BaseModel):
+    filename: str
+    extension: str
+    mime_type: Optional[str] = None
+    size_bytes: int
+    total_chunks: int
+    estimated_tokens: int
+    sections: List[str] = Field(default_factory=list)
+    pages: List[int] = Field(default_factory=list)
+    headings: List[str] = Field(default_factory=list)
+
+
+class DocumentInsightResponse(BaseModel):
+    insight_id: Optional[str] = None
+    file_id: str
+    filename: str
+    status: str
+    content_hash: Optional[str] = None
+    parser_version: Optional[str] = None
+    chunker_version: Optional[str] = None
+    model_identity: ModelIdentitySchema
+    structural_summary: StructuralSummarySchema
+    executive_summary: Optional[str] = None
+    key_topics: List[str] = Field(default_factory=list)
+    key_decisions: List[str] = Field(default_factory=list)
+    citations: List[CitationItem] = Field(default_factory=list)
+    unresolved_citations: List[str] = Field(default_factory=list)
+    is_stale: bool = False
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    error: Optional[str] = None
