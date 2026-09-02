@@ -419,3 +419,74 @@ export interface RelatedFilesResponse {
   query_used?: string | null;
   results: RelatedFileItem[];
 }
+
+export interface FolderStructuralSummary {
+  folder_id: string;
+  folder_name: string;
+  path: string;
+  total_files: number;
+  indexed_files: number;
+  unindexed_files: number;
+  failed_files: number;
+  missing_files: number;
+  skipped_files: number;
+  total_size_bytes: number;
+  total_chunks: number;
+  estimated_tokens: number;
+  file_type_distribution: Record<string, number>;
+  dominant_topics: string[];
+  representative_files: string[];
+}
+
+export interface FolderInsight {
+  insight_id?: string | null;
+  folder_id: string;
+  folder_name: string;
+  status:
+    | "NOT_GENERATED"
+    | "GENERATING"
+    | "READY"
+    | "STALE"
+    | "NO_EVIDENCE"
+    | "MODEL_UNAVAILABLE"
+    | "FAILED"
+    | string;
+  composite_hash?: string | null;
+  model_identity: ModelIdentityInfo;
+  structural_summary: FolderStructuralSummary;
+  executive_summary?: string | null;
+  key_themes: string[];
+  key_decisions: string[];
+  citations: CitationItem[];
+  unresolved_citations: string[];
+  is_stale: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+  error?: string | null;
+}
+
+export interface ConnectionEvidence {
+  chunk_id: string;
+  file_id: string;
+  source_file: string;
+  source_path: string;
+  content_hash?: string | null;
+  page?: number | null;
+  section?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+}
+
+export interface KnowledgeConnection {
+  connection_type: "shared_topic" | "file_reference" | string;
+  label: string;
+  explanation: string;
+  target_file: { file_id: string; filename: string; path: string; relative_path?: string | null; content_hash?: string | null };
+  source_evidence: ConnectionEvidence[];
+  target_evidence: ConnectionEvidence[];
+}
+
+export interface KnowledgeConnectionsResponse {
+  source_file: { file_id: string; filename: string; path: string; relative_path?: string | null; content_hash?: string | null };
+  connections: KnowledgeConnection[];
+}

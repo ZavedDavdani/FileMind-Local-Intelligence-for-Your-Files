@@ -17,6 +17,8 @@ import {
   AskResponse,
   AIStatusResponse,
   DocumentInsight,
+  FolderInsight,
+  KnowledgeConnectionsResponse,
   RelatedFilesResponse,
 } from "../types";
 
@@ -678,4 +680,50 @@ export async function fetchRelatedFiles(
   }
 
   return data as RelatedFilesResponse;
+}
+
+export async function fetchFolderInsight(
+  folderId: string,
+  signal?: AbortSignal
+): Promise<FolderInsight> {
+  const data = await requestJson<unknown>(
+    `${BACKEND_BASE_URL}/ai/folder-insight/${folderId}`,
+    { method: "GET", signal },
+    "Fetch Folder Insight"
+  );
+
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /ai/folder-insight response shape:", data);
+    throw new Error("Invalid /ai/folder-insight response shape");
+  }
+
+  return data as FolderInsight;
+}
+
+export async function generateFolderInsight(
+  folderId: string,
+  signal?: AbortSignal
+): Promise<FolderInsight> {
+  const data = await requestJson<unknown>(
+    `${BACKEND_BASE_URL}/ai/folder-insight/${folderId}/generate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal,
+    },
+    "Generate Folder Insight"
+  );
+
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /ai/folder-insight/generate response shape:", data);
+    throw new Error("Invalid /ai/folder-insight/generate response shape");
+  }
+
+  return data as FolderInsight;
+}
+
+export async function fetchKnowledgeConnections(fileId: string, signal?: AbortSignal): Promise<KnowledgeConnectionsResponse> {
+  const data = await requestJson<unknown>(`${BACKEND_BASE_URL}/ai/connections/${fileId}`, { method: "GET", signal }, "Fetch Knowledge Connections");
+  if (!isObject(data)) throw new Error("Invalid /ai/connections response shape");
+  return data as KnowledgeConnectionsResponse;
 }

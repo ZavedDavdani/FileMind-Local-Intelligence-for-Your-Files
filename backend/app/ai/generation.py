@@ -11,6 +11,7 @@ import logging
 from typing import Any, Dict, List, Optional, Protocol
 
 from app.ai.citation import CitationValidator
+from app.ai.generation_coordinator import default_generation_coordinator
 from app.ai.context import (
     BoundedContextPackage,
     BudgetAccounting,
@@ -191,12 +192,17 @@ class GroundedGenerationService:
         # 3. Invoke Local Provider
         try:
             try:
-                response: OllamaResponse = self.provider.generate(
-                    prompt.full_prompt,
-                    temperature=gen_cfg.temperature,
-                )
-            except TypeError:
-                response = self.provider.generate(prompt.full_prompt)
+                with default_generation_coordinator.acquire():
+                    response: OllamaResponse = self.provider.generate(
+                        prompt.full_prompt,
+                        temperature=gen_cfg.temperature,
+                    )
+            except TypeError as te:
+                if "temperature" in str(te) or "unexpected keyword argument" in str(te):
+                    with default_generation_coordinator.acquire():
+                        response = self.provider.generate(prompt.full_prompt)
+                else:
+                    raise
         except OllamaConnectionError as exc:
             logger.warning("Local Ollama endpoint unreachable: %s", exc)
             return GroundedGenerationResponse(

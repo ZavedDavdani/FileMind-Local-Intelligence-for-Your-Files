@@ -473,3 +473,82 @@ class RelatedFilesResponse(BaseModel):
     quality: str = "fast"
     query_used: Optional[str] = None
     results: List[RelatedFileItem] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.5 Batch 3: Folder Understanding Schemas
+# ---------------------------------------------------------------------------
+
+class FolderStructuralSummarySchema(BaseModel):
+    folder_id: str
+    folder_name: str
+    path: str
+    total_files: int
+    indexed_files: int
+    unindexed_files: int
+    failed_files: int
+    missing_files: int
+    skipped_files: int
+    total_size_bytes: int
+    total_chunks: int
+    estimated_tokens: int
+    file_type_distribution: Dict[str, int] = Field(default_factory=dict)
+    dominant_topics: List[str] = Field(default_factory=list)
+    representative_files: List[str] = Field(default_factory=list)
+
+
+class FolderInsightResponse(BaseModel):
+    insight_id: Optional[str] = None
+    folder_id: str
+    folder_name: str
+    status: str
+    composite_hash: Optional[str] = None
+    model_identity: ModelIdentitySchema
+    structural_summary: FolderStructuralSummarySchema
+    executive_summary: Optional[str] = None
+    key_themes: List[str] = Field(default_factory=list)
+    key_decisions: List[str] = Field(default_factory=list)
+    citations: List[CitationItem] = Field(default_factory=list)
+    unresolved_citations: List[str] = Field(default_factory=list)
+    is_stale: bool = False
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.5 Batch 3.2: Dynamic Knowledge Connections
+# ---------------------------------------------------------------------------
+
+class ConnectionFileSchema(BaseModel):
+    file_id: str
+    filename: str
+    path: str
+    relative_path: Optional[str] = None
+    content_hash: Optional[str] = None
+
+
+class ConnectionEvidenceSchema(BaseModel):
+    chunk_id: str
+    file_id: str
+    source_file: str
+    source_path: str
+    content_hash: Optional[str] = None
+    page: Optional[int] = None
+    section: Optional[str] = None
+    line_start: Optional[int] = None
+    line_end: Optional[int] = None
+
+
+class KnowledgeConnectionSchema(BaseModel):
+    connection_type: str
+    label: str
+    explanation: str
+    target_file: ConnectionFileSchema
+    source_evidence: List[ConnectionEvidenceSchema] = Field(default_factory=list)
+    target_evidence: List[ConnectionEvidenceSchema] = Field(default_factory=list)
+
+
+class KnowledgeConnectionsResponse(BaseModel):
+    source_file: ConnectionFileSchema
+    connections: List[KnowledgeConnectionSchema] = Field(default_factory=list)

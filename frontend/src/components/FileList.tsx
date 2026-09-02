@@ -23,6 +23,7 @@ interface FileListProps {
   onStatusFilterChange: (status: string | null) => void;
   onNotification: (msg: string) => void;
   refreshTrigger?: number;
+  onOpenKnowledge?: (fileId: string, filename: string) => void;
 }
 
 const PAGE_SIZE = 50;
@@ -113,6 +114,7 @@ export function FileList({
   onStatusFilterChange,
   onNotification,
   refreshTrigger,
+  onOpenKnowledge,
 }: FileListProps) {
   const [files, setFiles] = useState<FileItem[]>(initialFiles || []);
   const [total, setTotal] = useState<number>(initialFiles?.length || 0);
@@ -328,6 +330,9 @@ export function FileList({
                 {/* Action Buttons */}
                 <div className="flex items-center space-x-1 opacity-80 group-hover:opacity-100">
                   {file.file_id && file.index_status === "INDEXED" && (
+                    <button onClick={() => onOpenKnowledge?.(file.file_id!, file.filename)} className="p-1 text-indigo-300 hover:bg-dark-600 rounded" title="Open local document insight and related files" aria-label={`Open knowledge details for ${file.filename}`}><span className="text-[10px]">Insight</span></button>
+                  )}
+                  {file.file_id && file.index_status === "INDEXED" && (
                     <button
                       onClick={() => setInspectingFile({ id: file.file_id!, name: file.filename })}
                       className="p-1 hover:text-cyan-300 hover:bg-dark-600 rounded flex items-center space-x-1 px-1.5 py-0.5 bg-dark-700/60 border border-dark-600 text-cyan-400"
@@ -392,6 +397,7 @@ export function FileList({
       {/* Chunk Inspector Modal */}
       {inspectingFile && (
         <ChunkInspector
+          key={inspectingFile.id}
           fileId={inspectingFile.id}
           filename={inspectingFile.name}
           onClose={() => setInspectingFile(null)}

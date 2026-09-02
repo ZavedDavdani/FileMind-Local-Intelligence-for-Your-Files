@@ -12,6 +12,7 @@ import threading
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app.ai.citation import CitationValidator
+from app.ai.generation_coordinator import LocalGenerationBusyError, default_generation_coordinator
 from app.ai.context import (
     BoundedContextPackage,
     ContextBudgetConfig,
@@ -120,6 +121,21 @@ class DocumentUnderstandingService:
             "pages": sorted(pages)[:20],
             "headings": headings[:20],
         }
+
+    @staticmethod
+    def is_cached_insight_current(
+        file_rec: Dict[str, Any], chunks: List[Dict[str, Any]], cached: Dict[str, Any], model_name: str
+    ) -> bool:
+        """The single authoritative validity rule for cached document insights."""
+        if cached.get("status") != "READY" or cached.get("content_hash") != (file_rec.get("sha256") or ""):
+            return False
+        current_parser = chunks[0].get("parser_version") if chunks else ""
+        current_chunker = chunks[0].get("chunker_version") if chunks else ""
+        return bool(
+            cached.get("model_name") == model_name
+            and (not current_parser or cached.get("parser_version") == current_parser)
+            and (not current_chunker or cached.get("chunker_version") == current_chunker)
+        )
 
     def _select_representative_chunks(
         self, chunks: List[Dict[str, Any]], max_evidence_tokens: int = 2500
@@ -317,15 +333,7 @@ class DocumentUnderstandingService:
             current_parser = chunks[0].get("parser_version") if chunks else ""
             current_chunker = chunks[0].get("chunker_version") if chunks else ""
 
-            is_stale = False
-            if cached.get("content_hash") != current_hash:
-                is_stale = True
-            elif current_parser and cached.get("parser_version") != current_parser:
-                is_stale = True
-            elif current_chunker and cached.get("chunker_version") != current_chunker:
-                is_stale = True
-            elif cached.get("model_name") != self.model_name:
-                is_stale = True
+            is_stale = not self.is_cached_insight_current(file_rec, chunks, cached, self.model_name)
 
             reported_status = "STALE" if (is_stale and cached["status"] == "READY") else cached["status"]
 
@@ -413,10 +421,11 @@ class DocumentUnderstandingService:
 
             # 4. Invoke LLM Provider
             try:
-                llm_resp: OllamaResponse = self.provider.generate(
-                    full_prompt,
-                    temperature=self.generation_config.temperature,
-                )
+                with default_generation_coordinator.acquire():
+                    llm_resp: OllamaResponse = self.provider.generate(
+                        full_prompt,
+                        temperature=self.generation_config.temperature,
+                    )
             except OllamaConnectionError as exc:
                 with self.db.session() as conn:
                     repo = Repository(conn)
@@ -433,6 +442,8 @@ class DocumentUnderstandingService:
                         error=str(exc),
                     )
                 return self.get_insight(file_id)
+            except LocalGenerationBusyError:
+                raise
             except (OllamaTimeoutError, OllamaGenerationError, Exception) as exc:
                 with self.db.session() as conn:
                     repo = Repository(conn)

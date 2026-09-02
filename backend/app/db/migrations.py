@@ -3,7 +3,7 @@
 import sqlite3
 from typing import List, Tuple
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 MIGRATION_V1_SQL = """
@@ -215,6 +215,34 @@ CREATE INDEX IF NOT EXISTS idx_doc_insights_status ON document_insights(status);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_doc_insights_file_model ON document_insights(file_id, model_name);
 """
 
+MIGRATION_V7_SQL = """
+-- Phase 5.5: Folder Insights & Grounded Folder-Level Understanding
+CREATE TABLE IF NOT EXISTS folder_insights (
+    insight_id TEXT PRIMARY KEY,
+    folder_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('NOT_GENERATED', 'GENERATING', 'READY', 'STALE', 'MODEL_UNAVAILABLE', 'FAILED', 'NO_EVIDENCE')),
+    composite_hash TEXT NOT NULL,
+    model_provider TEXT NOT NULL DEFAULT 'ollama',
+    model_name TEXT NOT NULL,
+    model_tag TEXT,
+    structural_summary_json TEXT DEFAULT '{}',
+    executive_summary TEXT,
+
+    key_themes_json TEXT DEFAULT '[]',
+    key_decisions_json TEXT DEFAULT '[]',
+    citations_json TEXT DEFAULT '[]',
+    error TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (folder_id) REFERENCES folders(folder_id) ON DELETE CASCADE,
+    UNIQUE(folder_id, model_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_folder_insights_folder_id ON folder_insights(folder_id);
+CREATE INDEX IF NOT EXISTS idx_folder_insights_status ON folder_insights(status);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_folder_insights_folder_model ON folder_insights(folder_id, model_name);
+"""
+
 
 
 def apply_migrations(conn: sqlite3.Connection) -> int:
@@ -264,5 +292,10 @@ def apply_migrations(conn: sqlite3.Connection) -> int:
         cursor.executescript(MIGRATION_V6_SQL)
         cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (6);")
         current_version = 6
+
+    if current_version < 7:
+        cursor.executescript(MIGRATION_V7_SQL)
+        cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (7);")
+        current_version = 7
 
     return current_version

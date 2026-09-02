@@ -25,6 +25,7 @@ from app.schemas import (
     AskRequest,
     AskResponse,
     CloudAIStatus,
+    KnowledgeConnectionsResponse,
     ComponentAIStatus,
     DocumentInsightResponse,
     EnumerateRequest,
@@ -34,6 +35,7 @@ from app.schemas import (
     FileItem,
     FileListResponse,
     FolderCreate,
+    FolderInsightResponse,
     FolderResponse,
     FolderUpdate,
     HealthResponse,
@@ -792,6 +794,74 @@ def generate_document_insight(file_id: str) -> DocumentInsightResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while generating document insight.",
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.5 Batch 3: Folder Understanding API
+# ---------------------------------------------------------------------------
+
+@app.get("/ai/folder-insight/{folder_id}", response_model=FolderInsightResponse, tags=["Folder Understanding"])
+def get_folder_insight(folder_id: str) -> FolderInsightResponse:
+    """Retrieves deterministic structural statistics and cached folder AI insight."""
+    try:
+        from app.ai.folder_understanding import FolderUnderstandingService
+        svc = FolderUnderstandingService(db_manager=db_manager)
+        res = svc.get_folder_insight(folder_id)
+        return FolderInsightResponse(**res)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        _app_logger.error("Failed to retrieve folder insight: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while retrieving folder insight.",
+        )
+
+
+@app.post("/ai/folder-insight/{folder_id}/generate", response_model=FolderInsightResponse, tags=["Folder Understanding"])
+def generate_folder_insight(folder_id: str) -> FolderInsightResponse:
+    """Generates grounded folder understanding with local LLM and stores insight atomically."""
+    try:
+        from app.ai.folder_understanding import FolderUnderstandingService
+        svc = FolderUnderstandingService(db_manager=db_manager)
+        res = svc.generate_insight(folder_id)
+        return FolderInsightResponse(**res)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        _app_logger.error("Failed to generate folder insight: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while generating folder insight.",
+        )
+
+
+@app.get("/ai/connections/{file_id}", response_model=KnowledgeConnectionsResponse, tags=["Knowledge Connections"])
+def get_knowledge_connections(file_id: str) -> KnowledgeConnectionsResponse:
+    """Returns dynamic, source-backed topic and file-reference connections."""
+    try:
+        from app.ai.knowledge_connections import KnowledgeConnectionService
+        return KnowledgeConnectionsResponse(**KnowledgeConnectionService(db_manager=db_manager).get_connections(file_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        _app_logger.error("Failed to build knowledge connections for %s: %s", file_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while building knowledge connections.",
+        )
+
 
 
 

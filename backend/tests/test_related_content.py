@@ -537,7 +537,8 @@ def test_related_content_invalid_quality_mode_raises(test_db, populated_corpus):
 
 def test_related_content_no_migration_required():
     """Verifies that Phase 5.5 Batch 2 required zero database migrations."""
-    assert SCHEMA_VERSION == 6
+    assert SCHEMA_VERSION >= 6
+
 
 
 # ===========================================================================

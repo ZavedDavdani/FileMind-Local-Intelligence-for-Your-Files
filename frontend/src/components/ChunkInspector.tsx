@@ -258,7 +258,7 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
                     <div>
                       <span style={{ fontSize: "0.75rem", color: "#6c7086" }}>Content Hash (SHA-256):</span>
                       <div style={{ fontSize: "0.75rem", color: "#a6e3a1", fontFamily: "monospace" }}>
-                        {selectedChunk.content_hash.slice(0, 16)}...
+                        {selectedChunk.content_hash ? `${selectedChunk.content_hash.slice(0, 16)}...` : "N/A"}
                       </div>
                     </div>
                     <div>

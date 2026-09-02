@@ -23,6 +23,7 @@ Thread-lifetime contract (Batch 1 hardening):
 
 import logging
 import threading
+import time
 from typing import List, Optional
 import numpy as np
 
@@ -34,6 +35,7 @@ DEFAULT_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 # FastEmbed's internal HTTP-retry schedule: 3 s -> 9 s -> 27 s ≈ 39 s total.
 # During normal operation the model is already cached locally and loads in < 2 s.
 EMBEDDING_LOAD_TIMEOUT_SECONDS = 15.0
+RETRY_COOLDOWN_SECONDS = 0.0
 
 MODEL_DIMENSIONS = {
     "BAAI/bge-small-en-v1.5": 384,
@@ -61,16 +63,23 @@ class EmbeddingEngine:
       40 s), _model is set and all subsequent callers use the O(1) fast-path.
     """
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, load_timeout: float = EMBEDDING_LOAD_TIMEOUT_SECONDS):
+    def __init__(
+        self,
+        model_name: str = DEFAULT_MODEL_NAME,
+        load_timeout: float = EMBEDDING_LOAD_TIMEOUT_SECONDS,
+        retry_cooldown: float = RETRY_COOLDOWN_SECONDS,
+    ):
         self.model_name = model_name
         self.dimension = MODEL_DIMENSIONS.get(model_name, 384)
         self.load_timeout = load_timeout
+        self.retry_cooldown = retry_cooldown
         self._model = None
         self._lock = threading.Lock()
         # Single init-thread state — no executor, no task queue.
         self._init_thread: Optional[threading.Thread] = None
         self._init_done = threading.Event()   # set when _run_init finishes (success or fail)
         self._init_error: Optional[Exception] = None
+        self._last_failure_time: float = 0.0
 
     @property
     def model_version(self) -> str:
@@ -83,6 +92,14 @@ class EmbeddingEngine:
             "model_version": self.model_version,
             "dimension": self.dimension,
         }
+
+    def reset_init_state(self) -> None:
+        """Resets failure state to force a clean re-initialization on next call."""
+        with self._lock:
+            self._init_error = None
+            self._last_failure_time = 0.0
+            if self._init_thread is None or not self._init_thread.is_alive():
+                self._init_done.clear()
 
     def _run_init(self) -> None:
         """Daemon thread: loads the FastEmbed model and signals _init_done.
@@ -105,6 +122,7 @@ class EmbeddingEngine:
             model = TextEmbedding(model_name=self.model_name)
             self._model = model          # visible to all waiters after _init_done.set()
             self._init_error = None
+            self._last_failure_time = 0.0
             default_model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
                 ModelReadiness.READY,
@@ -112,6 +130,7 @@ class EmbeddingEngine:
             logger.info("Embedding init thread succeeded: %s", self.model_name)
         except Exception as exc:
             self._init_error = exc
+            self._last_failure_time = time.time()
             from app.retrieval.model_registry import default_model_registry, ModelReadiness
             default_model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
@@ -130,19 +149,29 @@ class EmbeddingEngine:
         1. Fast-path: if _model is already set, return immediately (no lock).
         2. Acquire lock:
            a. Re-check _model (double-checked locking).
-           b. If no alive init thread: clear event, start a new daemon thread.
-           c. (If a thread is already running: all callers share the same thread.)
+           b. If failed recently within retry_cooldown, fail fast without spawning new thread.
+           c. If no alive init thread: clear event, start a new daemon thread.
+           d. (If a thread is already running: all callers share the same thread.)
         3. Release lock; wait on _init_done up to load_timeout.
         4. On timeout: raise EmbeddingLoadTimeoutError without blocking further.
-        5. On init failure: propagate the exception.
+        5. On init failure: propagate the exception and record failure timestamp.
         """
         # --- Fast-path (no lock required) ---
         if self._model is not None:
             return
 
+        now = time.time()
         with self._lock:
             if self._model is not None:
                 return
+
+            # Fail fast if recent initialization failed within retry cooldown
+            if self._init_error is not None and (now - self._last_failure_time) < self.retry_cooldown:
+                err = self._init_error
+                raise RuntimeError(
+                    f"Embedding model initialization failed: {err}"
+                ) from err
+
             # Start a new init thread only if none is already running.
             if self._init_thread is None or not self._init_thread.is_alive():
                 self._init_done.clear()
@@ -172,11 +201,13 @@ class EmbeddingEngine:
 
         # Init thread signalled completion — check for error.
         if self._init_error is not None:
+            self._last_failure_time = time.time()
             err = self._init_error
             raise RuntimeError(
                 f"Embedding model initialization failed: {err}"
             ) from err
         # _model is now set (written by _run_init before _init_done.set()).
+
 
     def embed_texts(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
         """Generates normalized dense embedding vectors for a list of texts."""

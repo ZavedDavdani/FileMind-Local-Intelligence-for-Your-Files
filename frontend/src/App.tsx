@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { HeaderStatus } from "./components/HeaderStatus";
 import { FolderManager } from "./components/FolderManager";
 import { IndexingControl } from "./components/IndexingControl";
@@ -8,6 +8,8 @@ import { StateIndicator } from "./components/StateIndicator";
 import { SearchModal } from "./components/SearchModal";
 import { AskModal } from "./components/AskModal";
 import { ChunkInspector } from "./components/ChunkInspector";
+import { SecondBrainSheet } from "./components/SecondBrainSheet";
+import { FolderSummaryBanner } from "./components/FolderSummaryBanner";
 import { useBackendHealth } from "./hooks/useBackendHealth";
 import {
   fetchFolders,
@@ -39,6 +41,7 @@ export function App() {
     filename: string;
     chunkId: string;
   } | null>(null);
+  const [knowledgeFile, setKnowledgeFile] = useState<{ id: string; name: string } | null>(null);
 
   const notify = useCallback((msg: string) => {
     setNotification(msg);
@@ -47,8 +50,11 @@ export function App() {
     }, 3000);
   }, []);
 
+  const isRefreshingRef = useRef(false);
+
   const refreshAll = useCallback(async () => {
-    if (status !== "online") return;
+    if (status !== "online" || isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     try {
       const [foldersData, statusData, eventsData] = await Promise.all([
         fetchFolders(),
@@ -77,6 +83,8 @@ export function App() {
       console.error("[App] refreshAll error:", err);
       const msg = err instanceof Error ? err.message : "Sync error";
       setErrorBanner(msg);
+    } finally {
+      isRefreshingRef.current = false;
     }
   }, [status]);
 
@@ -266,6 +274,7 @@ export function App() {
             disabled={status !== "online"}
           />
         </div>
+        <FolderSummaryBanner folders={folders} />
 
         {/* Discovered & Tracked Files Table */}
         <FileList
@@ -273,6 +282,7 @@ export function App() {
           onStatusFilterChange={(s) => setStatusFilter(s)}
           onNotification={notify}
           refreshTrigger={refreshTick}
+          onOpenKnowledge={(id, name) => setKnowledgeFile({ id, name })}
         />
 
         {/* Filesystem Event Audit Log */}
@@ -304,12 +314,14 @@ export function App() {
       {/* Document Intelligence: Chunk Inspector Modal */}
       {inspectedChunk && (
         <ChunkInspector
+          key={`${inspectedChunk.fileId}-${inspectedChunk.chunkId || "default"}`}
           fileId={inspectedChunk.fileId}
           filename={inspectedChunk.filename}
           initialChunkId={inspectedChunk.chunkId}
           onClose={() => setInspectedChunk(null)}
         />
       )}
+      {knowledgeFile && <SecondBrainSheet fileId={knowledgeFile.id} filename={knowledgeFile.name} onClose={() => setKnowledgeFile(null)} onInspectChunk={(fileId, filename, chunkId) => { setKnowledgeFile(null); setInspectedChunk({ fileId, filename, chunkId }); }} />}
     </div>
   );
 }

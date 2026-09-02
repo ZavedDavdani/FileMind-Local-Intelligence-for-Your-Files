@@ -1,7 +1,6 @@
-"""Recursive filesystem discovery, exclusion filtering, and change detection."""
-
-import os
+import logging
 import mimetypes
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -9,6 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from app.core.exclusions import ExclusionMatcher
 from app.core.security import is_symlink_or_junction, normalize_path, validate_subpath_safety
 from app.db.repository import Repository
+
+logger = logging.getLogger("FileMind.Discovery")
 
 
 class DiscoveryResult:
@@ -166,8 +167,12 @@ class FilesystemScanner:
                                         if (chunk_vers["parser_version"] != active_parser.parser_version or
                                             chunk_vers["chunker_version"] != CHUNKER_VERSION):
                                             version_changed = True
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                logger.warning(
+                                    "Failed to evaluate parser/chunker version invalidation for %s: %s",
+                                    file_abs,
+                                    exc,
+                                )
 
                         if is_oversized:
                             if existing.get("index_status") != "SKIPPED":

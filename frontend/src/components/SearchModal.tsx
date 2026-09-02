@@ -145,6 +145,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
     return () => {
       clearTimeout(timer);
+      abortControllerRef.current?.abort();
     };
   }, [query, mode, quality, selectedFolder, selectedExt, isOpen]);
 

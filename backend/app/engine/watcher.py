@@ -21,7 +21,7 @@ from watchdog.events import (
 from watchdog.observers import Observer
 
 from app.core.exclusions import ExclusionMatcher
-from app.core.security import is_symlink_or_junction, normalize_path
+from app.core.security import is_path_within_root, is_symlink_or_junction, normalize_path
 from app.db.connection import DatabaseManager
 from app.db.repository import Repository
 
@@ -428,6 +428,26 @@ class WatcherService:
                 if not folder or not folder["indexing_enabled"]:
                     continue
 
+                destination_inside_root = is_subpath(path, folder["path"])
+                origin_inside_root = bool(old_path and is_subpath(old_path, folder["path"]))
+
+                # A move out of this registered root (including a cross-drive
+                # move) is a deletion from this corpus. Never inspect or queue
+                # the external destination, but converge the old tracked state.
+                if event_type in ("MOVE", "RENAME") and origin_inside_root and not destination_inside_root:
+                    if is_directory:
+                        repo.mark_directory_missing(folder_id=folder_id, dir_path=old_path)
+                    else:
+                        file_rec = repo.get_file_by_path(old_path)
+                        if file_rec:
+                            repo.mark_file_missing(old_path)
+                            repo.cancel_pending_jobs_for_file(file_rec["file_id"])
+                    continue
+
+                if not destination_inside_root:
+                    logger.warning("Event path %s is outside root %s — skipping", path, folder["path"])
+                    continue
+
                 if is_directory:
                     if event_type == "DELETE":
                         # Atomic subtree deletion: mark all files under directory missing and cancel pending jobs
@@ -498,4 +518,3 @@ class WatcherService:
                                 job_type="HASH_VERIFICATION",
                                 priority=2,
                             )
-

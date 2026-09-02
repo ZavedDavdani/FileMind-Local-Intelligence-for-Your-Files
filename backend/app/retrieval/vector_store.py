@@ -231,9 +231,8 @@ class SqliteVecStore(BaseVectorStore):
         ORDER BY distance ASC;
         """
 
-        matched_chunks = {}
-        chunk_distances = {}
-        chunk_ids = []
+        all_matched_chunks: Dict[str, Dict[str, Any]] = {}
+        all_chunk_distances: Dict[str, float] = {}
 
         # Maximum number of adaptive expansion iterations to prevent unbounded work
         # on large corpora with very narrow filters. After MAX_ADAPTIVE_ITERATIONS
@@ -245,65 +244,70 @@ class SqliteVecStore(BaseVectorStore):
             cursor = self.conn.execute(vec_sql, (packed_q, fetch_k))
             vec_rows = cursor.fetchall()
             if not vec_rows:
-                return []
+                if not all_matched_chunks:
+                    return []
+                break
 
             chunk_distances = {r[0]: float(r[1]) for r in vec_rows}
-            chunk_ids = list(chunk_distances.keys())
-            placeholders = ",".join(["?"] * len(chunk_ids))
+            all_chunk_distances.update(chunk_distances)
 
-            where_clauses = [f"c.chunk_id IN ({placeholders})"]
-            params: List[Any] = list(chunk_ids)
+            # Query relational chunk metadata only for newly discovered candidate IDs
+            new_chunk_ids = [cid for cid in chunk_distances.keys() if cid not in all_matched_chunks]
 
-            if filters.get("folder_id"):
-                where_clauses.append("f.folder_id = ?")
-                params.append(filters["folder_id"])
+            if new_chunk_ids:
+                placeholders = ",".join(["?"] * len(new_chunk_ids))
+                where_clauses = [f"c.chunk_id IN ({placeholders})"]
+                params: List[Any] = list(new_chunk_ids)
 
-            if filters.get("extension"):
-                ext = filters["extension"].lower()
-                if not ext.startswith("."):
-                    ext = f".{ext}"
-                where_clauses.append("LOWER(f.extension) = ?")
-                params.append(ext)
+                if filters.get("folder_id"):
+                    where_clauses.append("f.folder_id = ?")
+                    params.append(filters["folder_id"])
 
-            if filters.get("file_id"):
-                where_clauses.append("c.file_id = ?")
-                params.append(filters["file_id"])
+                if filters.get("extension"):
+                    ext = filters["extension"].lower()
+                    if not ext.startswith("."):
+                        ext = f".{ext}"
+                    where_clauses.append("LOWER(f.extension) = ?")
+                    params.append(ext)
 
-            if filters.get("source_path"):
-                where_clauses.append("c.source_path = ?")
-                params.append(filters["source_path"])
+                if filters.get("file_id"):
+                    where_clauses.append("c.file_id = ?")
+                    params.append(filters["file_id"])
 
-            where_clauses.append("f.index_status != 'MISSING'")
+                if filters.get("source_path"):
+                    where_clauses.append("c.source_path = ?")
+                    params.append(filters["source_path"])
 
-            where_sql = " AND ".join(where_clauses)
-            sql = f"""
-            SELECT
-                c.chunk_id,
-                c.file_id,
-                c.source_file,
-                c.source_path,
-                c.page,
-                c.section,
-                c.h1_parent,
-                c.h2_parent,
-                c.line_start,
-                c.line_end,
-                c.char_start,
-                c.char_end,
-                c.content_hash,
-                c.chunk_index,
-                c.content,
-                c.metadata_json
-            FROM chunks c
-            JOIN files f ON f.file_id = c.file_id
-            WHERE {where_sql};
-            """
+                where_clauses.append("f.index_status != 'MISSING'")
 
-            cur = self.conn.execute(sql, params)
-            matched_chunks = {}
-            for r in cur.fetchall():
-                d = dict(r) if isinstance(r, sqlite3.Row) else {col[0]: r[i] for i, col in enumerate(cur.description)}
-                matched_chunks[d["chunk_id"]] = d
+                where_sql = " AND ".join(where_clauses)
+                sql = f"""
+                SELECT
+                    c.chunk_id,
+                    c.file_id,
+                    c.source_file,
+                    c.source_path,
+                    c.page,
+                    c.section,
+                    c.h1_parent,
+                    c.h2_parent,
+                    c.line_start,
+                    c.line_end,
+                    c.char_start,
+                    c.char_end,
+                    c.content_hash,
+                    c.chunk_index,
+                    c.content,
+                    c.metadata_json
+                FROM chunks c
+                JOIN files f ON f.file_id = c.file_id
+                WHERE {where_sql};
+                """
+
+                cur = self.conn.execute(sql, params)
+                for r in cur.fetchall():
+                    d = dict(r) if isinstance(r, sqlite3.Row) else {col[0]: r[i] for i, col in enumerate(cur.description)}
+                    all_matched_chunks[d["chunk_id"]] = d
 
             # Unfiltered query needs only 1 iteration
             if not has_filters:
@@ -312,7 +316,7 @@ class SqliteVecStore(BaseVectorStore):
             _iteration += 1
 
             # If enough valid filtered candidates gathered, or all vectors exhausted, or cap reached, stop
-            if len(matched_chunks) >= top_k or len(vec_rows) < fetch_k or fetch_k >= total_vectors or _iteration >= MAX_ADAPTIVE_ITERATIONS:
+            if len(all_matched_chunks) >= top_k or len(vec_rows) < fetch_k or fetch_k >= total_vectors or _iteration >= MAX_ADAPTIVE_ITERATIONS:
                 break
 
             # Adaptively expand fetch_k
@@ -320,14 +324,15 @@ class SqliteVecStore(BaseVectorStore):
 
         # 3. Sort by vector distance ASC, then chunk_id ASC
         sorted_ids = sorted(
-            [cid for cid in chunk_ids if cid in matched_chunks],
-            key=lambda cid: (chunk_distances[cid], cid),
+            list(all_matched_chunks.keys()),
+            key=lambda cid: (all_chunk_distances.get(cid, 999.0), cid),
         )[:top_k]
 
         results = []
         for rank, cid in enumerate(sorted_ids, start=1):
-            d = matched_chunks[cid]
-            dist = chunk_distances[cid]
+            d = all_matched_chunks[cid]
+            dist = all_chunk_distances.get(cid, 0.0)
+
             # Convert cosine distance (0..2) to cosine similarity (1 - dist) bounded to [-1, 1]
             sim = round(max(-1.0, min(1.0, 1.0 - dist)), 4)
             try:

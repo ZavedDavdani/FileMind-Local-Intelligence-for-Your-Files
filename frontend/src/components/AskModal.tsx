@@ -85,6 +85,15 @@ export const AskModal: React.FC<AskModalProps> = ({
     }
   }, [isOpen, clearStageTimers]);
 
+  // Clean up on component unmount
+  useEffect(() => {
+    return () => {
+      clearStageTimers();
+      abortControllerRef.current?.abort();
+      readinessAbortRef.current?.abort();
+    };
+  }, [clearStageTimers]);
+
   const handleCitationClick = useCallback(
     (citId: string) => {
       const isSelected = selectedCitationId === citId;

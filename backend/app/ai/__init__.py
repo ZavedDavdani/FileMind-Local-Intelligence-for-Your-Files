@@ -40,6 +40,11 @@ from app.ai.ollama_provider import (
 from app.ai.document_understanding import (
     DocumentUnderstandingService,
 )
+from app.ai.folder_understanding import (
+    FolderUnderstandingService,
+)
+from app.ai.generation_coordinator import LocalGenerationBusyError, default_generation_coordinator
+from app.ai.knowledge_connections import KnowledgeConnectionService
 from app.ai.prompt import (
     SYSTEM_GROUNDING_INSTRUCTIONS,
     CitationSource,
@@ -84,4 +89,8 @@ __all__ = [
     "OllamaTimeoutError",
     "check_ollama_readiness",
     "DocumentUnderstandingService",
+    "FolderUnderstandingService",
+    "LocalGenerationBusyError",
+    "default_generation_coordinator",
+    "KnowledgeConnectionService",
 ]

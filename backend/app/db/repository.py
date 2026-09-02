@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.security import normalize_path
+from app.intelligence.chunker.hierarchical import CHUNKER_VERSION
 
 
 def _utcnow_iso() -> str:
@@ -437,6 +438,26 @@ class Repository:
     # Indexing Jobs
     # -------------------------------------------------------------------------
 
+    TERMINAL_JOB_RETENTION = 1000
+
+    def prune_terminal_jobs(self, retain: int = TERMINAL_JOB_RETENTION) -> int:
+        """Prunes only old terminal jobs, preserving runnable/recoverable work."""
+        if retain < 0:
+            raise ValueError("retain must be non-negative")
+        cursor = self.conn.execute(
+            """
+            DELETE FROM indexing_jobs
+            WHERE job_id IN (
+                SELECT job_id FROM indexing_jobs
+                WHERE status IN ('COMPLETED', 'FAILED', 'CANCELLED')
+                ORDER BY COALESCE(completed_at, created_at) DESC, job_id DESC
+                LIMIT -1 OFFSET ?
+            );
+            """,
+            (retain,),
+        )
+        return cursor.rowcount
+
     def enqueue_job(
         self,
         file_id: str,
@@ -580,6 +601,8 @@ class Repository:
                 """,
                 (sha256, now, file_id),
             )
+        if job_cursor.rowcount > 0:
+            self.prune_terminal_jobs()
         return True
 
     def fail_job(self, job_id: str, file_id: str, error_message: str, retry_at: Optional[str] = None) -> bool:
@@ -600,6 +623,8 @@ class Repository:
                 "UPDATE files SET index_status = ?, indexing_error = ? WHERE file_id = ? AND index_status != 'MISSING';",
                 (file_status, error_message, file_id),
             )
+        if job_cursor.rowcount > 0 and status == "FAILED":
+            self.prune_terminal_jobs()
         return True
 
     def cancel_pending_jobs_for_file(self, file_id: str) -> int:
@@ -607,6 +632,8 @@ class Repository:
             "UPDATE indexing_jobs SET status = 'CANCELLED' WHERE file_id = ? AND status = 'PENDING';",
             (file_id,),
         )
+        if cursor.rowcount > 0:
+            self.prune_terminal_jobs()
         return cursor.rowcount
 
     def recover_stale_processing_jobs(self) -> int:
@@ -743,7 +770,7 @@ class Repository:
                 c_dict.get("chunk_index", 0),
                 c_dict.get("parser_name", "unknown"),
                 c_dict.get("parser_version", "unknown"),
-                c_dict.get("chunker_version", "phase2-hierarchical-v2"),
+                c_dict.get("chunker_version", CHUNKER_VERSION),
 
 
                 c_dict["content"],
@@ -1040,5 +1067,147 @@ class Repository:
         """Deletes all document insights for a file."""
         cursor = self.conn.execute(
             "DELETE FROM document_insights WHERE file_id = ?;", (file_id,)
+        )
+        return cursor.rowcount > 0
+
+    # -------------------------------------------------------------------------
+    # Phase 5.5: Folder Insights
+    # -------------------------------------------------------------------------
+
+    def get_folder_insight(
+        self, folder_id: str, model_name: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Retrieves the cached folder insight for a folder."""
+        if model_name:
+            cursor = self.conn.execute(
+                """
+                SELECT * FROM folder_insights
+                WHERE folder_id = ? AND model_name = ?
+                LIMIT 1;
+                """,
+                (folder_id, model_name),
+            )
+        else:
+            cursor = self.conn.execute(
+                """
+                SELECT * FROM folder_insights
+                WHERE folder_id = ?
+                ORDER BY updated_at DESC
+                LIMIT 1;
+                """,
+                (folder_id,),
+            )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        try:
+            d["structural_summary"] = json.loads(d.get("structural_summary_json") or "{}")
+        except Exception:
+            d["structural_summary"] = {}
+        try:
+            d["key_themes"] = json.loads(d.get("key_themes_json") or "[]")
+        except Exception:
+            d["key_themes"] = []
+        try:
+            d["key_decisions"] = json.loads(d.get("key_decisions_json") or "[]")
+        except Exception:
+            d["key_decisions"] = []
+        try:
+            d["citations"] = json.loads(d.get("citations_json") or "[]")
+        except Exception:
+            d["citations"] = []
+        return d
+
+    def upsert_folder_insight(
+        self,
+        folder_id: str,
+        status: str,
+        composite_hash: str,
+        model_provider: str,
+        model_name: str,
+        model_tag: Optional[str] = None,
+        structural_summary: Optional[Dict[str, Any]] = None,
+        executive_summary: Optional[str] = None,
+        key_themes: Optional[List[str]] = None,
+        key_decisions: Optional[List[str]] = None,
+        citations: Optional[List[Dict[str, Any]]] = None,
+        error: Optional[str] = None,
+        insight_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Inserts or updates a folder insight record for a folder and model."""
+        import uuid
+        now = _utcnow_iso()
+        iid = insight_id or str(uuid.uuid4())
+        struct_json = json.dumps(structural_summary or {})
+        themes_json = json.dumps(key_themes or [])
+        decisions_json = json.dumps(key_decisions or [])
+        citations_json = json.dumps(citations or [])
+
+        query = """
+        INSERT INTO folder_insights (
+            insight_id, folder_id, status, composite_hash,
+            model_provider, model_name, model_tag, structural_summary_json,
+            executive_summary, key_themes_json, key_decisions_json, citations_json,
+            error, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(folder_id, model_name) DO UPDATE SET
+            status = excluded.status,
+            composite_hash = excluded.composite_hash,
+            model_provider = excluded.model_provider,
+            model_tag = excluded.model_tag,
+            structural_summary_json = excluded.structural_summary_json,
+            executive_summary = excluded.executive_summary,
+            key_themes_json = excluded.key_themes_json,
+            key_decisions_json = excluded.key_decisions_json,
+            citations_json = excluded.citations_json,
+            error = excluded.error,
+            updated_at = excluded.updated_at
+        RETURNING *;
+        """
+        cursor = self.conn.execute(
+            query,
+            (
+                iid,
+                folder_id,
+                status,
+                composite_hash,
+                model_provider,
+                model_name,
+                model_tag,
+                struct_json,
+                executive_summary,
+                themes_json,
+                decisions_json,
+                citations_json,
+                error,
+                now,
+                now,
+            ),
+        )
+        row = cursor.fetchone()
+        d = dict(row)
+        try:
+            d["structural_summary"] = json.loads(d.get("structural_summary_json") or "{}")
+        except Exception:
+            d["structural_summary"] = {}
+        try:
+            d["key_themes"] = json.loads(d.get("key_themes_json") or "[]")
+        except Exception:
+            d["key_themes"] = []
+        try:
+            d["key_decisions"] = json.loads(d.get("key_decisions_json") or "[]")
+        except Exception:
+            d["key_decisions"] = []
+        try:
+            d["citations"] = json.loads(d.get("citations_json") or "[]")
+        except Exception:
+            d["citations"] = []
+        return d
+
+    def delete_folder_insight(self, folder_id: str) -> bool:
+        """Deletes all folder insights for a folder."""
+        cursor = self.conn.execute(
+            "DELETE FROM folder_insights WHERE folder_id = ?;", (folder_id,)
         )
         return cursor.rowcount > 0

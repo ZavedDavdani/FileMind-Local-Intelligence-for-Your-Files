@@ -16,15 +16,17 @@ Thread-lifetime contract (consistent with EmbeddingEngine in embeddings.py):
 """
 
 import logging
+import math
 import threading
+import time
 from typing import Any, Dict, List, Optional
 
 from app.core.config import DEFAULT_RERANK_MODEL_NAME, RERANKER_LOAD_TIMEOUT_SECONDS
 
 logger = logging.getLogger("FileMind.Retrieval.Reranker")
 
+RERANKER_RETRY_COOLDOWN_SECONDS = 0.0
 
-import math
 
 def _sigmoid(x: float) -> float:
     """Computes stable sigmoid to map unbounded cross-encoder logits to (0, 1) probabilities."""
@@ -48,14 +50,25 @@ class Reranker:
         self,
         model_name: str = DEFAULT_RERANK_MODEL_NAME,
         load_timeout: float = RERANKER_LOAD_TIMEOUT_SECONDS,
+        retry_cooldown: float = RERANKER_RETRY_COOLDOWN_SECONDS,
     ):
         self.model_name = model_name
         self.load_timeout = load_timeout
+        self.retry_cooldown = retry_cooldown
         self._model = None
         self._lock = threading.Lock()
         self._init_thread: Optional[threading.Thread] = None
         self._init_done = threading.Event()
         self._init_error: Optional[Exception] = None
+        self._last_failure_time: float = 0.0
+
+    def reset_init_state(self) -> None:
+        """Resets failure state to force a clean re-initialization on next call."""
+        with self._lock:
+            self._init_error = None
+            self._last_failure_time = 0.0
+            if self._init_thread is None or not self._init_thread.is_alive():
+                self._init_done.clear()
 
     def _run_init(self) -> None:
         """Daemon thread: loads the FastEmbed TextCrossEncoder model and signals _init_done."""
@@ -73,6 +86,7 @@ class Reranker:
             model = TextCrossEncoder(model_name=self.model_name)
             self._model = model
             self._init_error = None
+            self._last_failure_time = 0.0
             default_model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
                 ModelReadiness.READY,
@@ -80,6 +94,7 @@ class Reranker:
             logger.info("Reranker init thread succeeded: %s", self.model_name)
         except Exception as exc:
             self._init_error = exc
+            self._last_failure_time = time.time()
             from app.retrieval.model_registry import default_model_registry, ModelReadiness
             default_model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
@@ -96,9 +111,18 @@ class Reranker:
         if self._model is not None:
             return
 
+        now = time.time()
         with self._lock:
             if self._model is not None:
                 return
+
+            # Fail fast if recent initialization failed within retry cooldown
+            if self._init_error is not None and (now - self._last_failure_time) < self.retry_cooldown:
+                err = self._init_error
+                raise RuntimeError(
+                    f"Reranker model initialization failed: {err}"
+                ) from err
+
             if self._init_thread is None or not self._init_thread.is_alive():
                 self._init_done.clear()
                 self._init_error = None
@@ -124,10 +148,12 @@ class Reranker:
             raise RerankerLoadTimeoutError(msg)
 
         if self._init_error is not None:
+            self._last_failure_time = time.time()
             err = self._init_error
             raise RuntimeError(
                 f"Reranker model initialization failed: {err}"
             ) from err
+
 
     def rerank(
         self,

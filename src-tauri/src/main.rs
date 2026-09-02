@@ -563,7 +563,9 @@ fn main() {
             std::thread::spawn(move || {
                 const POLL_INTERVAL_MS: u64 = 5000;
                 const MAX_RESTART_ATTEMPTS: u32 = 3;
+                const HEALTHY_TICKS_TO_RESET: u32 = 6; // 6 ticks * 5s = 30s stable healthy uptime
                 let mut restart_count: u32 = 0;
+                let mut healthy_ticks: u32 = 0;
 
                 loop {
                     std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
@@ -601,6 +603,7 @@ fn main() {
                     };
 
                     if child_exited {
+                        healthy_ticks = 0;
                         {
                             // Clear the dead child handle
                             let mut state = sup_state.lock().unwrap();
@@ -634,6 +637,22 @@ fn main() {
 
                         spawn_backend(&sup_app, sup_state.clone());
                         println!("[Tauri Supervisor] Backend restart {} triggered.", restart_count);
+                    } else {
+                        // When the backend is running, track healthy ticks to reset restart_count
+                        if is_backend_healthy() {
+                            healthy_ticks += 1;
+                            if healthy_ticks >= HEALTHY_TICKS_TO_RESET && restart_count > 0 {
+                                println!(
+                                    "[Tauri Supervisor] Backend has been healthy for {}s. Resetting restart counter from {} to 0.",
+                                    healthy_ticks * (POLL_INTERVAL_MS as u32 / 1000),
+                                    restart_count
+                                );
+                                restart_count = 0;
+                                healthy_ticks = 0;
+                            }
+                        } else {
+                            healthy_ticks = 0;
+                        }
                     }
                 }
             });
