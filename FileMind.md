@@ -26,53 +26,35 @@ VERIFIED PASS
 Phase 3 — Hybrid Retrieval:
 VERIFIED PASS
 
-Hybrid Dense Fallback:
-VERIFIED PASS
-
-Lexical Failure Integrity:
-VERIFIED PASS
-
-Retrieval Search Discovery:
-VERIFIED PASS
-
-Filesystem Action Security:
-VERIFIED PASS
-
-Frontend API Contract Handling:
-VERIFIED PASS
-
-Frontend Asset Packaging:
-VERIFIED PASS
-
-Installed Application Practical Verification:
-VERIFIED PASS
-
-Full Backend Regression:
-255 / 255 PASS (254 passed, 1 skipped)
-
-Reranker Suite:
-17 / 17 PASS
-
-Hybrid Fallback Regression:
-14 / 14 PASS
-
-Phase 4 Closure Suite:
-6 / 6 PASS
-
-Batch 4 Hardening:
-18 / 18 COMPLETE
-
-Pre-Phase-5 Audit Cleanup:
-3 / 3 PASS (4c569e8)
-
-Vector-Store Embedding Identity Fix:
-4 / 4 PASS (c3e4e98)
-
 Phase 4 — Fast / Quality Retrieval & Benchmark Exit Gate:
 VERIFIED CLOSED (All 17 Exit Gate Items Passed)
 
+Pre-Phase-5 Hardening Checkpoint (c7c6bd7):
+- Batch A1 — Vector-Layer Integrity: VERIFIED PASS
+- Batch A2 — Corpus Encoding & PDF Integrity: VERIFIED PASS
+- Batch A3 — Chunking & Evidence Integrity: VERIFIED PASS
+- Batch A3.1 — Reprocessing Vector Integrity & Version Migration: VERIFIED PASS
+
+Pre-Phase-5 Practical Audit Fixes:
+- Issue 1 — Tauri v2 Directory Dialog Capability (`dialog:allow-open`): VERIFIED PASS
+- Issue 2 — Same-File Candidate Grouping & Provenance Preservation: VERIFIED PASS
+- Issue 3 — Explicit Filename Intent Detection & Consistent Not-Found State: VERIFIED PASS
+
+Architecture & Product Contract:
+- Second Brain Architecture Document (`FileMind_Second_Brain_Architecture.md`): VERIFIED & LOCKED
+
+Full Backend Regression Suite:
+323 / 324 PASS (323 passed, 1 skipped, 0 failed)
+
+Frontend Production Build:
+VERIFIED PASS (TypeScript + Vite, 0 errors)
+
+Tauri v2 Desktop Check:
+VERIFIED PASS (`cargo check`, 0 errors)
+
 Phase 5:
-NOT STARTED (Next Planned: Phase 5 — Batch 1: Ollama Client + Local LLM Foundation)
+STRICTLY NOT STARTED (Next Planned: Phase 5 — Batch 1: Ollama Client + Local LLM Foundation)
+
 
 
 
@@ -1573,6 +1555,55 @@ The packaged Windows application was freshly rebuilt, packaged via Tauri into NS
 
 ---
 
+### Pre-Phase-5 Integrity Hardening (Batches A1, A2, A3, A3.1) & Practical Audit Fixes
+
+- **Status**: **COMPLETE / PASS**.
+- **Committed Checkpoint**: `c7c6bd7` (`fix: complete pre-phase-5 integrity hardening`).
+- **Audit Objective**: Fix all vector-layer integrity, corpus decoding, hierarchical chunking provenance, reprocessing migrations, desktop capabilities, UI result grouping, and unindexed filename retrieval consistency issues before Phase 5.
+
+#### 1. Batch A1 — Vector-Layer Integrity
+- **Orphan Vector Purging**: Enforced atomic purge of active vectors in `chunk_vectors` prior to inserting new vectors during file re-indexing or deletion.
+- **Transactional Consistency**: Wrapped vector store updates and SQLite chunk metadata replacement in coordinated transaction rollback handlers to prevent dangling or orphaned vectors upon partial failure.
+- **Index Metadata Schema**: Validated `embedding_index_metadata` table tracking active embedding model identity (`sentence-transformers/all-MiniLM-L6-v2`, dim 384) to reject mismatched vector dimensions.
+
+#### 2. Batch A2 — Corpus Encoding & PDF Extraction Integrity
+- **Robust Text Encoding Fallback**: Enhanced text/markdown parsers with layered encoding recovery (UTF-8 $\to$ cp1252 $\to$ latin-1 with error replacement), preventing UTF-8 `UnicodeDecodeError` crashes during full corpus ingestion.
+- **Corrupted PDF Extraction Handling**: Enhanced `PDFParser` with PyMuPDF fault-tolerant page-by-page extraction, preserving valid pages when individual pages contain broken streams or invalid xref tables.
+- **Document Metadata Normalization**: Preserved structural metadata across multi-format documents (`page`, `section`, `h1_parent`, `h2_parent`, `line_start`, `line_end`).
+
+#### 3. Batch A3 — Chunking & Evidence Integrity
+- **Deterministic Chunk Identity**: Replaced ambiguous colon-delimited string concatenation with canonical JSON serialization (`sha256(canonical_json(provenance_dict))`), ensuring collision-free, deterministic `chunk_id` generation.
+- **Character Overlap Chunking**: Implemented `overlap_chars` in `HierarchicalChunker` ensuring semantic continuity across chunk boundaries without splitting markdown headers or source code entities.
+- **Markdown Table Integrity**: Preserved markdown tables as unified structural units during chunking, preventing table splitting across multiple chunk boundaries.
+
+#### 4. Batch A3.1 — Reprocessing Vector Integrity & Version Migration
+- **Chunker Version Bump**: Incremented `CHUNKER_VERSION` to `"phase2-hierarchical-v2"` in `app/intelligence/chunker/hierarchical.py`.
+- **Filesystem Scanner Version Invalidation**: Updated `FilesystemScanner` to compare stored `chunker_version` and `parser_version` against active versions, automatically scheduling re-parse and re-embedding for files with stale chunk IDs even if file modification timestamps on disk remain unchanged.
+- **Zero Orphan Vectors on Reprocessing**: Verified that re-indexing modified files or files with upgraded chunker versions purges 100% of old vectors with zero vector-store leakage.
+
+#### 5. Pre-Phase-5 Practical Audit Fixes
+- **Issue 1 — Tauri v2 Directory Dialog Capability**:
+  - *Root Cause*: Tauri v2 requires explicit capabilities in `src-tauri/capabilities/default.json`. `@tauri-apps/plugin-dialog` invocations (`open({ directory: true, ... })`) in `FolderPicker.tsx` and `FolderManager.tsx` were blocked by the Tauri v2 security manager.
+  - *Fix*: Created `src-tauri/capabilities/default.json` with permissions `["core:default", "opener:default", "dialog:allow-open"]` for window `"main"`.
+- **Issue 2 — Deterministic Same-File Candidate Grouping & Provenance**:
+  - *Root Cause*: Multiple matching chunks from the same file (e.g. `notes.md`) appeared as separate top-level search cards, cluttering the UI.
+  - *Fix*: Added deterministic file-level grouping in `SearchModal.tsx`. The file card displays the highest-scoring primary chunk, and multi-chunk matches show an expandable drawer (`"▼ View {N-1} more matching chunks in this file"`). All per-chunk scores, line numbers, breadcrumbs, `Inspect Chunk`, `Open File`, `Open Folder`, and `Copy Path` actions remain fully accessible.
+- **Issue 3 — Explicit Filename Intent Detection & Consistent Not-Found State**:
+  - *Root Cause*: Searching for an unindexed filename (e.g. `nonexistent_report.pdf`) caused Dense vector search to embed the filename string and return unrelated chunks via cosine similarity, which Hybrid Fast and Quality surfaced.
+  - *Fix*: Implemented `extract_explicit_filename_intent()` in `hybrid.py`. If an explicit filename is not present in the indexed corpus (`files` table), the retriever immediately returns `total_found: 0, results: []` consistently across **BM25**, **Dense**, **Hybrid Fast**, and **Hybrid Quality**. Normal semantic queries (e.g. `"How does semantic retrieval work?"`) bypass filename filtering and run full semantic retrieval.
+
+#### 6. Second Brain Architecture Contract
+- Created `FileMind_Second_Brain_Architecture.md` at project root defining the authoritative contract for the local intelligence knowledge layer over user files.
+
+#### 7. Verification & Regression Metrics
+- **Full Backend Pytest**: **323 / 324 PASS** (323 passed, 1 skipped, 0 failed; execution duration ~2.5m).
+- **Frontend Production Build**: **PASS** (`tsc && vite build`, 1,603 modules, 0 TypeScript errors).
+- **Tauri Desktop Verification**: **PASS** (`cargo check` in `src-tauri`, 0 compilation errors).
+- **Git Diff Check**: **PASS** (0 whitespace/formatting violations).
+- **Phase 5 Status**: **STRICTLY NOT STARTED**.
+
+---
+
 ### Explicit Phase 5 Boundaries (Strictly NOT Authorized)
 
 The following capabilities belong to Phase 5 and are **STRICTLY NOT STARTED / NOT IMPLEMENTED**:
@@ -1582,9 +1613,10 @@ The following capabilities belong to Phase 5 and are **STRICTLY NOT STARTED / NO
 - **No Phase 5 implementation**: Zero code for Phase 5 exists in the repository.
 
 > [!IMPORTANT]
-> **HARD STOP — PRE-PHASE-5 HARDENING & BATCHES 1, 2, 3 VERIFIED COMPLETE.**
-> **FULL BACKEND REGRESSION: 231 / 231 PASS (230 PASSED, 1 SKIPPED).**
+> **HARD STOP — PRE-PHASE-5 HARDENING (A1, A2, A3, A3.1) & PRACTICAL AUDIT FIXES (ISSUES 1, 2, 3) VERIFIED COMPLETE.**
+> **FULL BACKEND REGRESSION: 323 / 324 PASS (323 PASSED, 1 SKIPPED, 0 FAILED).**
 > **PHASE 5 NOT STARTED.**
+
 
 
 ---

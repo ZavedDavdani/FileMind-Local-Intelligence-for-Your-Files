@@ -27,6 +27,68 @@ logger = logging.getLogger("FileMind.Retrieval.Hybrid")
 DEFAULT_RRF_K = 60
 DEFAULT_CANDIDATE_POOL = 50
 
+COMMON_FILE_EXTENSIONS = {
+    "pdf", "docx", "pptx", "xlsx", "csv", "md", "py", "json", "txt",
+    "ts", "tsx", "js", "jsx", "html", "css", "rs", "go", "c", "cpp",
+    "h", "java", "sh", "bat", "cmd", "sql", "yaml", "yml", "toml",
+    "xml", "log", "env", "ini", "cfg", "zip", "tar", "gz", "7z",
+    "png", "jpg", "jpeg", "gif", "svg", "rtf", "odt", "ods", "odp",
+}
+
+
+def extract_explicit_filename_intent(query_str: Optional[str]) -> Optional[str]:
+    """
+    Detects whether a query is explicitly targeting a specific filename or path.
+    Returns the normalized filename if detected, or None for normal natural-language queries.
+
+    Examples:
+    - 'nonexistent_report.pdf' -> 'nonexistent_report.pdf'
+    - ' "budget_2024.xlsx" ' -> 'budget_2024.xlsx'
+    - 'subfolder/notes.md' -> 'notes.md'
+    - 'subfolder\\notes.md' -> 'notes.md'
+    - 'How does semantic retrieval work?' -> None
+    - 'What is in report.pdf?' -> None (natural-language conversational question)
+    - 'def get_config():' -> None
+    """
+    if not query_str:
+        return None
+    raw = query_str.strip()
+    if (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'")):
+        raw = raw[1:-1].strip()
+
+    if not raw or "?" in raw or "\n" in raw:
+        return None
+
+    clean_path = raw.replace("\\", "/").strip()
+    filename = clean_path.split("/")[-1].strip()
+
+    if "." not in filename:
+        return None
+
+    parts = filename.rsplit(".", 1)
+    name_part, ext_part = parts[0].strip(), parts[1].lower().strip()
+
+    if not ext_part or ext_part not in COMMON_FILE_EXTENSIONS:
+        return None
+
+    if not name_part:
+        return None
+
+    conversational_starters = {
+        "what", "how", "why", "who", "where", "when", "can", "could", "would",
+        "is", "are", "tell", "summarize", "find", "search", "explain", "describe",
+        "show", "give", "list"
+    }
+    words = name_part.lower().split()
+    if len(words) > 1 and words[0] in conversational_starters:
+        return None
+
+    if len(words) > 6:
+        return None
+
+    return filename
+
+
 
 def generate_real_snippet(content: str, query_tokens: List[str], max_chars: int = 240) -> str:
     """
@@ -172,6 +234,53 @@ class HybridRetriever:
                 "retrieval_method": mode,
             }
 
+        # Stage A.1: Explicit Filename Intent Handling
+        effective_filters = dict(filters) if filters else {}
+        filename_intent = extract_explicit_filename_intent(norm_q.raw_query)
+        if filename_intent:
+            fn_lower = filename_intent.lower()
+            raw_path_lower = norm_q.raw_query.strip().strip('"\'').replace("\\", "/").lower()
+            where_fn = "(LOWER(f.filename) = ? OR LOWER(f.path) = ? OR LOWER(f.relative_path) = ?)"
+            fn_params = [fn_lower, raw_path_lower, raw_path_lower]
+            if effective_filters.get("folder_id"):
+                where_fn += " AND f.folder_id = ?"
+                fn_params.append(effective_filters["folder_id"])
+            if effective_filters.get("extension"):
+                ext = effective_filters["extension"].lower()
+                if not ext.startswith("."):
+                    ext = f".{ext}"
+                where_fn += " AND LOWER(f.extension) = ?"
+                fn_params.append(ext)
+
+            cursor = self.conn.execute(
+                f"""
+                SELECT f.file_id, f.filename, f.path, f.relative_path
+                FROM files f
+                WHERE {where_fn} AND f.index_status != 'MISSING';
+                """,
+                fn_params,
+            )
+            matched_files = cursor.fetchall()
+            if not matched_files:
+                # Explicit filename lookup for a file not present in indexed corpus.
+                # Must return consistent not-found state across BM25, Dense, Hybrid Fast and Quality.
+                latencies["total_request"] = round((time.perf_counter() - t_request_start) * 1000.0, 3)
+                return {
+                    "query": norm_q.raw_query,
+                    "mode": mode,
+                    "quality": quality,
+                    "total_found": 0,
+                    "latency_breakdown_ms": latencies,
+                    "results": [],
+                    "degraded": False,
+                    "degraded_reason": None,
+                    "retrieval_method": mode,
+                }
+            elif mode == "dense" and not effective_filters.get("file_id") and len(matched_files) == 1:
+                # If explicit filename matches an indexed file in Dense mode, scope dense retrieval to that file
+                matched_fid = matched_files[0][0] if isinstance(matched_files[0], (tuple, list)) else matched_files[0]["file_id"]
+                effective_filters["file_id"] = matched_fid
+
         lexical_candidates: List[Dict[str, Any]] = []
         dense_candidates: List[Dict[str, Any]] = []
 
@@ -186,7 +295,7 @@ class HybridRetriever:
                 lexical_candidates = self.lexical_retriever.search(
                     norm_q,
                     top_k=arm_pool_size,
-                    filters=filters,
+                    filters=effective_filters,
                 )
             except Exception as lex_exc:
                 if mode == "bm25":
@@ -213,14 +322,37 @@ class HybridRetriever:
                 raw_dense = self.vector_store.search(
                     q_vector,
                     top_k=arm_pool_size,
-                    filters=filters,
+                    filters=effective_filters,
                 )
                 latencies["dense_search"] = round((time.perf_counter() - t0) * 1000.0, 3)
 
                 dense_candidates = []
                 for cand in (raw_dense or []):
                     if isinstance(cand, dict) and cand.get("chunk_id") is not None and "score" in cand:
-                        dense_candidates.append(cand)
+                        cand_dict = dict(cand)
+                        if "content" not in cand_dict or "source_file" not in cand_dict or not cand_dict.get("source_file"):
+                            cur = self.conn.execute(
+                                """
+                                SELECT source_file, source_path, page, section, h1_parent, h2_parent,
+                                       line_start, line_end, char_start, char_end, content, content_hash, metadata_json
+                                FROM chunks WHERE chunk_id = ?;
+                                """,
+                                (cand_dict["chunk_id"],),
+                            )
+                            row = cur.fetchone()
+                            if row:
+                                col_names = [d[0] for d in cur.description] if cur.description else []
+                                row_dict = dict(row) if isinstance(row, sqlite3.Row) else {col_names[i]: row[i] for i in range(len(col_names))}
+                                for k, v in row_dict.items():
+                                    if k == "metadata_json":
+                                        if "metadata" not in cand_dict:
+                                            try:
+                                                cand_dict["metadata"] = json.loads(v or "{}")
+                                            except Exception:
+                                                cand_dict["metadata"] = {}
+                                    elif k not in cand_dict or cand_dict[k] is None:
+                                        cand_dict[k] = v
+                        dense_candidates.append(cand_dict)
                     else:
                         logger.warning("Dropping malformed dense candidate: %s", cand)
             except Exception as dense_exc:

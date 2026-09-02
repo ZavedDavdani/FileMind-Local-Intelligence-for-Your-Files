@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { SearchRequest, SearchResponse, Folder } from "../types";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { SearchRequest, SearchResponse, Folder, SearchResultItem } from "../types";
 import { searchEvidence, executeSafeAction } from "../services/api";
 
 interface SearchModalProps {
@@ -7,6 +7,16 @@ interface SearchModalProps {
   onClose: () => void;
   folders: Folder[];
   onInspectChunk?: (fileId: string, filename: string, chunkId: string) => void;
+}
+
+interface FileResultGroup {
+  fileKey: string;
+  file_id: string;
+  source_file: string;
+  source_path: string;
+  bestRank: number;
+  bestScore: number;
+  chunks: SearchResultItem[];
 }
 
 export const SearchModal: React.FC<SearchModalProps> = ({
@@ -25,6 +35,33 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ id: string; msg: string } | null>(null);
   const [showLatencyDetail, setShowLatencyDetail] = useState(false);
+  const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
+
+  const groupedResults = useMemo<FileResultGroup[]>(() => {
+    if (!response?.results) return [];
+    const groups: FileResultGroup[] = [];
+    const map = new Map<string, FileResultGroup>();
+
+    for (const r of response.results) {
+      const key = r.file_id || r.source_path || r.source_file;
+      let g = map.get(key);
+      if (!g) {
+        g = {
+          fileKey: key,
+          file_id: r.file_id,
+          source_file: r.source_file,
+          source_path: r.source_path,
+          bestRank: r.rank,
+          bestScore: r.score,
+          chunks: [],
+        };
+        map.set(key, g);
+        groups.push(g);
+      }
+      g.chunks.push(r);
+    }
+    return groups;
+  }, [response?.results]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   // Tracks the AbortController for the most recently *sent* search request,
@@ -354,7 +391,8 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               {/* Header metrics */}
               <div className="flex items-center justify-between text-xs text-slate-400 pb-1 border-b border-slate-800/60">
                 <span>
-                  Found <strong className="text-slate-200">{response.total_found}</strong> evidence candidates
+                  Found <strong className="text-slate-200">{response.total_found}</strong> evidence candidates across{" "}
+                  <strong className="text-slate-200">{groupedResults.length}</strong> {groupedResults.length === 1 ? "file" : "files"}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-indigo-300">
@@ -406,135 +444,225 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               )}
 
               {response.results.length === 0 && (
-                <div className="py-8 text-center text-slate-500 text-sm">
-                  No matching chunks found. Try broader keywords or change retrieval mode.
+                <div className="py-8 text-center text-slate-500 text-sm space-y-1">
+                  <div className="font-medium text-slate-400">
+                    {query.includes(".") && !query.includes("?") && query.trim().split(/\s+/).length <= 3
+                      ? "File not found or not indexed"
+                      : "No matching chunks found"}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {query.includes(".") && !query.includes("?") && query.trim().split(/\s+/).length <= 3
+                      ? `No indexed file matching "${query.trim()}" exists in the current corpus.`
+                      : "Try broader keywords or change retrieval mode."}
+                  </div>
                 </div>
               )}
 
-              {/* Candidates List */}
-              {response.results.map((r) => (
-                <div
-                  key={r.chunk_id}
-                  className="p-3.5 bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/60 rounded-lg transition space-y-2 group"
-                >
-                  {/* Top line: Rank, File, Badges */}
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-400 font-mono">#{r.rank}</span>
-                      <span className="font-semibold text-slate-100">{r.source_file}</span>
-                      <span className="text-slate-500 font-mono text-[11px] bg-slate-900 px-1.5 py-0.5 rounded">
-                        {r.source_file.split(".").pop()?.toUpperCase()}
-                      </span>
+              {/* Grouped Candidates List */}
+              {groupedResults.map((group) => {
+                const primaryChunk = group.chunks[0];
+                const additionalChunks = group.chunks.slice(1);
+                const isExpanded = !!expandedFiles[group.fileKey];
+
+                return (
+                  <div
+                    key={group.fileKey}
+                    className="p-3.5 bg-slate-800/40 hover:bg-slate-800/70 border border-slate-700/60 rounded-lg transition space-y-2.5 group"
+                  >
+                    {/* Top line: File Rank, File Name, Badges, Multi-Chunk Pill */}
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-400 font-mono">#{group.bestRank}</span>
+                        <span className="font-semibold text-slate-100 text-sm">{group.source_file}</span>
+                        <span className="text-slate-500 font-mono text-[11px] bg-slate-900 px-1.5 py-0.5 rounded">
+                          {group.source_file.split(".").pop()?.toUpperCase()}
+                        </span>
+                        {group.chunks.length > 1 && (
+                          <span className="text-indigo-300 bg-indigo-950/80 border border-indigo-800/50 text-[11px] px-2 py-0.5 rounded-full font-medium">
+                            {group.chunks.length} relevant chunks found
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Score metrics for the top chunk */}
+                      <div className="flex items-center gap-2 font-mono text-[11px]">
+                        {primaryChunk.reranker_score !== null && primaryChunk.reranker_score !== undefined && (
+                          <span className="text-purple-400 bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-800/40" title="Cross-Encoder Relevance Score">
+                            Rerank: {primaryChunk.reranker_score.toFixed(3)}
+                          </span>
+                        )}
+                        {primaryChunk.rrf_score !== null && primaryChunk.rrf_score !== undefined && (
+                          <span className="text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
+                            RRF: {primaryChunk.rrf_score.toFixed(4)}
+                          </span>
+                        )}
+                        {primaryChunk.dense_score !== null && primaryChunk.dense_score !== undefined ? (
+                          <span className="text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40" title={`Dense Rank: #${primaryChunk.dense_rank || '—'}`}>
+                            Dense: {primaryChunk.dense_score.toFixed(3)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800/40" title="Not in dense candidate pool">
+                            Dense: —
+                          </span>
+                        )}
+                        {primaryChunk.lexical_score !== null && primaryChunk.lexical_score !== undefined ? (
+                          <span className="text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40" title={`BM25 Rank: #${primaryChunk.lexical_rank || '—'}`}>
+                            BM25: {primaryChunk.lexical_score.toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800/40" title="Not in lexical candidate pool">
+                            BM25: —
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 font-mono text-[11px]">
-                      {r.reranker_score !== null && r.reranker_score !== undefined && (
-                        <span className="text-purple-400 bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-800/40" title="Cross-Encoder Relevance Score">
-                          Rerank: {r.reranker_score.toFixed(3)}
+                    {/* Primary Evidence Chunk */}
+                    <div className="space-y-1.5 pl-2 border-l-2 border-indigo-500/40">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-950/60 px-1.5 py-0.5 rounded">
+                          Top Match
                         </span>
-                      )}
-                      {r.rrf_score !== null && r.rrf_score !== undefined && (
-                        <span className="text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
-                          RRF: {r.rrf_score.toFixed(4)}
+                        {primaryChunk.h1_parent && (
+                          <span className="bg-slate-900/90 text-indigo-300 px-1.5 py-0.5 rounded font-medium">
+                            {primaryChunk.h1_parent}
+                          </span>
+                        )}
+                        {primaryChunk.h2_parent && (
+                          <span className="text-slate-400 flex items-center gap-1">
+                            <span>›</span>
+                            <span className="text-slate-300">{primaryChunk.h2_parent}</span>
+                          </span>
+                        )}
+                        {primaryChunk.page && (
+                          <span className="text-slate-500 text-[11px]">Page {primaryChunk.page}</span>
+                        )}
+                        {primaryChunk.line_start && primaryChunk.line_end && (
+                          <span className="text-slate-500 text-[11px]">Lines {primaryChunk.line_start}–{primaryChunk.line_end}</span>
+                        )}
+                        <span className="text-slate-600 font-mono text-[10px] ml-auto">
+                          ID: {primaryChunk.chunk_id}
                         </span>
-                      )}
-                      {r.dense_score !== null && r.dense_score !== undefined ? (
-                        <span className="text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40" title={`Dense Rank: #${r.dense_rank || '—'}`}>
-                          Dense: {r.dense_score.toFixed(3)}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800/40" title="Not in dense candidate pool">
-                          Dense: —
-                        </span>
-                      )}
-                      {r.lexical_score !== null && r.lexical_score !== undefined ? (
-                        <span className="text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40" title={`BM25 Rank: #${r.lexical_rank || '—'}`}>
-                          BM25: {r.lexical_score.toFixed(1)}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800/40" title="Not in lexical candidate pool">
-                          BM25: —
+                      </div>
+
+                      {/* Authentic Snippet */}
+                      <p className="text-sm text-slate-200 leading-relaxed font-sans bg-slate-900/60 p-2.5 rounded border border-slate-800/60">
+                        {primaryChunk.snippet}
+                      </p>
+                    </div>
+
+                    {/* Additional Chunks Drawer if multiple chunks match */}
+                    {additionalChunks.length > 0 && (
+                      <div className="pt-1">
+                        <button
+                          onClick={() =>
+                            setExpandedFiles((prev) => ({ ...prev, [group.fileKey]: !prev[group.fileKey] }))
+                          }
+                          className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-medium py-1 px-2.5 rounded bg-indigo-950/40 hover:bg-indigo-950/70 border border-indigo-900/40 transition cursor-pointer"
+                        >
+                          <span>{isExpanded ? "▲ Hide additional chunks" : `▼ View ${additionalChunks.length} more matching ${additionalChunks.length === 1 ? "chunk" : "chunks"} in this file`}</span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="mt-2.5 space-y-2 pl-3 border-l-2 border-slate-700/60">
+                            {additionalChunks.map((c) => (
+                              <div
+                                key={c.chunk_id}
+                                className="p-2.5 bg-slate-900/70 rounded border border-slate-800/80 space-y-1.5"
+                              >
+                                <div className="flex items-center justify-between text-xs text-slate-400">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-mono text-slate-400 font-bold">#{c.rank}</span>
+                                    {c.h1_parent && (
+                                      <span className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded text-[11px]">
+                                        {c.h1_parent}
+                                      </span>
+                                    )}
+                                    {c.h2_parent && (
+                                      <span className="text-slate-400 text-[11px]">› {c.h2_parent}</span>
+                                    )}
+                                    {c.page && <span className="text-[11px] text-slate-500">Page {c.page}</span>}
+                                    {c.line_start && c.line_end && (
+                                      <span className="text-[11px] text-slate-500">
+                                        Lines {c.line_start}–{c.line_end}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    {onInspectChunk && (
+                                      <button
+                                        onClick={() => {
+                                          onInspectChunk(c.file_id, c.source_file, c.chunk_id);
+                                          onClose();
+                                        }}
+                                        className="text-indigo-400 hover:text-indigo-200 text-xs font-medium cursor-pointer"
+                                      >
+                                        Inspect Chunk
+                                      </button>
+                                    )}
+                                    <span className="text-slate-600 font-mono text-[10px]">ID: {c.chunk_id}</span>
+                                  </div>
+                                </div>
+
+                                <p className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950/50 p-2 rounded">
+                                  {c.snippet}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* File & Primary Chunk Actions */}
+                    <div className="flex items-center justify-between pt-1 text-xs">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleAction(primaryChunk.chunk_id, "OPEN_FILE", group.source_path)}
+                          className="text-slate-400 hover:text-indigo-300 font-medium transition cursor-pointer"
+                        >
+                          Open File
+                        </button>
+                        <span className="text-slate-600">•</span>
+                        <button
+                          onClick={() => handleAction(primaryChunk.chunk_id, "OPEN_FOLDER", group.source_path)}
+                          className="text-slate-400 hover:text-indigo-300 font-medium transition cursor-pointer"
+                        >
+                          Open Folder
+                        </button>
+                        <span className="text-slate-600">•</span>
+                        <button
+                          onClick={() => handleAction(primaryChunk.chunk_id, "COPY_PATH", group.source_path)}
+                          className="text-slate-400 hover:text-indigo-300 font-medium transition cursor-pointer"
+                        >
+                          Copy Path
+                        </button>
+                        {onInspectChunk && (
+                          <>
+                            <span className="text-slate-600">•</span>
+                            <button
+                              onClick={() => {
+                                onInspectChunk(primaryChunk.file_id, primaryChunk.source_file, primaryChunk.chunk_id);
+                                onClose();
+                              }}
+                              className="text-indigo-400 hover:text-indigo-200 font-medium transition cursor-pointer"
+                            >
+                              Inspect Chunk
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {actionFeedback && actionFeedback.id === primaryChunk.chunk_id && (
+                        <span className="text-emerald-400 font-medium animate-pulse">
+                          {actionFeedback.msg}
                         </span>
                       )}
                     </div>
                   </div>
-
-                  {/* Breadcrumbs: H1 > H2 > Page */}
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                    {r.h1_parent && (
-                      <span className="bg-slate-900/90 text-indigo-300 px-1.5 py-0.5 rounded font-medium">
-                        {r.h1_parent}
-                      </span>
-                    )}
-                    {r.h2_parent && (
-                      <span className="text-slate-400 flex items-center gap-1">
-                        <span>›</span>
-                        <span className="text-slate-300">{r.h2_parent}</span>
-                      </span>
-                    )}
-                    {r.page && (
-                      <span className="text-slate-500 text-[11px]">Page {r.page}</span>
-                    )}
-                    {r.line_start && r.line_end && (
-                      <span className="text-slate-500 text-[11px]">Lines {r.line_start}–{r.line_end}</span>
-                    )}
-                    <span className="text-slate-600 font-mono text-[10px] ml-auto">
-                      ID: {r.chunk_id}
-                    </span>
-                  </div>
-
-                  {/* Authentic Snippet */}
-                  <p className="text-sm text-slate-200 leading-relaxed font-sans bg-slate-900/60 p-2.5 rounded border border-slate-800/60">
-                    {r.snippet}
-                  </p>
-
-                  {/* Actions & Feedback */}
-                  <div className="flex items-center justify-between pt-1 text-xs">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleAction(r.chunk_id, "OPEN_FILE", r.source_path)}
-                        className="text-slate-400 hover:text-indigo-300 font-medium transition"
-                      >
-                        Open File
-                      </button>
-                      <span className="text-slate-600">•</span>
-                      <button
-                        onClick={() => handleAction(r.chunk_id, "OPEN_FOLDER", r.source_path)}
-                        className="text-slate-400 hover:text-indigo-300 font-medium transition"
-                      >
-                        Open Folder
-                      </button>
-                      <span className="text-slate-600">•</span>
-                      <button
-                        onClick={() => handleAction(r.chunk_id, "COPY_PATH", r.source_path)}
-                        className="text-slate-400 hover:text-indigo-300 font-medium transition"
-                      >
-                        Copy Path
-                      </button>
-                      {onInspectChunk && (
-                        <>
-                          <span className="text-slate-600">•</span>
-                          <button
-                            onClick={() => {
-                              onInspectChunk(r.file_id, r.source_file, r.chunk_id);
-                              onClose();
-                            }}
-                            className="text-indigo-400 hover:text-indigo-200 font-medium transition"
-                          >
-                            Inspect Chunk
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    {actionFeedback?.id === r.chunk_id && (
-                      <span className="text-emerald-400 font-medium animate-pulse">
-                        {actionFeedback.msg}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
