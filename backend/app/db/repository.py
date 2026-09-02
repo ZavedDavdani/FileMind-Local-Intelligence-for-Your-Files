@@ -659,8 +659,9 @@ class Repository:
                 c_dict["content_hash"],
                 c_dict.get("chunk_index", 0),
                 c_dict.get("parser_name", "unknown"),
-                c_dict.get("parser_version", "1.0.0"),
+                c_dict.get("parser_version", "unknown"),
                 c_dict.get("chunker_version", "phase2-hierarchical-v1"),
+
                 c_dict["content"],
                 c_dict.get("content_type", "text"),
                 c_dict.get("token_count", 0),

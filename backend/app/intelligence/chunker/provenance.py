@@ -22,8 +22,9 @@ class ChunkProvenance:
     content_hash: str = ""
     chunk_index: int = 0
     parser_name: str = "unknown"
-    parser_version: str = "1.0.0"
+    parser_version: str = "unknown"
     chunker_version: str = "phase2-hierarchical-v1"
+
     content: str = ""
     content_type: str = "text"  # 'text', 'table', 'code'
     token_count: int = 0
