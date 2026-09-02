@@ -15,7 +15,7 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Phase 2** | Document Intelligence (Multi-format parsers, hierarchical chunking, provenance tracking) | ✅ Complete / IMPLEMENTED |
 | **Phase 3** | Hybrid Retrieval (SQLite FTS5 BM25 + dense vectors with Reciprocal Rank Fusion) | ✅ Complete / IMPLEMENTED |
 | **Batches 1–4** | Pre-Phase-5 Hardening (Security, crash isolation, index metadata, logging, size guards) | ✅ Complete / PASS |
-| **Phase 4** | Reranking / Search Quality (Fast vs Quality modes, benchmark-driven exit gate) | ✅ Complete / CLOSED |
+| **Phase 4** | Reranking / Search Quality (Fast vs Quality modes, benchmark exit gate, audit cleanup `4c569e8`) | ✅ Complete / CLOSED |
 | **Phase 5** | RAG / Local AI (Local LLM via Ollama, citation verification, cloud/local policy) | ⏳ **NOT STARTED** |
 | **Phase 6** | Evaluation / MLOps (Expanded dataset, Ragas, MLflow, CI regression gates) | ⏳ PENDING |
 | **Phase 7** | Multimodal (Optional: OCR, complex tables, ColPali) | ⏳ PENDING |
@@ -23,7 +23,8 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
 | **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
 
-> **Current Boundary & Explicit Limitation**: Phase 5 (Local RAG / Ollama / LLM generation) has **NOT started**. FileMind currently operates strictly as a 100% deterministic local evidence retrieval engine. Answer synthesis, citations, and autonomous agents are not yet implemented.
+> **Current Boundary & Explicit Limitation**: Phase 5 (Local RAG / Ollama / LLM generation) has **NOT started** (Next Planned: Phase 5 — Batch 1: Ollama Client + Local LLM Foundation). FileMind currently operates strictly as a 100% deterministic local evidence retrieval engine. Answer synthesis, citations, and autonomous agents are not yet implemented.
+
 
 ---
 
@@ -132,10 +133,11 @@ Evaluated on `phase4-eval-v1.0` (28 canonical benchmark queries) against `phase3
 
 ## Verification & Release Gate Status
 
+- **Audit Cleanup Suite** (`backend/tests/test_audit_cleanup.py`): **3 / 3 PASS**
 - **Phase 4 Closure Suite** (`backend/tests/test_phase4_closure.py`): **6 / 6 PASS**
 - **Reranker Suite** (`backend/tests/test_reranker.py`): **17 / 17 PASS**
 - **Hybrid Fallback Suite** (`backend/tests/test_hybrid_fallback.py`): **14 / 14 PASS**
-- **Full Backend Regression Suite**: **247 passed, 0 failed, 1 skipped** *(1 skipped: Windows symlink privilege test)*
+- **Full Backend Regression Suite**: **252 passed, 0 failed, 1 skipped** *(1 skipped: Windows symlink privilege test)*
 - **Frontend Production Build**: **PASS in 4.67s** (1,603 modules transformed, 0 errors)
 - **Phase 4 Exit Gate Checklist**: **17 / 17 verified PASS**
 
@@ -157,11 +159,12 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # Run Phase 4 targeted test suites
-pytest tests/test_phase4_closure.py tests/test_reranker.py tests/test_hybrid_fallback.py -v
+pytest tests/test_audit_cleanup.py tests/test_phase4_closure.py tests/test_reranker.py tests/test_hybrid_fallback.py -v
 
-# Run full backend regression suite (248 tests)
+# Run full backend regression suite (253 tests)
 pytest tests/ -v
 ```
+
 
 ### 2. Frontend Setup & Build
 ```powershell

@@ -48,7 +48,7 @@ Installed Application Practical Verification:
 VERIFIED PASS
 
 Full Backend Regression:
-248 / 248 PASS (247 passed, 1 skipped)
+253 / 253 PASS (252 passed, 1 skipped)
 
 Reranker Suite:
 17 / 17 PASS
@@ -62,11 +62,15 @@ Phase 4 Closure Suite:
 Batch 4 Hardening:
 18 / 18 COMPLETE
 
+Pre-Phase-5 Audit Cleanup:
+3 / 3 PASS (4c569e8)
+
 Phase 4 — Fast / Quality Retrieval & Benchmark Exit Gate:
 VERIFIED CLOSED (All 17 Exit Gate Items Passed)
 
 Phase 5:
-NOT STARTED
+NOT STARTED (Next Planned: Phase 5 — Batch 1: Ollama Client + Local LLM Foundation)
+
 
 
 ---
@@ -1931,8 +1935,8 @@ future packaging regression occurs. Do not implement it speculatively.
 | H3 | PDF extraction-quality gate and observability | ✅ Complete / PASS |
 | H4 | SQLite WAL observability and transaction-boundary hardening | ✅ Complete / PASS |
 | B1–B4 | Hardening Batches 1–4 (Security, Isolation, Index Metadata, Logging, Size Guards) | ✅ Complete / PASS |
-| 4 | Reranking / Search Quality (Fast vs Quality modes, benchmark exit gate) | ✅ Complete / CLOSED |
-| 5 | RAG / Local AI (Full pipeline, citation verification, cloud/local policy) | ⏳ NOT STARTED |
+| 4 | Reranking / Search Quality (Fast vs Quality modes, benchmark exit gate, PR #1 / `624c010`, cleanup `4c569e8`) | ✅ Complete / CLOSED |
+| 5 | RAG / Local AI (Local LLM via Ollama, citation verification, cloud/local policy) | ⏳ **NOT STARTED** |
 | 6 | Evaluation / MLOps (Expanded dataset, Ragas, MLflow, CI regression gates) | ⏳ PENDING |
 | 7 | Multimodal (Optional: OCR, complex tables, ColPali) | ⏳ PENDING |
 | 8 | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
@@ -1945,7 +1949,7 @@ not mark a phase complete without measurable evidence matching its exit conditio
 
 ---
 
-## 12. Pre-Phase-5 Hardening History (Batches 1–4)
+## 12. Pre-Phase-5 Hardening & Audit History (Batches 1–4 & Audit Cleanup)
 
 ### Batch 1: Security, API & Frontend Hardening
 - **CORS Hardening**: Removed insecure wildcard origins; strictly bounded loopback HTTP origins (`localhost`, `127.0.0.1`, `tauri://localhost`).
@@ -1992,6 +1996,38 @@ not mark a phase complete without measurable evidence matching its exit conditio
 16. **First-Run Model Preparation**: Prepares local FastEmbed cache on startup without blocking user interaction.
 17. **Regression Test Suite**: Added 11 new Batch 4 test suites (**248 / 248 backend tests passing**).
 18. **Authoritative Documentation**: Updated `FileMind.md` with complete implementation specifications.
+
+### Pre-Phase-5 Audit Cleanup (Commit: `4c569e8`)
+Following the merge of PR #1 (`624c010`), a focused pre-Phase-5 audit cleanup was completed at commit `4c569e8`:
+
+1. **SearchRequest Quality Contract Verification**:
+   - Investigated and confirmed `quality: str = "fast"` as the authoritative schema and system default.
+   - Fast Mode remains the standard default across backend schemas (`SearchRequest`, `SearchResponse`), retriever methods (`HybridRetriever.search()`), and the frontend UI (`useState("fast")`).
+   - Re-verified valid combination matrix (`bm25+fast`, `dense+fast`, `hybrid+fast`, `hybrid+quality`) and HTTP 400 rejection for unsupported combinations (`bm25+quality`, `dense+quality`).
+   - No source changes required; added regression coverage in `backend/tests/test_audit_cleanup.py`.
+
+2. **`parser_version` Fallback Cleanup**:
+   - `ChunkProvenance.parser_version` dataclass default changed: `"1.0.0"` $\rightarrow$ `"unknown"`.
+   - `Repository.replace_file_chunks` dictionary fallback changed: `"1.0.0"` $\rightarrow$ `"unknown"`.
+   - Eliminates misleading fallback advertising of obsolete parser versions during ad-hoc or fallback chunk construction.
+   - All real active parsers (`TextParser` v1.1.0, `PyMuPDFParser` v1.0.0, `DocxParser` v1.0.0, `PptxParser` v1.0.0, `TabularParser` v1.0.0) continue to explicitly provide their authoritative version.
+   - `FilesystemScanner` automatically detects `"unknown"` != active parser version, triggering proper re-indexing.
+   - Added regression coverage in `backend/tests/test_audit_cleanup.py`.
+
+3. **`token_count` Heuristic (Deliberately NOT Changed)**:
+   - Existing `len(text) // 4` character-to-token ratio heuristic remains unchanged.
+   - Replacing this heuristic with an actual HuggingFace/ONNX tokenizer was deliberately deferred: invoking FastEmbed tokenizers during document chunking would force eager model/tokenizer initialization on background worker threads, disrupting lazy-loading and increasing chunking latency overhead.
+
+4. **Rust `is_backend_healthy()` (Deliberately NOT Changed)**:
+   - `src-tauri/src/main.rs` remains untouched.
+   - Rust modifications are deferred until a verified, higher-memory build environment is available to run `cargo check` and Tauri compilation safely without memory/swap exhaustion.
+
+5. **Verification**:
+   - Audit Cleanup Tests (`backend/tests/test_audit_cleanup.py`): **3 / 3 PASS**.
+   - Targeted Suites: **43 / 43 PASS**.
+   - Full Backend Regression: **252 passed / 0 failed / 1 skipped** (out of 253 total tests).
+   - Frontend Source: Untouched.
+
 
 ---
 
@@ -2096,9 +2132,11 @@ Reranking produced reordered top-3 candidates across 23 queries:
 - **Phase 4 Closure Tests** (`backend/tests/test_phase4_closure.py`): **6 / 6 PASS**
 - **Reranker Tests** (`backend/tests/test_reranker.py`): **17 / 17 PASS**
 - **Hybrid Fallback Tests** (`backend/tests/test_hybrid_fallback.py`): **14 / 14 PASS**
-- **Full Backend Regression Suite** (`pytest backend/tests/`): **247 passed, 0 failed, 1 skipped** (out of 248 total tests).
+- **Audit Cleanup Tests** (`backend/tests/test_audit_cleanup.py`): **3 / 3 PASS**
+- **Full Backend Regression Suite** (`pytest backend/tests/`): **252 passed, 0 failed, 1 skipped** (out of 253 total tests).
   *(Note: 1 skipped test is `test_watcher_symlink_ignored_on_windows`, which skips on non-elevated Windows environments lacking symlink creation privileges).*
 - **Frontend Production Build** (`tsc && vite build`): **PASS in 4.67s** (1,603 modules transformed, 0 errors).
+
 
 ### 13.12 Security & Privacy Model
 - **Registered-Root Containment**: File operations restricted to registered vault directories.
