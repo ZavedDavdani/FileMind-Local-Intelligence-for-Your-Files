@@ -36,16 +36,55 @@ def test_generation_coordinator_is_single_slot_and_releases_after_error():
 def test_terminal_job_retention_preserves_active_and_keeps_newest_boundary(db):
     with db.session() as conn:
         repo = Repository(conn)
-        folder = repo.create_folder("C:/root")
-        file_rec = repo.upsert_file(folder["folder_id"], "C:/root/a.txt", "a.txt", "a.txt", ".txt", 1, "2026-01-01", index_status="QUEUED")
-        for i in range(1002):
-            job = repo.enqueue_job(file_rec["file_id"], folder["folder_id"], job_type=f"TYPE_{i}", job_id=f"terminal-{i:04d}")
-            conn.execute("UPDATE indexing_jobs SET status='COMPLETED', completed_at=? WHERE job_id=?", (f"2026-01-01T00:00:{i:04d}", job["job_id"]))
-        pending = repo.enqueue_job(file_rec["file_id"], folder["folder_id"], job_type="ACTIVE", job_id="pending")
-        assert repo.prune_terminal_jobs() == 2
-        assert conn.execute("SELECT COUNT(*) FROM indexing_jobs WHERE status='COMPLETED'").fetchone()[0] == 1000
-        assert conn.execute("SELECT status FROM indexing_jobs WHERE job_id=?", (pending["job_id"],)).fetchone()[0] == "PENDING"
 
+        folder = repo.create_folder("C:/root")
+        file_rec = repo.upsert_file(
+            folder["folder_id"],
+            "C:/root/a.txt",
+            "a.txt",
+            "a.txt",
+            ".txt",
+            1,
+            "2026-01-01",
+            index_status="QUEUED",
+        )
+
+        for i in range(1002):
+            job_type = (
+                "METADATA_DISCOVERY",
+                "HASH_VERIFICATION",
+                "DOCUMENT_PARSE",
+                "CHUNK_GENERATION",
+                "DELETE_CLEANUP",
+            )[i % 5]
+
+            job = repo.enqueue_job(
+                file_rec["file_id"],
+                folder["folder_id"],
+                job_type=job_type,
+                job_id=f"terminal-{i:04d}",
+            )
+
+            conn.execute(
+                "UPDATE indexing_jobs SET status='COMPLETED', completed_at=? WHERE job_id=?",
+                (f"2026-01-01T00:00:{i:04d}", job["job_id"]),
+            )
+
+        pending = repo.enqueue_job(
+            file_rec["file_id"],
+            folder["folder_id"],
+            job_type="METADATA_DISCOVERY",
+            job_id="pending",
+        )
+
+        assert repo.prune_terminal_jobs() == 2
+        assert conn.execute(
+            "SELECT COUNT(*) FROM indexing_jobs WHERE status='COMPLETED'"
+        ).fetchone()[0] == 1000
+        assert conn.execute(
+            "SELECT status FROM indexing_jobs WHERE job_id=?",
+            (pending["job_id"],),
+        ).fetchone()[0] == "PENDING"
 
 def test_move_outside_root_marks_old_file_missing_and_never_indexes_destination(db, monkeypatch):
     with db.session() as conn:
