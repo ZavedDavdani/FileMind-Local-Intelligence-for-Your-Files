@@ -159,12 +159,8 @@ class SqliteVecStore(BaseVectorStore):
             rows.append((r["chunk_id"], packed))
 
         self.conn.executemany(insert_sql, rows)
-
-        # Record metadata if not present
-        if self.get_index_metadata() is None:
-            self.set_index_metadata("fastembed", "sentence-transformers/all-MiniLM-L6-v2", "1.0.0", self.dimension)
-
         return len(rows)
+
 
 
     def delete_by_chunk_ids(self, chunk_ids: List[str]) -> int:

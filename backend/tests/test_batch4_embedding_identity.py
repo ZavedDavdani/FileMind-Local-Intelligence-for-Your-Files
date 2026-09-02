@@ -51,12 +51,65 @@ def test_embedding_metadata_persistence(test_db):
         assert meta["config"] == {"normalize": True}
 
 
+def test_sqlite_vec_store_upsert_does_not_fabricate_metadata(test_db):
+    """Verifies that direct upsert_vectors does NOT create hardcoded default metadata."""
+    with test_db.session() as conn:
+        store = SqliteVecStore(conn, dimension=384)
+        assert store.get_index_metadata() is None
+
+        # Upsert a vector directly
+        store.upsert_vectors([
+            {"chunk_id": "c1", "file_id": "f1", "embedding": [0.1] * 384}
+        ])
+
+        # Metadata must remain None (not hardcoded to MiniLM)
+        assert store.get_index_metadata() is None
+        assert store.count() == 1
+
+
+def test_sqlite_vec_store_custom_dimension_does_not_fabricate_metadata(test_db):
+    """Verifies that small/custom dimension vector stores do not get stamped with default 384-dim model metadata."""
+    with test_db.session() as conn:
+        store_4d = SqliteVecStore(conn, dimension=4)
+        assert store_4d.get_index_metadata() is None
+
+        # Upsert a 4-dimensional vector
+        store_4d.upsert_vectors([
+            {"chunk_id": "c_4d", "file_id": "f_4d", "embedding": [1.0, 0.0, 0.0, 0.0]}
+        ])
+
+        # Metadata must remain None (must not claim MiniLM is dimension 4)
+        assert store_4d.get_index_metadata() is None
+        assert store_4d.count() == 1
+
+        # Explicitly recording custom metadata works
+        store_4d.set_index_metadata(
+            provider="test-provider",
+            model_name="test-4d-model",
+            model_version="0.1.0",
+            dimension=4,
+        )
+        meta = store_4d.get_index_metadata()
+        assert meta == {
+            "provider": "test-provider",
+            "model_name": "test-4d-model",
+            "model_version": "0.1.0",
+            "dimension": 4,
+        }
+        assert store_4d.verify_index_validity({
+            "provider": "test-provider",
+            "model_name": "test-4d-model",
+            "model_version": "0.1.0",
+            "dimension": 4,
+        }) is True
+
+
 def test_sqlite_vec_store_validity_verification(test_db):
-    """Verifies that SqliteVecStore validates index identity correctly against expected model."""
+    """Verifies that SqliteVecStore validates index identity correctly against expected model when metadata is recorded."""
     with test_db.session() as conn:
         store = SqliteVecStore(conn, dimension=384)
         
-        # When uninitialized, returns True
+        # When uninitialized (no metadata recorded), returns True
         assert store.verify_index_validity({
             "provider": "fastembed",
             "model_name": "sentence-transformers/all-MiniLM-L6-v2",
@@ -64,10 +117,19 @@ def test_sqlite_vec_store_validity_verification(test_db):
             "dimension": 384,
         }) is True
 
-        # Upsert a dummy vector which records metadata
+        # Upsert a dummy vector (does not write metadata)
         store.upsert_vectors([
             {"chunk_id": "c1", "file_id": "f1", "embedding": [0.1] * 384}
         ])
+        assert store.get_index_metadata() is None
+
+        # Explicitly record active embedding identity (as production worker does)
+        store.set_index_metadata(
+            provider="fastembed",
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_version="1.0.0",
+            dimension=384,
+        )
 
         # Matching identity -> True
         assert store.verify_index_validity({
@@ -99,4 +161,12 @@ def test_sqlite_vec_store_validity_verification(test_db):
             "model_name": "sentence-transformers/all-MiniLM-L6-v2",
             "model_version": "1.0.0",
             "dimension": 384,
+        }) is False
+
+        # Mismatched dimension -> False
+        assert store.verify_index_validity({
+            "provider": "fastembed",
+            "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+            "model_version": "1.0.0",
+            "dimension": 768,
         }) is False
