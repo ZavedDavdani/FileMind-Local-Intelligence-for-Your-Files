@@ -385,3 +385,37 @@ export interface DocumentInsight {
   updated_at?: string | null;
   error?: string | null;
 }
+
+export interface RelatedFileChunkSummary {
+  chunk_id: string;
+  section?: string | null;
+  page?: number | null;
+  line_start?: number | null;
+  line_end?: number | null;
+  snippet: string;
+}
+
+export interface RelatedFileItem {
+  file_id: string;
+  filename: string;
+  path: string;
+  relative_path?: string | null;
+  extension?: string | null;
+  size_bytes: number;
+  score: number;
+  retrieval_method: string;
+  explanation: string;
+  matching_chunk_count: number;
+  primary_matched_chunk: RelatedFileChunkSummary;
+  supporting_chunks: RelatedFileChunkSummary[];
+}
+
+export interface RelatedFilesResponse {
+  source_file_id: string;
+  source_filename: string;
+  total_found: number;
+  retrieval_method: string;
+  quality: string;
+  query_used?: string | null;
+  results: RelatedFileItem[];
+}

@@ -435,3 +435,41 @@ class DocumentInsightResponse(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Phase 5.5 Batch 2: Related Content Schemas
+# ---------------------------------------------------------------------------
+
+class RelatedFileChunkSummary(BaseModel):
+    chunk_id: str
+    section: Optional[str] = None
+    page: Optional[int] = None
+    line_start: Optional[int] = None
+    line_end: Optional[int] = None
+    snippet: str
+
+
+class RelatedFileItem(BaseModel):
+    file_id: str
+    filename: str
+    path: str
+    relative_path: Optional[str] = None
+    extension: Optional[str] = None
+    size_bytes: int = 0
+    score: float
+    retrieval_method: str
+    explanation: str
+    matching_chunk_count: int
+    primary_matched_chunk: RelatedFileChunkSummary
+    supporting_chunks: List[RelatedFileChunkSummary] = Field(default_factory=list)
+
+
+class RelatedFilesResponse(BaseModel):
+    source_file_id: str
+    source_filename: str
+    total_found: int
+    retrieval_method: str
+    quality: str = "fast"
+    query_used: Optional[str] = None
+    results: List[RelatedFileItem] = Field(default_factory=list)

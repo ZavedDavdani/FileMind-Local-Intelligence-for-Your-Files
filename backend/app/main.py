@@ -45,6 +45,7 @@ from app.schemas import (
     JobListResponse,
     LocalAIStatus,
     OllamaReadinessStatus,
+    RelatedFilesResponse,
     SearchRequest,
     SearchResponse,
 )
@@ -671,6 +672,48 @@ def search_evidence(req: SearchRequest) -> SearchResponse:
             quality=quality_lower,
         )
         return SearchResponse(**resp)
+
+
+@app.get("/retrieval/related/{file_id}", response_model=RelatedFilesResponse, tags=["Retrieval"])
+def get_related_files(
+    file_id: str,
+    limit: int = Query(5, ge=1, le=50, description="Max related files to return"),
+    quality: str = Query("fast", description="Search quality: fast or quality"),
+) -> RelatedFilesResponse:
+    """
+    Discovers indexed files related to the specified file using hybrid retrieval.
+    Operates at file level with Max Chunk Score aggregation and self-exclusion.
+    """
+    valid_qualities = {"fast", "quality"}
+    quality_lower = (quality or "fast").lower().strip()
+    if quality_lower not in valid_qualities:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid quality mode '{quality}'. Valid options are: 'fast', 'quality'.",
+        )
+
+    try:
+        from app.retrieval.related import RelatedContentService
+        svc = RelatedContentService(db_manager=db_manager)
+        resp = svc.get_related_files(file_id=file_id, limit=limit, quality=quality_lower)
+        return RelatedFilesResponse(**resp)
+    except ValueError as exc:
+        msg = str(exc)
+        if "not found" in msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=msg,
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+    except Exception as exc:
+        _app_logger.error("Failed to retrieve related files for %s: %s", file_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while discovering related files.",
+        )
 
 
 # ---------------------------------------------------------------------------

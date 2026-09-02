@@ -17,6 +17,7 @@ import {
   AskResponse,
   AIStatusResponse,
   DocumentInsight,
+  RelatedFilesResponse,
 } from "../types";
 
 const BACKEND_BASE_URL = "http://127.0.0.1:24823";
@@ -652,4 +653,29 @@ export async function generateDocumentInsight(
   }
 
   return data as DocumentInsight;
+}
+
+export async function fetchRelatedFiles(
+  fileId: string,
+  limit: number = 5,
+  quality: string = "fast",
+  signal?: AbortSignal
+): Promise<RelatedFilesResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    quality: quality,
+  });
+
+  const data = await requestJson<unknown>(
+    `${BACKEND_BASE_URL}/retrieval/related/${fileId}?${params.toString()}`,
+    { signal },
+    "Fetch Related Files"
+  );
+
+  if (!isObject(data)) {
+    console.error("[API Contract Error] Invalid /retrieval/related response shape:", data);
+    throw new Error("Invalid /retrieval/related response shape");
+  }
+
+  return data as RelatedFilesResponse;
 }
