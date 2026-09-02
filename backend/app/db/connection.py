@@ -31,16 +31,21 @@ class DatabaseManager:
         conn.execute("PRAGMA busy_timeout = 10000;")
         conn.execute("PRAGMA foreign_keys = ON;")
 
-        # Load sqlite-vec extension if available
+        # Load sqlite-vec extension (mandatory for vector storage and search)
         try:
             import sqlite_vec
             conn.enable_load_extension(True)
             sqlite_vec.load(conn)
             conn.enable_load_extension(False)
-        except Exception:
-            pass
+        except Exception as exc:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            raise RuntimeError(f"Failed to load sqlite-vec extension: {exc}") from exc
 
         return conn
+
 
     @contextmanager
     def session(self) -> Generator[sqlite3.Connection, None, None]:

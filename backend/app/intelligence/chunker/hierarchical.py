@@ -8,7 +8,42 @@ from app.intelligence.chunker.identity import (
 from app.intelligence.chunker.provenance import ChunkProvenance
 from app.intelligence.models import Document, DocumentElement, ElementType
 
-CHUNKER_VERSION = "phase2-hierarchical-v1"
+CHUNKER_VERSION = "phase2-hierarchical-v2"
+
+
+
+def estimate_token_count(text: str) -> int:
+    """
+    Computes an approximate token count for heuristic budget planning.
+
+    Semantic Contract:
+    - This is an approximate planning metric (characters/ideographs heuristic), NOT an exact model tokenizer count.
+    - Returns 0 for empty or whitespace-only strings.
+    - For non-empty strings, minimum estimated token count is 1.
+    - CJK characters (Chinese, Japanese Kanji/Kana, Korean Hangul) are estimated at 1 token per character.
+    - Non-CJK text is estimated at ~4 characters per token (len // 4).
+    """
+    cleaned = text.strip()
+    if not cleaned:
+        return 0
+
+    cjk_count = 0
+    non_cjk_chars = 0
+    for char in cleaned:
+        cp = ord(char)
+        if (
+            0x4E00 <= cp <= 0x9FFF
+            or 0x3400 <= cp <= 0x4DBF
+            or 0x3040 <= cp <= 0x309F
+            or 0x30A0 <= cp <= 0x30FF
+            or 0xAC00 <= cp <= 0xD7AF
+        ):
+            cjk_count += 1
+        else:
+            non_cjk_chars += 1
+
+    estimated = cjk_count + (non_cjk_chars // 4)
+    return max(1, estimated)
 
 
 class HierarchicalChunker:
@@ -31,6 +66,8 @@ class HierarchicalChunker:
     def chunk_document(self, doc: Document) -> List[ChunkProvenance]:
         """
         Splits a normalized Document into a sequence of provenance-preserving chunks.
+        Supports deterministic character-based element overlap between chunks within
+        the same semantic section.
         """
         chunks: List[ChunkProvenance] = []
         chunk_idx = 0
@@ -43,7 +80,10 @@ class HierarchicalChunker:
         accum_elements: List[DocumentElement] = []
         accum_chars = 0
 
-        def flush_accumulator():
+        # Safe bounded overlap parameter
+        effective_overlap = max(0, min(self.overlap_chars, self.max_chunk_chars // 2))
+
+        def flush_accumulator(retain_overlap: bool = False):
             nonlocal chunk_idx, accum_elements, accum_chars
             if not accum_elements:
                 return
@@ -83,8 +123,8 @@ class HierarchicalChunker:
                 content_hash=content_hash,
             )
 
-            # Estimate token count (~4 chars per token)
-            token_count = max(1, len(chunk_text) // 4)
+            # Heuristic token count estimation
+            token_count = estimate_token_count(chunk_text)
 
             provenance = ChunkProvenance(
                 chunk_id=chunk_id,
@@ -115,21 +155,32 @@ class HierarchicalChunker:
 
             chunks.append(provenance)
             chunk_idx += 1
-            accum_elements = []
-            accum_chars = 0
+
+            # Determine trailing overlap elements if within the same section
+            if retain_overlap and effective_overlap > 0 and len(accum_elements) > 1:
+                overlap_elems: List[DocumentElement] = []
+                overlap_len = 0
+                for e in reversed(accum_elements[1:]):  # Never retain the entire chunk
+                    if e.element_type in (ElementType.HEADING, ElementType.TABLE):
+                        break
+                    e_len = len(e.text)
+                    if overlap_len + e_len <= effective_overlap or not overlap_elems:
+                        overlap_elems.insert(0, e)
+                        overlap_len += e_len
+                    else:
+                        break
+                accum_elements = overlap_elems
+                accum_chars = sum(len(e.text) for e in overlap_elems)
+            else:
+                accum_elements = []
+                accum_chars = 0
 
         for elem in doc.elements:
             elem_len = len(elem.text)
 
             if elem.element_type == ElementType.HEADING:
                 # Heading marks a strong structural boundary.
-                # If accumulator only contains a previous heading (no body text), don't create an isolated 1-line chunk.
-                has_body_content = any(e.element_type != ElementType.HEADING for e in accum_elements)
-                if has_body_content:
-                    flush_accumulator()
-                else:
-                    accum_elements = []
-                    accum_chars = 0
+                flush_accumulator(retain_overlap=False)
 
                 if elem.level == 1:
                     current_h1 = elem.text.strip()
@@ -147,21 +198,17 @@ class HierarchicalChunker:
 
             if elem.element_type == ElementType.TABLE:
                 # Table preservation: Flush previous text, keep table intact
-                flush_accumulator()
+                flush_accumulator(retain_overlap=False)
                 accum_elements.append(elem)
-                flush_accumulator()
+                flush_accumulator(retain_overlap=False)
                 continue
 
-            # Check if adding this element would exceed max chunk size
-            if accum_chars + elem_len > self.max_chunk_chars and accum_elements:
-                flush_accumulator()
+            # Check if adding this element would exceed max chunk size OR target size
+            if accum_elements and (accum_chars + elem_len > self.max_chunk_chars or accum_chars >= self.target_chunk_chars):
+                flush_accumulator(retain_overlap=True)
 
             accum_elements.append(elem)
             accum_chars += elem_len
 
-            # Check if target size is reached
-            if accum_chars >= self.target_chunk_chars:
-                flush_accumulator()
-
-        flush_accumulator()
+        flush_accumulator(retain_overlap=False)
         return chunks

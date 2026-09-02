@@ -13,9 +13,11 @@ import sqlite3
 import pytest
 from app.db.migrations import apply_migrations
 from app.db.repository import Repository
+from app.intelligence.chunker.hierarchical import estimate_token_count
 from app.intelligence.chunker.provenance import ChunkProvenance
 from app.retrieval.lexical import LexicalRetriever
 from app.retrieval.normalizer import normalize_query
+
 
 
 @pytest.fixture
@@ -78,8 +80,9 @@ def cjk_db():
             chunker_version="1.0",
             content=content,
             content_type="text",
-            token_count=len(content.split()),
+            token_count=estimate_token_count(content),
         )
+
         repo.replace_file_chunks(fid, [chunk])
 
     return conn

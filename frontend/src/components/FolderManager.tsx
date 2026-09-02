@@ -33,8 +33,10 @@ export function FolderManager({
   const [newMode, setNewMode] = useState<IntegrityMode>("NORMAL");
   const [newExclusions, setNewExclusions] = useState("*.tmp, *.log");
   const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
 
   const safeFolders = Array.isArray(folders) ? folders : [];
+
 
   const handleSelectViaTauri = async () => {
     try {
@@ -255,7 +257,7 @@ export function FolderManager({
 
                   {/* Delete Button */}
                   <button
-                    onClick={() => onDeleteFolder(f.folder_id)}
+                    onClick={() => setFolderToDelete(f)}
                     className="p-1 text-slate-400 hover:text-rose-400 transition-colors"
                     title="Remove folder from index"
                   >
@@ -302,6 +304,53 @@ export function FolderManager({
           );
         })}
       </div>
+
+      {/* Delete Folder Confirmation Dialog */}
+      {folderToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="bg-dark-900 border border-dark-700 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3 text-rose-400">
+              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Remove Registered Folder?</h3>
+                <p className="text-xs text-slate-400">This will remove the folder from FileMind's index.</p>
+              </div>
+            </div>
+
+            <div className="bg-dark-800/80 border border-dark-700/60 rounded-xl p-3 space-y-1">
+              <span className="text-[11px] text-slate-400 font-medium">Folder Path</span>
+              <p className="font-mono text-xs text-slate-200 break-all">{folderToDelete.path}</p>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              All indexed file metadata, text chunks, and vector embeddings for files in this folder will be safely purged from the local index.
+              <span className="block mt-1 text-slate-300 font-medium">Your original files on disk will NOT be modified or deleted.</span>
+            </p>
+
+            <div className="flex justify-end space-x-2 pt-2 border-t border-dark-800">
+              <button
+                type="button"
+                onClick={() => setFolderToDelete(null)}
+                className="px-3 py-1.5 bg-dark-800 hover:bg-dark-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteFolder(folderToDelete.folder_id);
+                  setFolderToDelete(null);
+                }}
+                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-medium transition-colors shadow-sm"
+              >
+                Remove Folder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

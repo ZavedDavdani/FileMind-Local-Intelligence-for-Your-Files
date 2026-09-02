@@ -27,25 +27,32 @@ class TableData:
     caption: Optional[str] = None
 
     def to_markdown(self) -> str:
-        """Renders table as clean GitHub Flavored Markdown."""
+        """Renders table as clean GitHub Flavored Markdown with escaped pipes."""
+        import re
+
+        def _escape_cell(cell: Any) -> str:
+            text = str(cell if cell is not None else "").replace("\r\n", " ").replace("\n", " ").replace("\r", " ").strip()
+            return re.sub(r"(?<!\\)\|", r"\|", text)
+
         lines = []
         if self.caption:
             lines.append(f"**Table: {self.caption}**\n")
 
         if self.headers:
-            header_row = "| " + " | ".join(str(h).replace("\n", " ").strip() for h in self.headers) + " |"
+            header_row = "| " + " | ".join(_escape_cell(h) for h in self.headers) + " |"
             separator = "| " + " | ".join("---" for _ in self.headers) + " |"
             lines.append(header_row)
             lines.append(separator)
 
         for row in self.rows:
             # Ensure row length matches headers if present
-            row_cells = [str(c).replace("\n", " ").strip() for c in row]
+            row_cells = [_escape_cell(c) for c in row]
             if self.headers and len(row_cells) < len(self.headers):
                 row_cells.extend([""] * (len(self.headers) - len(row_cells)))
             lines.append("| " + " | ".join(row_cells) + " |")
 
         return "\n".join(lines)
+
 
 
 @dataclass

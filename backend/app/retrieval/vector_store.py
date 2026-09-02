@@ -65,7 +65,17 @@ class BaseVectorStore(ABC):
 
 
 class SqliteVecStore(BaseVectorStore):
-    """Native SQLite vector store using sqlite-vec vec0 virtual tables."""
+    """Native SQLite vector store using sqlite-vec vec0 virtual tables.
+
+    Integrity & Referential Constraint Invariant:
+    `chunk_vectors` is a SQLite virtual table (`vec0` module from `sqlite-vec`).
+    SQLite virtual tables do not support native FOREIGN KEY ... REFERENCES constraints
+    or ON DELETE CASCADE triggers across table types.
+    Therefore, referential integrity between relational `chunks` / `files` / `folders`
+    and virtual `chunk_vectors` is enforced at the application layer via atomic
+    two-phase deletion (purging `chunk_vectors` before deleting relational rows) in
+    `Repository.delete_folder()`, `Repository.delete_file()`, and `Worker.DELETE_CLEANUP`.
+    """
 
     def __init__(self, db_conn: sqlite3.Connection, dimension: int = 384):
         self.conn = db_conn
@@ -85,6 +95,8 @@ class SqliteVecStore(BaseVectorStore):
             )
         except Exception as exc:
             logger.error("Failed to initialize sqlite-vec table: %s", str(exc))
+            raise RuntimeError(f"Failed to initialize sqlite-vec table: {exc}") from exc
+
 
     def _pack_vector(self, vec: List[float]) -> bytes:
         return struct.pack(f"{len(vec)}f", *vec)

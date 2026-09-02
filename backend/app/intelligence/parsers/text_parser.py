@@ -11,6 +11,7 @@ from app.intelligence.models import (
     TableData,
 )
 from app.intelligence.parsers.base import BaseParser, CorruptedDocumentError
+from app.intelligence.parsers.decoder import read_text_file_strictly
 
 
 TEXT_PARSER_VERSION = "1.1.0"
@@ -62,13 +63,10 @@ class TextAndCodeParser(BaseParser):
         filename = os.path.basename(file_path)
         ext = os.path.splitext(filename)[1].lower()
 
-        try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read()
-        except Exception as exc:
-            raise CorruptedDocumentError(f"Failed to read text file: {str(exc)}") from exc
+        content = read_text_file_strictly(file_path, filename=filename)
 
         doc_obj = Document(
+
             file_id=file_id,
             source_path=file_path,
             filename=filename,
@@ -162,8 +160,9 @@ class TextAndCodeParser(BaseParser):
             elif in_table:
                 # Table ended
                 in_table = False
-                self._flush_markdown_table(table_lines, doc, file_id, element_idx, table_start_line, line_num - 1, table_char_start, char_offset, current_h2_id or current_h1_id)
+                element_idx = self._flush_markdown_table(table_lines, doc, file_id, element_idx, table_start_line, line_num - 1, table_char_start, char_offset, current_h2_id or current_h1_id)
                 table_lines = []
+
 
             # Handle Headings (# Heading)
             if line.startswith("#"):
@@ -237,24 +236,41 @@ class TextAndCodeParser(BaseParser):
 
         # Flush any trailing table
         if in_table and table_lines:
-            self._flush_markdown_table(table_lines, doc, file_id, element_idx, table_start_line, len(lines), table_char_start, char_offset, current_h2_id or current_h1_id)
+            element_idx = self._flush_markdown_table(table_lines, doc, file_id, element_idx, table_start_line, len(lines), table_char_start, char_offset, current_h2_id or current_h1_id)
 
-    def _flush_markdown_table(self, table_lines: List[str], doc: Document, file_id: str, element_idx: int, start_line: int, end_line: int, start_char: int, end_char: int, parent_id: Optional[str]):
+    def _flush_markdown_table(
+        self,
+        table_lines: List[str],
+        doc: Document,
+        file_id: str,
+        element_idx: int,
+        start_line: int,
+        end_line: int,
+        start_char: int,
+        end_char: int,
+        parent_id: Optional[str],
+    ) -> int:
         parsed_rows = []
         for tl in table_lines:
-            cells = [c.strip() for c in tl.strip("|").split("|")]
+            stripped = tl.strip()
+            if stripped.startswith("|"):
+                stripped = stripped[1:]
+            if stripped.endswith("|"):
+                stripped = stripped[:-1]
+            cells = [re.sub(r"\\\|", "|", c).strip() for c in re.split(r"(?<!\\)\|", stripped)]
             # Filter separator lines like |---|---|
             if all(set(c).issubset({"-", ":", " "}) for c in cells if c):
                 continue
             parsed_rows.append(cells)
 
         if parsed_rows:
+            element_idx += 1
             headers = parsed_rows[0]
             rows = parsed_rows[1:] if len(parsed_rows) > 1 else []
             t_data = TableData(headers=headers, rows=rows)
             doc.elements.append(
                 DocumentElement(
-                    element_id=f"{file_id}_elem_{len(doc.elements) + 1}",
+                    element_id=f"{file_id}_elem_{element_idx}",
                     element_type=ElementType.TABLE,
                     text=t_data.to_markdown(),
                     table_data=t_data,
@@ -265,6 +281,9 @@ class TextAndCodeParser(BaseParser):
                     parent_heading_id=parent_id,
                 )
             )
+
+        return element_idx
+
 
     def _parse_source_code(self, lines: List[str], doc: Document, file_id: str, ext: str):
         """Extracts functions, classes, and comments from source code."""

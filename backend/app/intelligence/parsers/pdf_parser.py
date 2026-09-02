@@ -315,9 +315,14 @@ class PyPDFParser(BaseParser):
 
         if reader.is_encrypted:
             try:
-                reader.decrypt("")
-            except Exception:
-                raise EncryptedDocumentError(f"PDF is encrypted: {filename}")
+                decrypted = reader.decrypt("")
+                if not decrypted:
+                    raise EncryptedDocumentError(f"PDF is password protected or encrypted: {filename}")
+            except EncryptedDocumentError:
+                raise
+            except Exception as dec_exc:
+                raise EncryptedDocumentError(f"PDF is encrypted: {filename} ({dec_exc})") from dec_exc
+
 
         doc_obj.total_pages = len(reader.pages)
         element_idx = 0

@@ -117,15 +117,13 @@ class WorkerPool:
             if job_type == "DELETE_CLEANUP":
                 with self.db.session() as conn:
                     repo = Repository(conn)
+                    from app.retrieval.vector_store import SqliteVecStore
+                    vec_store = SqliteVecStore(conn)
+                    vec_store.delete_by_file_id(file_id)
                     repo.delete_chunks_by_file(file_id)
-                    try:
-                        from app.retrieval.vector_store import SqliteVecStore
-                        vec_store = SqliteVecStore(conn)
-                        vec_store.delete_by_file_id(file_id)
-                    except Exception as vec_err:
-                        logger.warning("Vector delete warning for file %s: %s", file_id, str(vec_err))
                 self.queue.complete_job(job_id, file_id)
                 return
+
 
             if not file_path or not os.path.exists(file_path):
                 # File disappeared before processing — permanent failure (not retryable)
@@ -191,14 +189,11 @@ class WorkerPool:
                             logger.info("File %s requires OCR: %s", file_path, qa.reason_codes)
                             with self.db.session() as conn:
                                 repo = Repository(conn)
-                                # Purge any stale chunks or vectors
+                                # Purge any stale vectors and chunks (vectors first while chunks still contain IDs)
+                                from app.retrieval.vector_store import SqliteVecStore
+                                vec_store = SqliteVecStore(conn)
+                                vec_store.delete_by_file_id(file_id)
                                 repo.delete_chunks_by_file(file_id)
-                                try:
-                                    from app.retrieval.vector_store import SqliteVecStore
-                                    vec_store = SqliteVecStore(conn)
-                                    vec_store.delete_by_file_id(file_id)
-                                except Exception as vec_err:
-                                    logger.warning("Vector cleanup warning for file %s: %s", file_id, str(vec_err))
 
                             self.queue.complete_job(
                                 job_id,
@@ -208,6 +203,7 @@ class WorkerPool:
                                 indexing_error=qa.to_json()
                             )
                             return
+
 
                     chunks = self.chunker.chunk_document(doc)
 
@@ -231,43 +227,45 @@ class WorkerPool:
                     # 4. Atomic Persistence & Vector Indexing
                     with self.db.session() as conn:
                         repo = Repository(conn)
+                        from app.retrieval.vector_store import SqliteVecStore
+                        from app.retrieval.embeddings import default_embedding_engine
+                        vec_store = SqliteVecStore(conn, dimension=dimension)
+
+                        # A1/A3.1 Invariant: Purge existing vectors before destroying old relational chunk pointers
+                        vec_store.delete_by_file_id(file_id)
+
                         repo.replace_file_chunks(file_id, chunks)
 
                         if vec_records:
-                            try:
-                                from app.retrieval.vector_store import SqliteVecStore
-                                from app.retrieval.embeddings import default_embedding_engine
-                                vec_store = SqliteVecStore(conn, dimension=dimension)
-                                identity = default_embedding_engine.get_identity()
-                                if not vec_store.verify_index_validity(identity):
-                                    # The existing vector index was built with a different
-                                    # embedding model/version/dimension than the one active
-                                    # now. Writing this file's vectors into the same vec0
-                                    # table would silently mix incommensurable embeddings in
-                                    # cosine search (same-dimension model swaps produce no
-                                    # error otherwise). Refuse the write and surface loudly;
-                                    # a full corpus re-embed is required before dense search
-                                    # can be trusted again.
-                                    logger.error(
-                                        "Embedding model identity mismatch for file %s: "
-                                        "vector index was built with a different model than "
-                                        "the currently active one (%s). Skipping vector write "
-                                        "to avoid corrupting dense search; a full re-embedding "
-                                        "of the corpus is required.",
-                                        file_id, identity,
-                                    )
-                                else:
-                                    vec_store.upsert_vectors(vec_records)
-                                    # Record/refresh the active embedding identity so future
-                                    # writes (and startup checks) can detect a model change.
-                                    vec_store.set_index_metadata(
-                                        provider=identity["provider"],
-                                        model_name=identity["model_name"],
-                                        model_version=identity["model_version"],
-                                        dimension=identity["dimension"],
-                                    )
-                            except Exception as vec_store_exc:
-                                logger.warning("Vector indexing storage warning for file %s: %s", file_id, str(vec_store_exc))
+                            identity = default_embedding_engine.get_identity()
+                            if not vec_store.verify_index_validity(identity):
+                                # The existing vector index was built with a different
+                                # embedding model/version/dimension than the one active
+                                # now. Writing this file's vectors into the same vec0
+                                # table would silently mix incommensurable embeddings in
+                                # cosine search (same-dimension model swaps produce no
+                                # error otherwise). Refuse the write and surface loudly;
+                                # a full corpus re-embed is required before dense search
+                                # can be trusted again.
+                                logger.error(
+                                    "Embedding model identity mismatch for file %s: "
+                                    "vector index was built with a different model than "
+                                    "the currently active one (%s). Skipping vector write "
+                                    "to avoid corrupting dense search; a full re-embedding "
+                                    "of the corpus is required.",
+                                    file_id, identity,
+                                )
+                            else:
+                                vec_store.upsert_vectors(vec_records)
+                                # Record/refresh the active embedding identity so future
+                                # writes (and startup checks) can detect a model change.
+                                vec_store.set_index_metadata(
+                                    provider=identity["provider"],
+                                    model_name=identity["model_name"],
+                                    model_version=identity["model_version"],
+                                    dimension=identity["dimension"],
+                                )
+
 
                     # 5. Mark Job Complete
                     if hasattr(doc, "quality_assessment") and doc.quality_assessment and doc.quality_assessment.status == "PARSE_WARNING":

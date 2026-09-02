@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, Optional
 
 
-@dataclass
+@dataclass(frozen=True)
 class ChunkProvenance:
     """Immutable provenance record attached to every chunk."""
     chunk_id: str
@@ -23,12 +23,13 @@ class ChunkProvenance:
     chunk_index: int = 0
     parser_name: str = "unknown"
     parser_version: str = "unknown"
-    chunker_version: str = "phase2-hierarchical-v1"
+    chunker_version: str = "phase2-hierarchical-v2"
+
 
     content: str = ""
     content_type: str = "text"  # 'text', 'table', 'code'
     token_count: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict, hash=False)
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts chunk provenance to a serializable dictionary."""

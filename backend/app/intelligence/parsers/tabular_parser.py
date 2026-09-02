@@ -1,6 +1,5 @@
-"""Tabular and structured data parsers for CSV, JSON, and XLSX."""
-
 import csv
+import io
 import json
 import os
 from typing import List, Optional
@@ -13,6 +12,8 @@ from app.intelligence.models import (
     TableData,
 )
 from app.intelligence.parsers.base import BaseParser, CorruptedDocumentError
+from app.intelligence.parsers.decoder import read_text_file_strictly
+
 
 
 class TabularParser(BaseParser):
@@ -69,9 +70,9 @@ class TabularParser(BaseParser):
         return doc_obj
 
     def _parse_csv(self, file_path: str, doc: Document, file_id: str):
-        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-            reader = csv.reader(f)
-            rows = [row for row in reader if any(cell.strip() for cell in row)]
+        content = read_text_file_strictly(file_path, filename=doc.filename)
+        reader = csv.reader(io.StringIO(content))
+        rows = [row for row in reader if any(cell.strip() for cell in row)]
 
         if rows:
             headers = [c.strip() for c in rows[0]]
@@ -89,8 +90,9 @@ class TabularParser(BaseParser):
             )
 
     def _parse_json(self, file_path: str, doc: Document, file_id: str):
-        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-            data = json.load(f)
+        content = read_text_file_strictly(file_path, filename=doc.filename)
+        data = json.loads(content)
+
 
         element_idx = 0
         if isinstance(data, list) and data and isinstance(data[0], dict):
