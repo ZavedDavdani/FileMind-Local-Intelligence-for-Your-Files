@@ -542,3 +542,91 @@ def test_20_real_cross_encoder_semantic_reordering(phase4_test_setup):
         assert top_doc["reranker_score"] is not None
         assert isinstance(top_doc["reranker_score"], float)
 
+
+def test_21_reranker_missing_optional_score_fields():
+    """Test 21: Reranker.rerank handles candidates missing optional score fields (rrf_score, dense_score, lexical_score) without KeyError."""
+    reranker = Reranker()
+    reranker._model = MockCrossEncoderModel(score_mapping={
+        "doc A": 0.85,
+        "doc B": 0.85,
+        "doc C": 0.70,
+    })
+
+    # Candidates missing various optional score fields or containing None
+    candidates = [
+        {"chunk_id": "c1", "content": "doc A"},  # Missing all score fields
+        {"chunk_id": "c2", "content": "doc B", "rrf_score": None, "dense_score": None, "lexical_score": None},  # Explicit None
+        {"chunk_id": "c3", "content": "doc C", "rrf_score": 0.015, "dense_score": 0.5},  # Missing lexical_score
+    ]
+
+    results = reranker.rerank(query="test", candidates=candidates, top_k=3)
+    assert len(results) == 3
+    # Verify no KeyError occurred and rank is assigned
+    assert [r["chunk_id"] for r in results] == ["c1", "c2", "c3"]
+    assert all("reranker_score" in r for r in results)
+
+
+def test_22_complete_candidates_preserve_existing_ordering():
+    """Test 22: Complete candidates preserve exact deterministic multi-level tie-breaking ordering."""
+    reranker = Reranker()
+    # All candidates have identical cross-encoder score -> tie-breaker cascades to rrf -> dense -> lexical -> chunk_id
+    reranker._model = MockCrossEncoderModel(default_score=0.90)
+
+    candidates = [
+        # Lower rrf_score
+        {"chunk_id": "c_low_rrf", "content": "doc 1", "rrf_score": 0.010, "dense_score": 0.9, "lexical_score": 5.0},
+        # High rrf_score -> should win tie-break
+        {"chunk_id": "c_high_rrf", "content": "doc 2", "rrf_score": 0.030, "dense_score": 0.5, "lexical_score": 2.0},
+        # Same rrf_score as c_high_rrf, but lower dense_score
+        {"chunk_id": "c_mid_dense", "content": "doc 3", "rrf_score": 0.030, "dense_score": 0.2, "lexical_score": 10.0},
+    ]
+
+    results = reranker.rerank(query="test", candidates=candidates, top_k=3)
+    assert len(results) == 3
+    assert results[0]["chunk_id"] == "c_high_rrf"
+    assert results[1]["chunk_id"] == "c_mid_dense"
+    assert results[2]["chunk_id"] == "c_low_rrf"
+
+
+def test_23_expected_unavailability_degrades_gracefully(phase4_test_setup):
+    """Test 23: Expected model availability exceptions (RerankerLoadTimeoutError, RuntimeError, OSError, ImportError) degrade to RRF."""
+    db, _ = phase4_test_setup
+    with db.session() as conn:
+        for exc in [
+            RerankerLoadTimeoutError("Timed out loading model"),
+            RuntimeError("Model file corrupted on disk"),
+            OSError("Read error from model cache"),
+            ImportError("fastembed not installed"),
+            ValueError("Unsupported model identifier"),
+        ]:
+            mock_reranker = mock.MagicMock()
+            mock_reranker.rerank.side_effect = exc
+
+            retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
+            resp = retriever.search("storage engine", top_k=5, mode="hybrid", quality="quality")
+
+            assert resp["mode"] == "hybrid"
+            assert resp["degraded"] is True
+            assert "reranker_unavailable" in resp["degraded_reason"]
+            assert str(exc) in resp["degraded_reason"]
+            assert resp["total_found"] > 0
+            for r in resp["results"]:
+                assert r["reranker_score"] is None
+                assert r["rrf_score"] is not None
+
+
+def test_24_unexpected_programming_error_propagates(phase4_test_setup):
+    """Test 24: Unexpected programming errors (TypeError, AttributeError, KeyError) are NOT mislabeled as reranker_unavailable and propagate."""
+    db, _ = phase4_test_setup
+    with db.session() as conn:
+        for unexpected_exc in [
+            TypeError("search() got an unexpected keyword argument 'bad_kwarg'"),
+            AttributeError("'NoneType' object has no attribute 'expected_property'"),
+            KeyError("internal_logic_missing_key"),
+        ]:
+            mock_reranker = mock.MagicMock()
+            mock_reranker.rerank.side_effect = unexpected_exc
+
+            retriever = HybridRetriever(db_conn=conn, reranker=mock_reranker)
+            with pytest.raises(type(unexpected_exc)):
+                retriever.search("storage engine", top_k=5, mode="hybrid", quality="quality")

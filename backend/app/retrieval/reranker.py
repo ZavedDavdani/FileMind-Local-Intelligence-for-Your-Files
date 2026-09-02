@@ -179,13 +179,14 @@ class Reranker:
         # 5. chunk_id ASC
         scored_items.sort(
             key=lambda x: (
-                -x["reranker_score"],
-                -(x["rrf_score"] if x.get("rrf_score") is not None else 0.0),
-                -(x["dense_score"] if x.get("dense_score") is not None else 0.0),
-                -(x["lexical_score"] if x.get("lexical_score") is not None else 0.0),
+                -float(x.get("reranker_score", 0.0)),
+                -float(x.get("rrf_score") if x.get("rrf_score") is not None else 0.0),
+                -float(x.get("dense_score") if x.get("dense_score") is not None else 0.0),
+                -float(x.get("lexical_score") if x.get("lexical_score") is not None else 0.0),
                 str(x.get("chunk_id", "")),
             )
         )
+
 
         final_results: List[Dict[str, Any]] = []
         for rank, item in enumerate(scored_items[:top_k], start=1):

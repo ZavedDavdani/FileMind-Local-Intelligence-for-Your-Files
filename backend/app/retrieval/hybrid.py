@@ -19,7 +19,7 @@ from app.core.config import DEFAULT_RERANK_POOL
 from app.retrieval.embeddings import EmbeddingEngine, default_embedding_engine
 from app.retrieval.lexical import LexicalRetriever, compute_filename_match_boost, extract_filename_stems
 from app.retrieval.normalizer import NormalizedQuery, normalize_query
-from app.retrieval.reranker import Reranker, default_reranker
+from app.retrieval.reranker import Reranker, RerankerLoadTimeoutError, default_reranker
 from app.retrieval.vector_store import BaseVectorStore, SqliteVecStore
 
 logger = logging.getLogger("FileMind.Retrieval.Hybrid")
@@ -482,7 +482,7 @@ class HybridRetriever:
                             top_k=top_k,
                         )
                         latencies["reranker_inference"] = round((time.perf_counter() - t_rerank) * 1000.0, 3)
-                    except Exception as rerank_exc:
+                    except (RerankerLoadTimeoutError, RuntimeError, OSError, ImportError, ValueError) as rerank_exc:
                         logger.warning(
                             "Reranker unavailable during quality hybrid search; degrading to RRF ranking: %s",
                             str(rerank_exc),
@@ -495,6 +495,7 @@ class HybridRetriever:
                     degraded = True
                     degraded_reason = "reranker_unavailable: reranker not configured"
                     final_results = pre_rerank_items[:top_k]
+
 
         latencies["total_request"] = round((time.perf_counter() - t_request_start) * 1000.0, 3)
 
