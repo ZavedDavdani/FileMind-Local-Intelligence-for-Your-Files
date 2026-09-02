@@ -212,6 +212,7 @@ class Repository:
         self,
         folder_id: Optional[str] = None,
         status: Optional[str] = None,
+        search: Optional[str] = None,
         limit: int = 200,
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
@@ -223,6 +224,13 @@ class Repository:
         if status:
             conditions.append("index_status = ?")
             params.append(status.upper())
+        if search and search.strip():
+            escaped = escape_like_wildcards(search.strip())
+            pattern = f"%{escaped}%"
+            conditions.append(
+                "(filename LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\' OR sha256 LIKE ? ESCAPE '\\')"
+            )
+            params.extend([pattern, pattern, pattern])
 
         where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         query = f"SELECT * FROM files {where_clause} ORDER BY modified_at DESC LIMIT ? OFFSET ?;"
@@ -230,6 +238,34 @@ class Repository:
 
         cursor = self.conn.execute(query, params)
         return [dict(row) for row in cursor.fetchall()]
+
+    def count_files(
+        self,
+        folder_id: Optional[str] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+    ) -> int:
+        conditions = []
+        params = []
+        if folder_id:
+            conditions.append("folder_id = ?")
+            params.append(folder_id)
+        if status:
+            conditions.append("index_status = ?")
+            params.append(status.upper())
+        if search and search.strip():
+            escaped = escape_like_wildcards(search.strip())
+            pattern = f"%{escaped}%"
+            conditions.append(
+                "(filename LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\' OR sha256 LIKE ? ESCAPE '\\')"
+            )
+            params.extend([pattern, pattern, pattern])
+
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        query = f"SELECT COUNT(*) as cnt FROM files {where_clause};"
+        cursor = self.conn.execute(query, params)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
 
     def list_indexed_paths_for_folder(self, folder_id: str) -> List[Dict[str, Any]]:
         """Returns all non-MISSING files in a folder as a list of {file_id, path} dicts.

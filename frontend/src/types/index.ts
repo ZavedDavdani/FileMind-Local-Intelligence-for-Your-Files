@@ -213,6 +213,7 @@ export interface SearchResponse {
   degraded?: boolean;
   degraded_reason?: string | null;
   retrieval_method?: string | null;
+  explicit_filename_intent?: string | null;
 }
 
 export interface SearchRequest {

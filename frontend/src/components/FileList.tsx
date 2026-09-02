@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileItem, IndexStatus } from "../types";
-import { executeSafeAction } from "../services/api";
+import { fetchFiles, executeSafeAction } from "../services/api";
 import { ChunkInspector } from "./ChunkInspector";
 import {
   FileText,
@@ -17,12 +17,15 @@ import {
 } from "lucide-react";
 
 interface FileListProps {
-  files: FileItem[];
+  files?: FileItem[];
   isLoading?: boolean;
   statusFilter: string | null;
   onStatusFilterChange: (status: string | null) => void;
   onNotification: (msg: string) => void;
+  refreshTrigger?: number;
 }
+
+const PAGE_SIZE = 50;
 
 function getFileIcon(ext: string) {
   const cleanExt = ext.toLowerCase();
@@ -91,17 +94,78 @@ function getStatusBadge(status: IndexStatus) {
 }
 
 export function FileList({
-  files = [],
-  isLoading,
+  files: initialFiles,
+  isLoading: initialLoading,
   statusFilter,
   onStatusFilterChange,
   onNotification,
+  refreshTrigger,
 }: FileListProps) {
+  const [files, setFiles] = useState<FileItem[]>(initialFiles || []);
+  const [total, setTotal] = useState<number>(initialFiles?.length || 0);
+  const [isLoading, setIsLoading] = useState<boolean>(initialLoading ?? false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
   const [inspectingFile, setInspectingFile] = useState<{ id: string; name: string } | null>(null);
 
-  const safeFiles = Array.isArray(files) ? files : [];
+  // Debounce search query changes by 250ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Load first page on statusFilter, debouncedSearch, or refreshTrigger change
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+
+    fetchFiles(undefined, statusFilter || undefined, PAGE_SIZE, 0, debouncedSearch || undefined)
+      .then((res) => {
+        if (!isMounted) return;
+        setFiles(res.files || []);
+        setTotal(typeof res.total === "number" ? res.total : (res.files || []).length);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.error("[FileList] Failed to load files:", err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [statusFilter, debouncedSearch, refreshTrigger]);
+
+  const handleLoadMore = async () => {
+    if (isLoadingMore || files.length >= total) return;
+    setIsLoadingMore(true);
+    const nextOffset = files.length;
+    try {
+      const res = await fetchFiles(
+        undefined,
+        statusFilter || undefined,
+        PAGE_SIZE,
+        nextOffset,
+        debouncedSearch || undefined
+      );
+      setFiles((prev) => [...prev, ...(res.files || [])]);
+      if (typeof res.total === "number") {
+        setTotal(res.total);
+      }
+    } catch (err: unknown) {
+      console.error("[FileList] Failed to load more files:", err);
+      const msg = err instanceof Error ? err.message : "Failed to load more files";
+      onNotification(`Error: ${msg}`);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   const handleAction = async (action: "OPEN_FILE" | "OPEN_FOLDER" | "COPY_PATH", path: string) => {
     try {
@@ -121,16 +185,6 @@ export function FileList({
     }
   };
 
-  const filteredFiles = safeFiles.filter((f) => {
-    const matchesSearch =
-      f.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      f.relative_path.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (f.sha256 && f.sha256.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const matchesStatus = !statusFilter || f.index_status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
   return (
     <div className="flex-1 bg-dark-800/60 border border-dark-700/60 rounded-2xl flex flex-col min-h-0 shadow-lg overflow-hidden">
       {/* Header with Search and Filter */}
@@ -139,7 +193,7 @@ export function FileList({
           <FileText className="w-5 h-5 text-indigo-400" />
           <h2 className="text-sm font-semibold text-white">Tracked Files</h2>
           <span className="text-xs bg-dark-700 px-2 py-0.5 rounded-full text-slate-300 font-mono">
-            {filteredFiles.length}
+            {files.length === total ? `${total}` : `${files.length} of ${total}`}
           </span>
         </div>
 
@@ -149,7 +203,7 @@ export function FileList({
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search filename, relative path, or SHA-256..."
+              placeholder="Search filename, relative path, or SHA-256 across corpus..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 bg-dark-900 border border-dark-600 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
@@ -174,92 +228,109 @@ export function FileList({
       </div>
 
       {/* Files Table / List */}
-      <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-dark-700/40 font-mono text-xs">
-        {isLoading && (
+      <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-dark-700/40 font-mono text-xs flex flex-col">
+        {isLoading && files.length === 0 && (
           <div className="p-8 text-center text-slate-400">Loading tracked files...</div>
         )}
 
-        {!isLoading && filteredFiles.length === 0 && (
+        {!isLoading && files.length === 0 && (
           <div className="p-8 text-center text-slate-500 text-xs">
             No files match the current query or filter.
           </div>
         )}
 
-        {filteredFiles.map((file) => (
-          <div
-            key={file.file_id || file.path}
-            className="px-4 py-2.5 flex items-center justify-between hover:bg-dark-700/30 transition-colors group"
-          >
-            {/* File Info */}
-            <div className="flex items-center space-x-3 min-w-0 flex-1 pr-4">
-              {getFileIcon(file.extension)}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-slate-100 truncate">{file.filename}</span>
-                  {getStatusBadge(file.index_status)}
-                </div>
-                <div className="flex items-center space-x-3 text-[11px] text-slate-400 mt-0.5 truncate">
-                  <span className="truncate" title={file.relative_path}>
-                    {file.relative_path}
-                  </span>
-                  {file.sha256 && (
-                    <span
-                      className="text-[10px] text-slate-500 flex items-center space-x-1 shrink-0"
-                      title={`SHA-256: ${file.sha256}`}
-                    >
-                      <Hash className="w-3 h-3 text-slate-600" />
-                      <span>{file.sha256.substring(0, 12)}...</span>
+        <div className="divide-y divide-dark-700/40 flex-1">
+          {files.map((file) => (
+            <div
+              key={file.file_id || file.path}
+              className="px-4 py-2.5 flex items-center justify-between hover:bg-dark-700/30 transition-colors group"
+            >
+              {/* File Info */}
+              <div className="flex items-center space-x-3 min-w-0 flex-1 pr-4">
+                {getFileIcon(file.extension)}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-semibold text-slate-100 truncate">{file.filename}</span>
+                    {getStatusBadge(file.index_status)}
+                  </div>
+                  <div className="flex items-center space-x-3 text-[11px] text-slate-400 mt-0.5 truncate">
+                    <span className="truncate" title={file.relative_path}>
+                      {file.relative_path}
                     </span>
+                    {file.sha256 && (
+                      <span
+                        className="text-[10px] text-slate-500 flex items-center space-x-1 shrink-0"
+                        title={`SHA-256: ${file.sha256}`}
+                      >
+                        <Hash className="w-3 h-3 text-slate-600" />
+                        <span>{file.sha256.substring(0, 12)}...</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Metadata & Actions */}
+              <div className="flex items-center space-x-4 shrink-0 text-slate-400 text-[11px]">
+                <span className="w-16 text-right font-mono">{formatBytes(file.size_bytes)}</span>
+
+                {/* Action Buttons */}
+                <div className="flex items-center space-x-1 opacity-80 group-hover:opacity-100">
+                  {file.file_id && file.index_status === "INDEXED" && (
+                    <button
+                      onClick={() => setInspectingFile({ id: file.file_id!, name: file.filename })}
+                      className="p-1 hover:text-cyan-300 hover:bg-dark-600 rounded flex items-center space-x-1 px-1.5 py-0.5 bg-dark-700/60 border border-dark-600 text-cyan-400"
+                      title="Inspect extracted chunks and provenance"
+                    >
+                      <Layers className="w-3 h-3" />
+                      <span className="text-[10px]">Chunks</span>
+                    </button>
                   )}
+                  <button
+                    onClick={() => handleAction("OPEN_FILE", file.path)}
+                    className="p-1 hover:text-indigo-300 hover:bg-dark-600 rounded"
+                    title="Open file with default app"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleAction("OPEN_FOLDER", file.path)}
+                    className="p-1 hover:text-indigo-300 hover:bg-dark-600 rounded"
+                    title="Show in Explorer"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleAction("COPY_PATH", file.path)}
+                    className="p-1 hover:text-indigo-300 hover:bg-dark-600 rounded"
+                    title="Copy full path"
+                  >
+                    {copiedPath === file.path ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
+          ))}
+        </div>
 
-            {/* Metadata & Actions */}
-            <div className="flex items-center space-x-4 shrink-0 text-slate-400 text-[11px]">
-              <span className="w-16 text-right font-mono">{formatBytes(file.size_bytes)}</span>
-
-              {/* Action Buttons */}
-              <div className="flex items-center space-x-1 opacity-80 group-hover:opacity-100">
-                {file.file_id && file.index_status === "INDEXED" && (
-                  <button
-                    onClick={() => setInspectingFile({ id: file.file_id!, name: file.filename })}
-                    className="p-1 hover:text-cyan-300 hover:bg-dark-600 rounded flex items-center space-x-1 px-1.5 py-0.5 bg-dark-700/60 border border-dark-600 text-cyan-400"
-                    title="Inspect extracted chunks and provenance"
-                  >
-                    <Layers className="w-3 h-3" />
-                    <span className="text-[10px]">Chunks</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => handleAction("OPEN_FILE", file.path)}
-                  className="p-1 hover:text-indigo-300 hover:bg-dark-600 rounded"
-                  title="Open file with default app"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => handleAction("OPEN_FOLDER", file.path)}
-                  className="p-1 hover:text-indigo-300 hover:bg-dark-600 rounded"
-                  title="Show in Explorer"
-                >
-                  <FolderOpen className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => handleAction("COPY_PATH", file.path)}
-                  className="p-1 hover:text-indigo-300 hover:bg-dark-600 rounded"
-                  title="Copy full path"
-                >
-                  {copiedPath === file.path ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
-            </div>
+        {/* Load More Pagination Footer */}
+        {files.length < total && (
+          <div className="p-3 text-center bg-dark-900/40 border-t border-dark-700/40">
+            <button
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="px-4 py-1.5 text-xs font-medium text-indigo-400 hover:text-indigo-200 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-800/60 rounded-lg transition disabled:opacity-50 cursor-pointer"
+            >
+              {isLoadingMore
+                ? "Loading more files..."
+                : `Load More (${total - files.length} remaining)`}
+            </button>
           </div>
-        ))}
+        )}
       </div>
 
       {/* Chunk Inspector Modal */}

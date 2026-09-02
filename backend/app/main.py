@@ -261,15 +261,25 @@ def delete_folder(folder_id: str):
 def list_files(
     folder_id: Optional[str] = None,
     status_filter: Optional[str] = Query(None, alias="status"),
+    search: Optional[str] = Query(None),
     limit: int = Query(200, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ) -> FileListResponse:
-    """Lists tracked files with optional status filtering and pagination."""
+    """Lists tracked files with optional status filtering, keyword/SHA search, and pagination."""
     with db_manager.session() as conn:
         repo = Repository(conn)
-        files = repo.list_files(folder_id=folder_id, status=status_filter, limit=limit, offset=offset)
-        counts = repo.count_files_by_status(folder_id=folder_id)
-        total = counts["TOTAL"]
+        files = repo.list_files(
+            folder_id=folder_id,
+            status=status_filter,
+            search=search,
+            limit=limit,
+            offset=offset,
+        )
+        total = repo.count_files(
+            folder_id=folder_id,
+            status=status_filter,
+            search=search,
+        )
         return FileListResponse(
             total=total,
             files=[FileItem(**f) for f in files],

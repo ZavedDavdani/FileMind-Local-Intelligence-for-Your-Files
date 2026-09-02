@@ -13,22 +13,21 @@ import {
   createFolder,
   updateFolder,
   deleteFolder,
-  fetchFiles,
   fetchIndexingStatus,
   controlIndexing,
   fetchEvents,
 } from "./services/api";
-import { Folder, FileItem, IndexingStatus, EventItem, IntegrityMode } from "./types";
+import { Folder, IndexingStatus, EventItem, IntegrityMode } from "./types";
 import { AlertCircle, Search } from "lucide-react";
 
 export function App() {
   const { status, healthData, latencyMs, errorMessage, recheck } = useBackendHealth();
 
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [files, setFiles] = useState<FileItem[]>([]);
   const [indexingStatus, setIndexingStatus] = useState<IndexingStatus | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState<number>(0);
   const [notification, setNotification] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
@@ -49,24 +48,23 @@ export function App() {
   const refreshAll = useCallback(async () => {
     if (status !== "online") return;
     try {
-      const [foldersData, statusData, filesData, eventsData] = await Promise.all([
+      const [foldersData, statusData, eventsData] = await Promise.all([
         fetchFolders(),
         fetchIndexingStatus(),
-        fetchFiles(undefined, statusFilter || undefined, 100),
         fetchEvents(undefined, 20),
       ]);
       setFolders(Array.isArray(foldersData) ? foldersData : []);
       setIndexingStatus(statusData);
-      setFiles(Array.isArray(filesData?.files) ? filesData.files : []);
       setEvents(Array.isArray(eventsData) ? eventsData : []);
       setLastSyncTime(new Date().toISOString());
+      setRefreshTick((t) => t + 1);
       setErrorBanner(null);
     } catch (err: unknown) {
       console.error("[App] refreshAll error:", err);
       const msg = err instanceof Error ? err.message : "Sync error";
       setErrorBanner(msg);
     }
-  }, [status, statusFilter]);
+  }, [status]);
 
   // Initial load and periodic polling every 2.5 seconds
   useEffect(() => {
@@ -238,10 +236,10 @@ export function App() {
 
         {/* Discovered & Tracked Files Table */}
         <FileList
-          files={files}
           statusFilter={statusFilter}
           onStatusFilterChange={(s) => setStatusFilter(s)}
           onNotification={notify}
+          refreshTrigger={refreshTick}
         />
 
         {/* Filesystem Event Audit Log */}
@@ -252,7 +250,7 @@ export function App() {
       <StateIndicator
         lastUpdatedTime={lastSyncTime}
         notification={notification}
-        totalFiles={indexingStatus?.total_files || files.length}
+        totalFiles={indexingStatus?.total_files || 0}
       />
 
       {/* Phase 3: Spotlight / Raycast Search Modal */}

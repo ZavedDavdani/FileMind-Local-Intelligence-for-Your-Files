@@ -296,6 +296,7 @@ class SearchResponse(BaseModel):
     degraded: bool = False
     degraded_reason: Optional[str] = None
     retrieval_method: Optional[str] = None
+    explicit_filename_intent: Optional[str] = None
 
 
 

@@ -232,6 +232,7 @@ class HybridRetriever:
                 "degraded": False,
                 "degraded_reason": None,
                 "retrieval_method": mode,
+                "explicit_filename_intent": None,
             }
 
         # Stage A.1: Explicit Filename Intent Handling
@@ -275,6 +276,7 @@ class HybridRetriever:
                     "degraded": False,
                     "degraded_reason": None,
                     "retrieval_method": mode,
+                    "explicit_filename_intent": filename_intent,
                 }
             elif mode == "dense" and not effective_filters.get("file_id") and len(matched_files) == 1:
                 # If explicit filename matches an indexed file in Dense mode, scope dense retrieval to that file
@@ -651,5 +653,6 @@ class HybridRetriever:
             "degraded": degraded,
             "degraded_reason": degraded_reason,
             "retrieval_method": retrieval_method,
+            "explicit_filename_intent": filename_intent,
         }
 

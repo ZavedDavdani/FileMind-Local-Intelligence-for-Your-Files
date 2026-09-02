@@ -42,8 +42,19 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
       .finally(() => setLoading(false));
   }, [fileId, initialChunkId]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <div
+      onClick={onClose}
       style={{
         position: "fixed",
         top: 0,
@@ -59,6 +70,10 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Chunk Inspector — ${filename}`}
+        onClick={(e) => e.stopPropagation()}
         style={{
           backgroundColor: "#1e1e2e",
           color: "#cdd6f4",

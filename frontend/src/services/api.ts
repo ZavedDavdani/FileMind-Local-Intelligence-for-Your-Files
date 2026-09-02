@@ -240,11 +240,13 @@ export async function fetchFiles(
   folderId?: string,
   status?: string,
   limit = 100,
-  offset = 0
+  offset = 0,
+  search?: string
 ): Promise<{ total: number; files: FileItem[] }> {
   const params = new URLSearchParams();
   if (folderId) params.append("folder_id", folderId);
   if (status) params.append("status", status);
+  if (search && search.trim()) params.append("search", search.trim());
   params.append("limit", limit.toString());
   params.append("offset", offset.toString());
 

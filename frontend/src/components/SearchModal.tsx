@@ -191,8 +191,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 bg-slate-950/70 backdrop-blur-sm animate-fade-in p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-16 bg-slate-950/70 backdrop-blur-sm animate-fade-in p-4"
+      onClick={onClose}
+    >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search Modal"
         className="w-full max-w-3xl bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -446,13 +452,13 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               {response.results.length === 0 && (
                 <div className="py-8 text-center text-slate-500 text-sm space-y-1">
                   <div className="font-medium text-slate-400">
-                    {query.includes(".") && !query.includes("?") && query.trim().split(/\s+/).length <= 3
+                    {response.explicit_filename_intent
                       ? "File not found or not indexed"
                       : "No matching chunks found"}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {query.includes(".") && !query.includes("?") && query.trim().split(/\s+/).length <= 3
-                      ? `No indexed file matching "${query.trim()}" exists in the current corpus.`
+                    {response.explicit_filename_intent
+                      ? `No indexed file matching "${response.explicit_filename_intent}" exists in the current corpus.`
                       : "Try broader keywords or change retrieval mode."}
                   </div>
                 </div>
