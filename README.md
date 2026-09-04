@@ -31,9 +31,10 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Hardening Batch 2** | Filesystem, Parsers & Security Hardening (Unclosed MD code blocks, Go parsing, PPTX notes, XLSX lines, Explorer quoting) | ✅ Complete / VERIFIED |
 | **Hardening Batch 3** | Frontend, Tauri & E2E Reliability (React lifecycle, zero-padded Ask citations, Page Visibility polling, sheet cancellation) | ✅ Complete / VERIFIED |
 | **Hardening Batch 4** | Final Performance, Audit & Phase 5 Freeze (Knowledge connections $O(C \cdot N)$ scale, 115-item reconciliation) | ❄️ **PHASE 5 FROZEN** |
-| **Phase 6** | Evaluation / MLOps (Expanded evaluation dataset, Ragas metrics, regression gates) | ⏳ PENDING |
-| **Phase 7** | Multimodal Intelligence (Optional: OCR, complex visual tables, ColPali) | ⏳ PENDING |
+| **Phase 6** | Backend Architecture & Performance Refactor (Modular APIRouters, domain repos, batched connections, security extraction) | ✅ Complete / VERIFIED |
+| **Phase 7** | Evaluation / MLOps (Expanded evaluation dataset, Ragas metrics, regression gates) | ⏳ PENDING |
 | **Phase 8** | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
+
 | **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
 | **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
 

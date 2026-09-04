@@ -76,6 +76,13 @@ VERIFIED PASS (`cargo check`, 0 errors)
 Phase 5 Release Gate Decision:
 PHASE 5 — FROZEN (0 unresolved P0/P1 blockers, 115-item audit reconciled, release gates locked)
 
+Phase 6 — Backend Architecture & Performance Refactor:
+COMPLETE & VERIFIED (Modular APIRouters, domain-separated repositories, request-scoped dependencies, @map_service_errors, resolve_and_authorize security boundary, batched Knowledge Connections)
+- Backend Test Suite: 490 / 491 PASS (490 passed, 1 skipped, 0 failed)
+- Frontend Production Build: VERIFIED PASS (TypeScript + Vite, 1,606 modules, 0 errors)
+- Tauri v2 Desktop Check: VERIFIED PASS (`cargo check`, 0 errors)
+
+
 
 
 
