@@ -1,16 +1,18 @@
-"""Dynamic, source-backed knowledge connections for Phase 5.5 Batch 3.2.
+"""Dynamic, source-backed knowledge connections for Phase 5.5 Batch 3.2 & Phase 6 optimization.
 
 Connections are intentionally not persisted: every response is reconstructed
 from the current file records, chunks, and valid Document Insight cache.
 """
 
+from __future__ import annotations
+
 import re
 from typing import Any, Dict, List, Set
 
-from app.db.connection import DatabaseManager
-from app.db.repository import Repository
 from app.ai.document_understanding import DocumentUnderstandingService
 from app.core.config import OLLAMA_MODEL
+from app.db.connection import DatabaseManager
+from app.db.repository import Repository
 
 
 def _topic_key(topic: str) -> str:
@@ -18,39 +20,14 @@ def _topic_key(topic: str) -> str:
 
 
 class KnowledgeConnectionService:
-    """Builds explainable shared-topic and exact file-reference links."""
+    """Builds explainable shared-topic and exact file-reference links.
+
+    Behavior-preserving rewrite: batches per-file DB lookups and precomputes
+    a single reference target list instead of an O(chunks x files) unbatched scan.
+    """
 
     def __init__(self, db_manager: DatabaseManager):
         self.db = db_manager
-
-    @staticmethod
-    def _citation_is_current(repo: Repository, citation: Dict[str, Any], file_rec: Dict[str, Any]) -> bool:
-        chunk_id = citation.get("chunk_id")
-        if not chunk_id:
-            return False
-        chunk = repo.get_chunk_by_id(chunk_id)
-        return bool(
-            chunk
-            and chunk.get("file_id") == file_rec.get("file_id")
-            and citation.get("content_hash") == chunk.get("content_hash")
-        )
-
-    def _current_topic_insight(self, repo: Repository, file_rec: Dict[str, Any]) -> Dict[str, Any] | None:
-        insight = repo.get_document_insight(file_rec["file_id"], model_name=OLLAMA_MODEL)
-        chunks = repo.get_chunks_by_file(file_rec["file_id"])
-        if not insight or not DocumentUnderstandingService.is_cached_insight_current(
-            file_rec, chunks, insight, OLLAMA_MODEL
-        ):
-            return None
-        citations = [
-            citation for citation in insight.get("citations") or []
-            if self._citation_is_current(repo, citation, file_rec)
-        ]
-        # Topics are generated derived knowledge; do not expose them as a
-        # connection unless their insight still has resolvable evidence.
-        if not citations:
-            return None
-        return {"topics": insight.get("key_topics") or [], "citations": citations}
 
     @staticmethod
     def _file_view(file_rec: Dict[str, Any]) -> Dict[str, Any]:
@@ -83,7 +60,48 @@ class KnowledgeConnectionService:
         if not value:
             return False
         escaped = re.escape(value)
-        return bool(re.search(r"(?<![\\w./-])" + escaped + r"(?![\\w./-])", content.replace("\\", "/"), re.I))
+        return bool(
+            re.search(r"(?<![\w./-])" + escaped + r"(?![\w./-])", content.replace("\\", "/"), re.I)
+        )
+
+    def _current_topic_insights_batch(
+        self, repo: Repository, files: List[Dict[str, Any]]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Batched replacement for per-file insight, chunk, and citation queries."""
+        file_ids = [f["file_id"] for f in files]
+        insights_by_file = repo.get_document_insights_by_files(file_ids, model_name=OLLAMA_MODEL)
+        chunks_by_file = repo.get_chunks_by_files(file_ids)
+
+        # Batch-fetch every citation's chunk in one query instead of one-by-one.
+        all_citation_ids: Set[str] = set()
+        for insight in insights_by_file.values():
+            for citation in insight.get("citations") or []:
+                if citation.get("chunk_id"):
+                    all_citation_ids.add(citation["chunk_id"])
+        chunks_by_id = repo.get_chunks_by_ids(list(all_citation_ids)) if all_citation_ids else {}
+
+        result: Dict[str, Dict[str, Any]] = {}
+        by_id = {f["file_id"]: f for f in files}
+        for file_id, insight in insights_by_file.items():
+            file_rec = by_id.get(file_id)
+            chunks = chunks_by_file.get(file_id, [])
+            if not file_rec or not insight:
+                continue
+            if not DocumentUnderstandingService.is_cached_insight_current(
+                file_rec, chunks, insight, OLLAMA_MODEL
+            ):
+                continue
+            citations = []
+            for citation in insight.get("citations") or []:
+                chunk = chunks_by_id.get(citation.get("chunk_id"))
+                if chunk and chunk.get("file_id") == file_id and citation.get(
+                    "content_hash"
+                ) == chunk.get("content_hash"):
+                    citations.append(citation)
+            if not citations:
+                continue
+            result[file_id] = {"topics": insight.get("key_topics") or [], "citations": citations}
+        return result
 
     def get_connections(self, file_id: str) -> Dict[str, Any]:
         with self.db.session() as conn:
@@ -98,11 +116,13 @@ class KnowledgeConnectionService:
             connections: List[Dict[str, Any]] = []
             seen: Set[tuple[str, str, str]] = set()
 
-            source_insight = self._current_topic_insight(repo, source)
+            # --- shared-topic connections: batched instead of per-target queries ---
+            insights_by_file = self._current_topic_insights_batch(repo, indexed + [source])
+            source_insight = insights_by_file.get(file_id)
             if source_insight:
                 source_topics = {_topic_key(t): str(t).strip() for t in source_insight["topics"] if _topic_key(t)}
                 for target in indexed:
-                    target_insight = self._current_topic_insight(repo, target)
+                    target_insight = insights_by_file.get(target["file_id"])
                     if not target_insight:
                         continue
                     target_topics = {_topic_key(t) for t in target_insight["topics"] if _topic_key(t)}
@@ -120,27 +140,29 @@ class KnowledgeConnectionService:
                             "target_evidence": target_insight["citations"],
                         })
 
-            reference_candidates: Dict[str, tuple[int, int, str, Dict[str, Any], str]] = {}
+            # --- file-reference connections: single pass instead of chunk x file scan ---
             filename_counts: Dict[str, int] = {}
             for f in indexed + [source]:
                 name = (f.get("filename") or "").casefold()
                 if name:
                     filename_counts[name] = filename_counts.get(name, 0) + 1
 
+            # Build the candidate reference list ONCE (not per chunk).
+            reference_targets = []  # (relative, filename_if_unique, target_rec)
+            for target in indexed:
+                relative = (target.get("relative_path") or "").replace("\\", "/")
+                filename = target.get("filename") or ""
+                unique_filename = filename if filename_counts.get(filename.casefold(), 0) == 1 else None
+                reference_targets.append((relative, unique_filename, target))
+
+            reference_candidates: Dict[str, tuple[int, int, str, Dict[str, Any], str]] = {}
             for chunk in repo.get_chunks_by_file(file_id):
                 content = chunk.get("content") or ""
-                for target in indexed:
-                    relative = (target.get("relative_path") or "").replace("\\", "/")
-                    filename = target.get("filename") or ""
-                    references = [relative] if relative else []
-                    # A basename is only safe when it uniquely identifies one indexed file.
-                    if filename and filename_counts.get(filename.casefold(), 0) == 1:
-                        references.append(filename)
+                for relative, unique_filename, target in reference_targets:
+                    references = [r for r in (relative, unique_filename) if r]
                     matched = next((r for r in references if self._contains_exact_reference(content, r)), None)
                     if not matched:
                         continue
-                    # Prefer a relative-path match over a basename, then use
-                    # stable chunk order/identity to retain one useful proof.
                     rank = 0 if matched == relative else 1
                     candidate = (rank, int(chunk.get("chunk_index") or 0), chunk["chunk_id"], chunk, matched)
                     existing = reference_candidates.get(target["file_id"])
@@ -159,5 +181,7 @@ class KnowledgeConnectionService:
                     "target_evidence": [],
                 })
 
-            connections.sort(key=lambda item: (item["connection_type"], item["target_file"]["relative_path"] or "", item["label"].casefold()))
+            connections.sort(
+                key=lambda item: (item["connection_type"], item["target_file"]["relative_path"] or "", item["label"].casefold())
+            )
             return {"source_file": self._file_view(source), "connections": connections}
