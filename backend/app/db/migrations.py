@@ -3,7 +3,7 @@
 import sqlite3
 from typing import List, Tuple
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 
 MIGRATION_V1_SQL = """
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS file_events (
     event_id TEXT PRIMARY KEY,
     folder_id TEXT NOT NULL,
     file_id TEXT,
-    event_type TEXT NOT NULL CHECK (event_type IN ('CREATE', 'MODIFY', 'DELETE', 'MOVE', 'RENAME')),
+    event_type TEXT NOT NULL CHECK (event_type IN ('CREATE', 'MODIFY', 'DELETE', 'MOVE', 'RENAME', 'SCAN_ERROR')),
     path TEXT NOT NULL,
     old_path TEXT,
     observed_at TEXT DEFAULT (datetime('now')),
@@ -243,6 +243,27 @@ CREATE INDEX IF NOT EXISTS idx_folder_insights_status ON folder_insights(status)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_folder_insights_folder_model ON folder_insights(folder_id, model_name);
 """
 
+MIGRATION_V8_SQL = """
+-- Phase 6: Expand file_events event_type to include SCAN_ERROR
+CREATE TABLE IF NOT EXISTS file_events_new (
+    event_id TEXT PRIMARY KEY,
+    folder_id TEXT NOT NULL,
+    file_id TEXT,
+    event_type TEXT NOT NULL CHECK (event_type IN ('CREATE', 'MODIFY', 'DELETE', 'MOVE', 'RENAME', 'SCAN_ERROR')),
+    path TEXT NOT NULL,
+    old_path TEXT,
+    observed_at TEXT DEFAULT (datetime('now')),
+    processed_at TEXT,
+    processing_status TEXT NOT NULL DEFAULT 'PENDING' CHECK (processing_status IN ('PENDING', 'PROCESSED', 'IGNORED', 'FAILED')),
+    FOREIGN KEY (folder_id) REFERENCES folders(folder_id) ON DELETE CASCADE
+);
+INSERT INTO file_events_new (event_id, folder_id, file_id, event_type, path, old_path, observed_at, processed_at, processing_status)
+SELECT event_id, folder_id, file_id, event_type, path, old_path, observed_at, processed_at, processing_status FROM file_events;
+DROP TABLE file_events;
+ALTER TABLE file_events_new RENAME TO file_events;
+CREATE INDEX IF NOT EXISTS idx_events_folder_time ON file_events(folder_id, observed_at DESC);
+"""
+
 
 
 def apply_migrations(conn: sqlite3.Connection) -> int:
@@ -297,5 +318,10 @@ def apply_migrations(conn: sqlite3.Connection) -> int:
         cursor.executescript(MIGRATION_V7_SQL)
         cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (7);")
         current_version = 7
+
+    if current_version < 8:
+        cursor.executescript(MIGRATION_V8_SQL)
+        cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (8);")
+        current_version = 8
 
     return current_version

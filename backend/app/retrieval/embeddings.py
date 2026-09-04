@@ -27,6 +27,8 @@ import time
 from typing import List, Optional
 import numpy as np
 
+from app.core.config import EMBEDDING_RETRY_COOLDOWN_SECONDS
+
 logger = logging.getLogger("FileMind.Retrieval.Embeddings")
 
 DEFAULT_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
@@ -35,7 +37,7 @@ DEFAULT_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 # FastEmbed's internal HTTP-retry schedule: 3 s -> 9 s -> 27 s ≈ 39 s total.
 # During normal operation the model is already cached locally and loads in < 2 s.
 EMBEDDING_LOAD_TIMEOUT_SECONDS = 15.0
-RETRY_COOLDOWN_SECONDS = 0.0
+RETRY_COOLDOWN_SECONDS = EMBEDDING_RETRY_COOLDOWN_SECONDS
 
 MODEL_DIMENSIONS = {
     "BAAI/bge-small-en-v1.5": 384,

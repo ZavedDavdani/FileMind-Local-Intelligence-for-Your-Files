@@ -21,11 +21,13 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-from app.core.config import DEFAULT_RERANK_MODEL_NAME, RERANKER_LOAD_TIMEOUT_SECONDS
+from app.core.config import (
+    DEFAULT_RERANK_MODEL_NAME,
+    RERANKER_LOAD_TIMEOUT_SECONDS,
+    RERANKER_RETRY_COOLDOWN_SECONDS,
+)
 
 logger = logging.getLogger("FileMind.Retrieval.Reranker")
-
-RERANKER_RETRY_COOLDOWN_SECONDS = 0.0
 
 
 def _sigmoid(x: float) -> float:

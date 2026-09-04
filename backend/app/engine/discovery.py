@@ -224,8 +224,7 @@ class FilesystemScanner:
                     # Record failure in database if file exists
                     existing = self.repo.get_file_by_path(file_abs)
                     if existing:
-                        self.repo.fail_job(
-                            job_id="system-scan",
+                        self.repo.record_scan_error(
                             file_id=existing["file_id"],
                             error_message=f"Access error during scan: {str(exc)}",
                         )

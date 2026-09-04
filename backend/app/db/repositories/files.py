@@ -1,4 +1,4 @@
-﻿"""File repository domain operations."""
+"""File repository domain operations."""
 
 import os
 import sqlite3
@@ -293,6 +293,47 @@ class FileRepository:
             (status.upper(), error, now, file_id),
         )
         return cursor.rowcount > 0
+
+    def record_scan_error(self, file_id: str, error_message: str) -> bool:
+        """
+        Records a discovery-time filesystem/scan error for a file without requiring an indexing job.
+        Sets index_status = 'FAILED' and indexing_error = error_message.
+        Avoids changing files whose status is 'MISSING'.
+        Persists a SCAN_ERROR event.
+        Returns True if the file was updated, False otherwise.
+        """
+        now = _utcnow_iso()
+        cursor = self.conn.execute(
+            """
+            UPDATE files
+            SET index_status = 'FAILED', indexing_error = ?, last_seen_at = ?
+            WHERE file_id = ? AND index_status != 'MISSING';
+            """,
+            (error_message, now, file_id),
+        )
+        if cursor.rowcount == 0:
+            return False
+
+        file_row = self.get_file_by_id(file_id)
+        if file_row:
+            if hasattr(self, "log_event"):
+                self.log_event(
+                    folder_id=file_row["folder_id"],
+                    event_type="SCAN_ERROR",
+                    path=file_row["path"],
+                    file_id=file_id,
+                    status="FAILED",
+                )
+            else:
+                eid = str(uuid.uuid4())
+                self.conn.execute(
+                    """
+                    INSERT INTO file_events (event_id, folder_id, file_id, event_type, path, observed_at, processing_status)
+                    VALUES (?, ?, ?, 'SCAN_ERROR', ?, ?, 'FAILED');
+                    """,
+                    (eid, file_row["folder_id"], file_id, file_row["path"], now),
+                )
+        return True
 
     def delete_file(self, file_id: str) -> bool:
         # Clean up chunk_vectors virtual table entries before cascading relational delete

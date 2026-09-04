@@ -206,8 +206,9 @@ def populated_folder(test_db):
 # ---------------------------------------------------------------------------
 
 def test_migration_v7_schema_and_version(test_db):
-    """Verifies that Migration V7 created folder_insights table and schema version is 7."""
-    assert SCHEMA_VERSION == 7
+    """Verifies that Migration V7 created folder_insights table and schema version is at least 7."""
+    assert SCHEMA_VERSION >= 7
+
     with test_db.session() as conn:
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='folder_insights';")
         assert cursor.fetchone() is not None

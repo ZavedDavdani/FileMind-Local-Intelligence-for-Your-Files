@@ -234,6 +234,7 @@ class WorkerPool:
                     # Compute vector embeddings outside the SQLite write transaction
                     vec_records = []
                     dimension = 384
+                    vector_write_skipped_reason: Optional[str] = None
                     if chunks:
                         try:
                             from app.retrieval.embeddings import default_embedding_engine
@@ -247,6 +248,7 @@ class WorkerPool:
                             ]
                         except Exception as vec_exc:
                             logger.warning("Vector embedding generation warning for file %s: %s", file_id, str(vec_exc))
+                            vector_write_skipped_reason = f"Vector embedding generation warning: {str(vec_exc)}"
 
                     # 4. Atomic Persistence & Vector Indexing
                     with self.db.session() as conn:
@@ -285,13 +287,16 @@ class WorkerPool:
                                 # error otherwise). Refuse the write and surface loudly;
                                 # a full corpus re-embed is required before dense search
                                 # can be trusted again.
+                                vector_write_skipped_reason = (
+                                    "Vector write skipped: active embedding identity "
+                                    f"({identity.get('provider')}:{identity.get('model_name')}:{identity.get('dimension')}d) "
+                                    "differs from existing vector index. Dense search is unavailable for this file; "
+                                    "a full corpus re-embed/rebuild is required."
+                                )
                                 logger.error(
-                                    "Embedding model identity mismatch for file %s: "
-                                    "vector index was built with a different model than "
-                                    "the currently active one (%s). Skipping vector write "
-                                    "to avoid corrupting dense search; a full re-embedding "
-                                    "of the corpus is required.",
-                                    file_id, identity,
+                                    "Embedding model identity mismatch for file %s: %s",
+                                    file_id,
+                                    vector_write_skipped_reason,
                                 )
                             else:
                                 vec_store.upsert_vectors(vec_records)
@@ -306,22 +311,29 @@ class WorkerPool:
 
 
                     # 5. Mark Job Complete
-                    if hasattr(doc, "quality_assessment") and doc.quality_assessment and doc.quality_assessment.status == "PARSE_WARNING":
-                        self.queue.complete_job(
-                            job_id,
-                            file_id,
-                            sha256=sha256_hash,
-                            final_status="INDEXED",
-                            indexing_error=doc.quality_assessment.to_json()
-                        )
-                    else:
-                        self.queue.complete_job(
-                            job_id,
-                            file_id,
-                            sha256=sha256_hash,
-                            final_status="INDEXED",
-                            indexing_error=None
-                        )
+                    parse_warning_msg = None
+                    if (
+                        hasattr(doc, "quality_assessment")
+                        and doc.quality_assessment
+                        and doc.quality_assessment.status == "PARSE_WARNING"
+                    ):
+                        parse_warning_msg = doc.quality_assessment.to_json()
+
+                    final_error = None
+                    if parse_warning_msg and vector_write_skipped_reason:
+                        final_error = f"{parse_warning_msg} | {vector_write_skipped_reason}"
+                    elif parse_warning_msg:
+                        final_error = parse_warning_msg
+                    elif vector_write_skipped_reason:
+                        final_error = vector_write_skipped_reason
+
+                    self.queue.complete_job(
+                        job_id,
+                        file_id,
+                        sha256=sha256_hash,
+                        final_status="INDEXED",
+                        indexing_error=final_error,
+                    )
 
                 except EncryptedDocumentError as enc_exc:
                     logger.info("File %s is encrypted/password protected: %s", file_path, str(enc_exc))

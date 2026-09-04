@@ -462,7 +462,8 @@ def test_l5_failed_init_allows_retry():
     """L5: After a failed init (error signalled), the next call to _ensure_loaded()
     starts a fresh daemon thread (correct retry semantics)."""
     short_timeout = 1.0
-    engine = EmbeddingEngine(DEFAULT_MODEL_NAME, load_timeout=short_timeout)
+    engine = EmbeddingEngine(DEFAULT_MODEL_NAME, load_timeout=short_timeout, retry_cooldown=0.0)
+
 
     mock_model = mock.MagicMock()
 

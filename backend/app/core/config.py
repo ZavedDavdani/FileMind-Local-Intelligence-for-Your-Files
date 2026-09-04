@@ -41,10 +41,18 @@ MAX_LOG_BYTES = 5 * 1024 * 1024  # 5 MB per log file
 LOG_BACKUP_COUNT = 5  # Retain up to 5 rotated backup files
 DEFAULT_LOG_LEVEL = os.environ.get("FILEMIND_LOG_LEVEL", "INFO").upper()
 
+# Phase 3 Embedding configuration defaults
+EMBEDDING_RETRY_COOLDOWN_SECONDS = float(
+    os.environ.get("FILEMIND_EMBED_RETRY_COOLDOWN_SEC", "30.0")
+)
+
 # Phase 4 Reranker configuration defaults
 DEFAULT_RERANK_MODEL_NAME = "BAAI/bge-reranker-base"
 DEFAULT_RERANK_POOL = 25
 RERANKER_LOAD_TIMEOUT_SECONDS = 15.0
+RERANKER_RETRY_COOLDOWN_SECONDS = float(
+    os.environ.get("FILEMIND_RERANK_RETRY_COOLDOWN_SEC", "30.0")
+)
 
 OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 OLLAMA_MODEL = "qwen3:4b"
