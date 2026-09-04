@@ -30,13 +30,14 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Hardening Batch 1** | Backend Core, Data Integrity & AI Hardening (`LocalGenerationCoordinator`, zero-padded citations) | ✅ Complete / VERIFIED |
 | **Hardening Batch 2** | Filesystem, Parsers & Security Hardening (Unclosed MD code blocks, Go parsing, PPTX notes, XLSX lines, Explorer quoting) | ✅ Complete / VERIFIED |
 | **Hardening Batch 3** | Frontend, Tauri & E2E Reliability (React lifecycle, zero-padded Ask citations, Page Visibility polling, sheet cancellation) | ✅ Complete / VERIFIED |
+| **Hardening Batch 4** | Final Performance, Audit & Phase 5 Freeze (Knowledge connections $O(C \cdot N)$ scale, 115-item reconciliation) | ❄️ **PHASE 5 FROZEN** |
 | **Phase 6** | Evaluation / MLOps (Expanded evaluation dataset, Ragas metrics, regression gates) | ⏳ PENDING |
 | **Phase 7** | Multimodal Intelligence (Optional: OCR, complex visual tables, ColPali) | ⏳ PENDING |
 | **Phase 8** | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
 | **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
 | **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
 
-> **Current Boundary & Scope Note**: Phase 5.1–5.4 (Local RAG / Ask FileMind), Phase 5.5 (Document Understanding, Related Content, Folder Understanding, Knowledge Connections), and Hardening Batches 1–3 are **fully implemented and verified**. The pipeline operates synchronously and locally on-device. Streaming, persistent chat databases, cloud fallbacks, autonomous tool-calling agents, and graph databases belong to future milestones and are **strictly not implemented**.
+> **Current Boundary & Scope Note**: **Phase 5 is FROZEN**. Phase 5.1–5.4 (Local RAG / Ask FileMind), Phase 5.5 (Document Understanding, Related Content, Folder Understanding, Knowledge Connections), and Hardening Batches 1–4 are **fully implemented, verified, and locked**. The pipeline operates synchronously and locally on-device. Streaming, persistent chat databases, cloud fallbacks, autonomous tool-calling agents, and graph databases belong to future milestones and are **strictly not implemented**.
 
 ---
 
@@ -178,7 +179,7 @@ The API and UI separate **Search Mode** (`hybrid`, `bm25`, `dense`) from **Quali
 
 Authoritative baseline status:
 
-- **Phase 5 / 5.5 AI Test Suites**: **142 / 142 PASS**
+- **Phase 5 / 5.5 AI Test Suites**: **150 / 150 PASS**
   - `test_document_understanding.py`: 17 / 17 PASS
   - `test_related_content.py`: 13 / 13 PASS
   - `test_folder_understanding.py`: 16 / 16 PASS
@@ -188,8 +189,8 @@ Authoritative baseline status:
   - `test_context_budget.py`: 19 / 19 PASS
   - `test_ollama_provider.py`: 5 / 5 PASS
   - `test_batch4_ai_status.py`: 9 / 9 PASS
-  - Hardening Suites (`test_hardening_batch1..4.py`, `test_phase5_final_blockers.py`): 25 / 25 PASS
-- **Full Backend Regression Suite**: **473 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
+  - Hardening Suites (`test_hardening_batch1..4.py`, `test_hardening_batch2_parsers_security.py`, `test_hardening_batch4_final_freeze.py`, `test_phase5_final_blockers.py`): 33 / 33 PASS
+- **Full Backend Regression Suite**: **476 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
 - **Frontend Production Build**: **PASS** (1,606 modules transformed, 0 errors)
 - **Tauri Desktop Verification**: **PASS** (`cargo check`, 0 errors)
 - **Whitespace / Formatting Check**: **PASS** (`git diff --check`, 0 violations)
@@ -215,7 +216,7 @@ pip install -r requirements.txt
 # Run Phase 5 / 5.5 AI test suites
 pytest tests/test_document_understanding.py tests/test_related_content.py tests/test_ask_pipeline.py tests/test_grounded_generation.py tests/test_context_budget.py tests/test_ollama_provider.py tests/test_batch4_ai_status.py -v
 
-# Run full backend regression suite (473 tests)
+# Run full backend regression suite (476 tests)
 pytest tests/ -v
 ```
 
@@ -246,3 +247,4 @@ cargo tauri build
 - [Batch 1 Backend Hardening Report (`docs/hardening/batch1-backend-hardening-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch1-backend-hardening-report.md): Verification report for Batch 1 backend & AI hardening.
 - [Batch 2 Filesystem & Security Report (`docs/hardening/batch2-filesystem-parsers-security-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch2-filesystem-parsers-security-report.md): Verification report for Batch 2 parser, filesystem & security hardening.
 - [Batch 3 Frontend & Tauri Report (`docs/hardening/batch3-frontend-tauri-e2e-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch3-frontend-tauri-e2e-report.md): Verification report for Batch 3 frontend, Tauri & E2E reliability.
+- [Phase 5 Final Freeze Audit (`docs/hardening/phase5-final-hardening-audit.md`)](file:///c:/dev/FileMind/docs/hardening/phase5-final-hardening-audit.md): Authoritative Phase 5 freeze report and 115-item reconciliation.

@@ -121,6 +121,12 @@ class KnowledgeConnectionService:
                         })
 
             reference_candidates: Dict[str, tuple[int, int, str, Dict[str, Any], str]] = {}
+            filename_counts: Dict[str, int] = {}
+            for f in indexed + [source]:
+                name = (f.get("filename") or "").casefold()
+                if name:
+                    filename_counts[name] = filename_counts.get(name, 0) + 1
+
             for chunk in repo.get_chunks_by_file(file_id):
                 content = chunk.get("content") or ""
                 for target in indexed:
@@ -128,7 +134,7 @@ class KnowledgeConnectionService:
                     filename = target.get("filename") or ""
                     references = [relative] if relative else []
                     # A basename is only safe when it uniquely identifies one indexed file.
-                    if filename and sum(f.get("filename", "").casefold() == filename.casefold() for f in indexed + [source]) == 1:
+                    if filename and filename_counts.get(filename.casefold(), 0) == 1:
                         references.append(filename)
                     matched = next((r for r in references if self._contains_exact_reference(content, r)), None)
                     if not matched:
