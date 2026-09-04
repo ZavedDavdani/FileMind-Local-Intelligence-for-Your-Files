@@ -145,25 +145,47 @@ export function App() {
     }
   }, [status]);
 
-  // Initial load and periodic polling every 2.5 seconds (skips when window/tab is hidden)
+  // Initial load and periodic polling every 2.5 seconds with exponential error backoff
   useEffect(() => {
-    refreshAll();
-    const interval = setInterval(() => {
-      if (typeof document !== "undefined" && document.hidden) {
-        return;
-      }
-      refreshAll();
-    }, 2500);
+    let mounted = true;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let consecutiveErrors = 0;
+
+    const scheduleNextPoll = (delayMs: number) => {
+      if (!mounted) return;
+      if (timerId) clearTimeout(timerId);
+      timerId = setTimeout(async () => {
+        if (!mounted) return;
+        if (typeof document !== "undefined" && document.hidden) {
+          scheduleNextPoll(2500);
+          return;
+        }
+        try {
+          await refreshAll();
+          consecutiveErrors = 0;
+          scheduleNextPoll(2500);
+        } catch {
+          consecutiveErrors++;
+          // Exponential backoff: 2.5s, 5s, 10s, max 15s
+          const backoff = Math.min(2500 * Math.pow(2, consecutiveErrors - 1), 15000);
+          scheduleNextPoll(backoff);
+        }
+      }, delayMs);
+    };
+
+    scheduleNextPoll(0);
 
     const handleVisibility = () => {
-      if (typeof document !== "undefined" && !document.hidden) {
-        refreshAll();
+      if (mounted && typeof document !== "undefined" && !document.hidden) {
+        consecutiveErrors = 0;
+        scheduleNextPoll(0);
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      clearInterval(interval);
+      mounted = false;
+      if (timerId) clearTimeout(timerId);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [refreshAll]);

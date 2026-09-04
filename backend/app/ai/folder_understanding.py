@@ -93,10 +93,12 @@ class FolderUnderstandingService:
         self._lock = threading.Lock()
         self._active_generations: Set[str] = set()
 
-    def compute_composite_hash(self, files: List[Dict[str, Any]]) -> str:
+    def compute_composite_hash(
+        self, files: List[Dict[str, Any]], total_count: Optional[int] = None
+    ) -> str:
         """
-        Computes a deterministic SHA-256 hash representing the cumulative state
-        of all child files in a folder.
+        Computes an authoritative SHA-256 composite hash over the folder's file states.
+        If files is sampled (e.g. > 10,000 files in folder), incorporates total_count.
         """
         if not files:
             return hashlib.sha256(b"empty_folder").hexdigest()
@@ -104,6 +106,8 @@ class FolderUnderstandingService:
         # Sort files deterministically by file_id
         sorted_files = sorted(files, key=lambda f: f.get("file_id", ""))
         hasher = hashlib.sha256()
+        if total_count is not None and total_count > len(files):
+            hasher.update(f"sampled_total:{total_count}:".encode("utf-8"))
         for f in sorted_files:
             entry = f"{f.get('file_id')}:{f.get('modified_at')}:{f.get('size_bytes')}:{f.get('sha256', '')}:{f.get('index_status')}"
             hasher.update(entry.encode("utf-8"))
@@ -119,7 +123,9 @@ class FolderUnderstandingService:
         folder_path = folder_rec["path"]
         folder_name = os.path.basename(folder_path.rstrip("/\\")) or folder_path
 
-        total_files = len(files)
+        total_in_db = repo.count_files(folder_id=folder_id)
+        is_sampled = (total_in_db > len(files))
+        total_files = total_in_db if is_sampled else len(files)
         indexed_files = 0
         unindexed_files = 0
         failed_files = 0
@@ -220,6 +226,9 @@ class FolderUnderstandingService:
             "file_type_distribution": dict(type_counts),
             "dominant_topics": dominant_topics,
             "representative_files": representative_filenames,
+            "is_sampled": is_sampled,
+            "sampled_files_count": len(files),
+            "total_files_in_folder": total_in_db,
         }
 
     def select_representative_files(
@@ -286,7 +295,7 @@ class FolderUnderstandingService:
 
             files = repo.list_files(folder_id=folder_id, limit=10000)
             structural_summary = self.compute_structural_summary(folder_rec, files, repo)
-            composite_hash = self.compute_composite_hash(files)
+            composite_hash = self.compute_composite_hash(files, total_count=structural_summary["total_files_in_folder"])
 
             # Check if cached insight exists
             cached = repo.get_folder_insight(folder_id, model_name=self.model_name)
@@ -374,7 +383,7 @@ class FolderUnderstandingService:
 
                 files = repo.list_files(folder_id=folder_id, limit=10000)
                 structural_summary = self.compute_structural_summary(folder_rec, files, repo)
-                composite_hash = self.compute_composite_hash(files)
+                composite_hash = self.compute_composite_hash(files, total_count=structural_summary["total_files_in_folder"])
 
                 # Check if non-stale cached insight exists and regeneration is not forced
                 cached = repo.get_folder_insight(folder_id, model_name=self.model_name)

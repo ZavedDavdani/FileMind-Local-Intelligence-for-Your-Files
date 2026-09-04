@@ -149,11 +149,11 @@ class LexicalRetriever:
             where_clauses.append("c.source_path = ?")
             params.append(filters["source_path"])
 
-        # Never return chunks from deleted/missing files
-        where_clauses.append("f.index_status != 'MISSING'")
+        # Exclude non-indexed, failed, missing, and skipped files
+        where_clauses.append("f.index_status NOT IN ('MISSING', 'FAILED', 'SKIPPED')")
 
         where_sql = " AND ".join(where_clauses)
-        fetch_limit = max(top_k * 3, 100)
+        fetch_limit = max(top_k * 5, 200)
         params.append(fetch_limit)
 
         # FTS5 bm25 returns lower/negative values for better matches.

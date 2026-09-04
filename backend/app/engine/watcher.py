@@ -92,8 +92,13 @@ class DebouncedEventManager:
                 self._pending_events[path] = event_data
 
             elif not is_directory and event_type in ("MOVE", "RENAME"):
-                # If a pending directory move covers this child file, suppress redundant child move!
                 old_p = event_data.get("old_path", "")
+                if old_p and old_p in self._pending_events and self._pending_events[old_p]["event_type"] == "CREATE":
+                    del self._pending_events[old_p]
+                    event_data["event_type"] = "CREATE"
+                    event_data["old_path"] = None
+
+                # If a pending directory move covers this child file, suppress redundant child move!
                 already_covered = any(
                     ev.get("is_directory") and ev["event_type"] in ("MOVE", "RENAME")
                     and ev.get("old_path") and is_subpath(old_p, ev["old_path"])
@@ -206,7 +211,19 @@ class FolderWatchHandler(FileSystemEventHandler):
             return True
 
     def on_created(self, event: FileSystemEvent):
-        if event.is_directory or self._should_ignore(event.src_path, is_dir=event.is_directory):
+        if event.is_directory:
+            if self._should_ignore(event.src_path, is_dir=True):
+                return
+            self.debouncer.push_event({
+                "folder_id": self.folder_id,
+                "event_type": "CREATE",
+                "path": normalize_path(event.src_path),
+                "old_path": None,
+                "is_directory": True,
+                "observed_at": time.time(),
+            })
+            return
+        if self._should_ignore(event.src_path, is_dir=False):
             return
         self.debouncer.push_event({
             "folder_id": self.folder_id,
@@ -338,6 +355,7 @@ class WatcherService:
 
     def start(self):
         with self._lock:
+            self.debouncer._stopped = False
             if self.observer and self.observer.is_alive():
                 return
             self.observer = Observer()
@@ -382,15 +400,41 @@ class WatcherService:
                 if fid not in self.watches:
                     handler = FolderWatchHandler(fid, fpath, patterns, self.debouncer)
                     watch = self.observer.schedule(handler, fpath, recursive=is_rec)
-                    self.watches[fid] = watch
+                    self.watches[fid] = {
+                        "watch": watch,
+                        "recursive": is_rec,
+                        "patterns": patterns,
+                        "path": fpath,
+                    }
                     logger.info("Watching folder: %s (recursive=%s)", fpath, is_rec)
+                else:
+                    # Check if recursive or exclude_patterns changed on existing active watch
+                    curr = self.watches[fid]
+                    curr_rec = curr.get("recursive") if isinstance(curr, dict) else None
+                    curr_pats = curr.get("patterns") if isinstance(curr, dict) else None
+                    if curr_rec != is_rec or curr_pats != patterns:
+                        old_watch = curr.get("watch") if isinstance(curr, dict) else curr
+                        try:
+                            self.observer.unschedule(old_watch)
+                        except Exception:
+                            pass
+                        handler = FolderWatchHandler(fid, fpath, patterns, self.debouncer)
+                        watch = self.observer.schedule(handler, fpath, recursive=is_rec)
+                        self.watches[fid] = {
+                            "watch": watch,
+                            "recursive": is_rec,
+                            "patterns": patterns,
+                            "path": fpath,
+                        }
+                        logger.info("Updated watch for folder: %s (recursive=%s)", fpath, is_rec)
 
         # Remove watches for removed/disabled folders
         for fid in list(self.watches.keys()):
             if fid not in active_folder_ids:
-                watch = self.watches.pop(fid)
+                curr = self.watches.pop(fid)
+                old_watch = curr.get("watch") if isinstance(curr, dict) else curr
                 try:
-                    self.observer.unschedule(watch)
+                    self.observer.unschedule(old_watch)
                     logger.info("Unscheduled watch for folder %s", fid)
                 except Exception:
                     pass

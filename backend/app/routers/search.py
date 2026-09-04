@@ -72,6 +72,8 @@ def search_evidence(
 
 
 @router.get("/retrieval/related/{file_id}", response_model=RelatedFilesResponse)
+@router.get("/search/related/{file_id}", response_model=RelatedFilesResponse)
+@router.get("/related/{file_id}", response_model=RelatedFilesResponse)
 def get_related_files(
     file_id: str,
     limit: int = Query(5, ge=1, le=50, description="Max related files to return"),

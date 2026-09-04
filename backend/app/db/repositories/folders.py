@@ -1,6 +1,7 @@
 """Folder repository domain operations."""
 
 import json
+import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -79,7 +80,15 @@ class FolderRepository:
         return self._folder_row_to_dict(row) if row else None
 
     def get_folder_by_path(self, path: str) -> Optional[Dict[str, Any]]:
-        cursor = self.conn.execute("SELECT * FROM folders WHERE path = ?;", (path,))
+        alt1 = path.replace('/', '\\')
+        alt2 = path.replace('\\', '/')
+        if os.name == "nt":
+            cursor = self.conn.execute(
+                "SELECT * FROM folders WHERE path COLLATE NOCASE IN (?, ?, ?);",
+                (path, alt1, alt2),
+            )
+        else:
+            cursor = self.conn.execute("SELECT * FROM folders WHERE path IN (?, ?, ?);", (path, alt1, alt2))
         row = cursor.fetchone()
         return self._folder_row_to_dict(row) if row else None
 

@@ -177,6 +177,7 @@ class FilesystemScanner:
                         if is_oversized:
                             if existing.get("index_status") != "SKIPPED":
                                 result.modified_files += 1
+                                self.repo.purge_file_index(existing["file_id"])
                                 self.repo.upsert_file(
                                     folder_id=folder_id,
                                     path=file_abs,

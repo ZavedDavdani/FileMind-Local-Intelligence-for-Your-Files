@@ -108,7 +108,13 @@ class FileRepository:
     def get_file_by_path(self, path: str) -> Optional[Dict[str, Any]]:
         alt1 = path.replace('/', '\\')
         alt2 = path.replace('\\', '/')
-        cursor = self.conn.execute("SELECT * FROM files WHERE path = ? OR path = ? OR path = ?;", (path, alt1, alt2))
+        if os.name == "nt":
+            cursor = self.conn.execute(
+                "SELECT * FROM files WHERE path COLLATE NOCASE IN (?, ?, ?);",
+                (path, alt1, alt2),
+            )
+        else:
+            cursor = self.conn.execute("SELECT * FROM files WHERE path IN (?, ?, ?);", (path, alt1, alt2))
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -237,10 +243,17 @@ class FileRepository:
     def mark_file_missing(self, path: str) -> bool:
         alt1 = path.replace('/', '\\')
         alt2 = path.replace('\\', '/')
-        cursor = self.conn.execute(
-            "UPDATE files SET index_status = 'MISSING', last_seen_at = ? WHERE path = ? OR path = ? OR path = ?;",
-            (_utcnow_iso(), path, alt1, alt2),
-        )
+        now = _utcnow_iso()
+        if os.name == "nt":
+            cursor = self.conn.execute(
+                "UPDATE files SET index_status = 'MISSING', last_seen_at = ? WHERE path COLLATE NOCASE IN (?, ?, ?);",
+                (now, path, alt1, alt2),
+            )
+        else:
+            cursor = self.conn.execute(
+                "UPDATE files SET index_status = 'MISSING', last_seen_at = ? WHERE path IN (?, ?, ?);",
+                (now, path, alt1, alt2),
+            )
         return cursor.rowcount > 0
 
     def mark_directory_missing(self, folder_id: str, dir_path: str) -> int:

@@ -13,15 +13,36 @@ class ParserRegistry:
         self._parsers_by_mime: Dict[str, Union[BaseParser, Callable[[], BaseParser]]] = {}
         self._registered_parsers: List[BaseParser] = []
 
-    def register_factory(self, factory: Callable[[], BaseParser], extensions: List[str], mime_types: List[str]):
+    def register_factory(
+        self,
+        factory: Callable[[], BaseParser],
+        extensions: List[str],
+        mime_types: List[str],
+        allow_overwrite: bool = True,
+    ):
         """Registers a deferred parser factory function for specified extensions and MIME types."""
         for ext in extensions:
-            self._parsers_by_ext[ext.lower()] = factory
+            ext_clean = ext.lower()
+            if not allow_overwrite and ext_clean in self._parsers_by_ext:
+                raise ValueError(f"Extension '{ext_clean}' is already registered to another parser.")
+            self._parsers_by_ext[ext_clean] = factory
         for mime in mime_types:
-            self._parsers_by_mime[mime.lower()] = factory
+            mime_clean = mime.lower()
+            if not allow_overwrite and mime_clean in self._parsers_by_mime:
+                raise ValueError(f"MIME type '{mime_clean}' is already registered to another parser.")
+            self._parsers_by_mime[mime_clean] = factory
 
-    def register_parser(self, parser: BaseParser):
+    def register_parser(self, parser: BaseParser, allow_overwrite: bool = True):
         """Registers an already instantiated parser instance."""
+        for ext in parser.supported_extensions:
+            ext_clean = ext.lower()
+            if not allow_overwrite and ext_clean in self._parsers_by_ext:
+                raise ValueError(f"Extension '{ext_clean}' is already registered to another parser.")
+        for mime in parser.supported_mime_types:
+            mime_clean = mime.lower()
+            if not allow_overwrite and mime_clean in self._parsers_by_mime:
+                raise ValueError(f"MIME type '{mime_clean}' is already registered to another parser.")
+
         if parser not in self._registered_parsers:
             self._registered_parsers.append(parser)
         for ext in parser.supported_extensions:

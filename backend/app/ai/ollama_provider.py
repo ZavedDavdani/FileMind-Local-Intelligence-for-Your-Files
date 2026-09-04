@@ -172,6 +172,9 @@ class OllamaProvider:
                 "Ollama returned an invalid response object."
             )
 
+        if "error" in data and data["error"]:
+            raise OllamaGenerationError(f"Ollama reported error: {data['error']}")
+
         generated_text = data.get("response")
         if not isinstance(generated_text, str):
             raise OllamaGenerationError(
@@ -181,7 +184,7 @@ class OllamaProvider:
         done = data.get("done")
         if done is not True:
             raise OllamaGenerationError(
-                "Ollama generation did not complete successfully."
+                "Ollama generation did not complete successfully (done != True)."
             )
 
         return OllamaResponse(
@@ -253,11 +256,19 @@ def check_ollama_readiness(
                     installed_names.append(str(n).lower().strip())
 
         target_lower = model.lower().strip()
-        target_base = target_lower.split(":", 1)[0]
+        target_variants = {
+            target_lower,
+            target_lower if ":" in target_lower else f"{target_lower}:latest",
+            f"{target_lower}:latest",
+        }
         has_model = False
         for inst in installed_names:
-            inst_base = inst.split(":", 1)[0]
-            if inst == target_lower or inst == f"{target_lower}:latest" or (inst_base == target_base and ":" not in target_lower):
+            inst_variants = {
+                inst,
+                inst if ":" in inst else f"{inst}:latest",
+                f"{inst}:latest",
+            }
+            if target_variants.intersection(inst_variants):
                 has_model = True
                 break
 

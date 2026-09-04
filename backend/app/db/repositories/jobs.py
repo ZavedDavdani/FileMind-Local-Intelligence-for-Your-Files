@@ -214,7 +214,7 @@ class JobRepository:
 
     def cancel_pending_jobs_for_file(self, file_id: str) -> int:
         cursor = self.conn.execute(
-            "UPDATE indexing_jobs SET status = 'CANCELLED' WHERE file_id = ? AND status = 'PENDING';",
+            "UPDATE indexing_jobs SET status = 'CANCELLED' WHERE file_id = ? AND status IN ('PENDING', 'PROCESSING');",
             (file_id,),
         )
         if cursor.rowcount > 0:
