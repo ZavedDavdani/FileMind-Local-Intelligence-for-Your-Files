@@ -314,6 +314,45 @@ def test_citation_validation_valid_and_unresolved():
 
 
 # ---------------------------------------------------------------------------
+# Test 11b: Zero-Padded Citation Markers Normalization & Deduplication
+# ---------------------------------------------------------------------------
+def test_citation_validator_zero_padded_markers():
+    citation_map = {
+        "E1": CitationSource(
+            citation_id="E1",
+            chunk_id="chunk_1",
+            file_id="file_1",
+            source_file="doc1.md",
+            source_path="/path/doc1.md",
+        ),
+        "E2": CitationSource(
+            citation_id="E2",
+            chunk_id="chunk_2",
+            file_id="file_2",
+            source_file="doc2.md",
+            source_path="/path/doc2.md",
+        ),
+    }
+
+    # Zero-padded markers [E01], [E02] should resolve cleanly to E1, E2
+    answer_zero_padded = "Details in [E01] and additional points in [E02]."
+    res = CitationValidator.extract_and_validate(answer_zero_padded, citation_map)
+    assert res.is_valid is True
+    assert len(res.valid_citations) == 2
+    assert res.valid_citations[0].citation_id == "E1"
+    assert res.valid_citations[1].citation_id == "E2"
+    assert len(res.unresolved_citation_ids) == 0
+
+    # Deduplication across mixed zero-padded and non-padded markers
+    answer_mixed = "See [E01], and also [E1] again."
+    res_mixed = CitationValidator.extract_and_validate(answer_mixed, citation_map)
+    assert res_mixed.is_valid is True
+    assert len(res_mixed.valid_citations) == 1
+    assert res_mixed.valid_citations[0].citation_id == "E1"
+    assert len(res_mixed.unresolved_citation_ids) == 0
+
+
+# ---------------------------------------------------------------------------
 # Test 12 & 13: Empty / Malformed Model Output Fails Explicitly
 # ---------------------------------------------------------------------------
 def test_empty_model_output_fails_explicitly():

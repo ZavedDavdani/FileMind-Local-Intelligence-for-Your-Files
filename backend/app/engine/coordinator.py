@@ -87,28 +87,26 @@ class EngineCoordinator:
 
     def scan_all_enabled_folders(self) -> Dict[str, Any]:
         """Runs recursive discovery across all registered, enabled folders."""
+        results = {}
         with self.db.session() as conn:
             repo = Repository(conn)
             folders = repo.list_folders()
+            scanner = FilesystemScanner(repo)
 
-        results = {}
-        for f in folders:
-            if f["indexing_enabled"]:
-                try:
-                    with self.db.session() as conn:
-                        repo = Repository(conn)
-                        scanner = FilesystemScanner(repo)
+            for f in folders:
+                if f["indexing_enabled"]:
+                    try:
                         res = scanner.scan_folder(f["folder_id"])
-                    results[f["folder_id"]] = {
-                        "total_scanned": res.total_scanned,
-                        "new_files": res.new_files,
-                        "modified_files": res.modified_files,
-                        "unchanged_files": res.unchanged_files,
-                        "skipped_exclusions": res.skipped_exclusions,
-                        "errors": res.errors,
-                    }
-                except Exception as exc:
-                    results[f["folder_id"]] = {"error": str(exc)}
+                        results[f["folder_id"]] = {
+                            "total_scanned": res.total_scanned,
+                            "new_files": res.new_files,
+                            "modified_files": res.modified_files,
+                            "unchanged_files": res.unchanged_files,
+                            "skipped_exclusions": res.skipped_exclusions,
+                            "errors": res.errors,
+                        }
+                    except Exception as exc:
+                        results[f["folder_id"]] = {"error": str(exc)}
 
         self.watcher_service.sync_watches()
         return results

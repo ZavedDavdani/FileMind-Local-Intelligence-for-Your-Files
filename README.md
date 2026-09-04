@@ -25,14 +25,16 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Phase 5.4 Batch 2** | Ask UX Polish (Staged progress, Copy Answer, Citation navigation, In-session history) | ✅ Complete / PUSHED (`ba45128`) |
 | **Phase 5.5 Batch 1** | Document Understanding Core (`document_insights` schema v6, grounded insight generation) | ✅ Complete / PUSHED (`4d12526`) |
 | **Phase 5.5 Batch 2** | Related Content (`RelatedContentService`, hybrid retrieval, Max Chunk Score grouping) | ✅ Complete / PUSHED (`7442402`) |
-| **Phase 5.5 Batch 3** | Folder Understanding Core & Knowledge Connections | ⏳ **NEXT PLANNED** |
+| **Phase 5.5 Batch 3.1** | Folder Understanding Core (`FolderUnderstandingService`, structural metrics, folder insights) | ✅ Complete / IMPLEMENTED |
+| **Phase 5.5 Batch 3.2** | Knowledge Connections (`KnowledgeConnectionService`, shared-topic & reference graph) | ✅ Complete / IMPLEMENTED |
+| **Hardening Batch 1** | Backend Core, Data Integrity & AI Hardening (`LocalGenerationCoordinator`, zero-padded citations) | ✅ Complete / VERIFIED |
 | **Phase 6** | Evaluation / MLOps (Expanded evaluation dataset, Ragas metrics, regression gates) | ⏳ PENDING |
 | **Phase 7** | Multimodal Intelligence (Optional: OCR, complex visual tables, ColPali) | ⏳ PENDING |
 | **Phase 8** | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
 | **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
 | **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
 
-> **Current Boundary & Scope Note**: Phase 5.1–5.4 (Local RAG / Ask FileMind) and Phase 5.5 Batches 1 & 2 (Document Understanding & Related Content) are **fully implemented and verified**. The pipeline operates synchronously and locally on-device. Streaming, persistent chat databases, cloud fallbacks, autonomous tool-calling agents, and graph databases belong to future milestones and are **strictly not implemented**.
+> **Current Boundary & Scope Note**: Phase 5.1–5.4 (Local RAG / Ask FileMind), Phase 5.5 (Document Understanding, Related Content, Folder Understanding, Knowledge Connections), and Hardening Batch 1 are **fully implemented and verified**. The pipeline operates synchronously and locally on-device. Streaming, persistent chat databases, cloud fallbacks, autonomous tool-calling agents, and graph databases belong to future milestones and are **strictly not implemented**.
 
 ---
 
@@ -174,16 +176,19 @@ The API and UI separate **Search Mode** (`hybrid`, `bm25`, `dense`) from **Quali
 
 Authoritative baseline status:
 
-- **Phase 5 / 5.5 AI Test Suites**: **93 / 93 PASS**
+- **Phase 5 / 5.5 AI Test Suites**: **142 / 142 PASS**
   - `test_document_understanding.py`: 17 / 17 PASS
   - `test_related_content.py`: 13 / 13 PASS
+  - `test_folder_understanding.py`: 16 / 16 PASS
+  - `test_knowledge_connections.py`: 7 / 7 PASS
   - `test_ask_pipeline.py`: 12 / 12 PASS
-  - `test_grounded_generation.py`: 18 / 18 PASS
+  - `test_grounded_generation.py`: 19 / 19 PASS
   - `test_context_budget.py`: 19 / 19 PASS
   - `test_ollama_provider.py`: 5 / 5 PASS
   - `test_batch4_ai_status.py`: 9 / 9 PASS
-- **Full Backend Regression Suite**: **423 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
-- **Frontend Production Build**: **PASS** (1,604 modules transformed, 0 errors)
+  - Hardening Suites (`test_hardening_batch1..4.py`, `test_phase5_final_blockers.py`): 25 / 25 PASS
+- **Full Backend Regression Suite**: **468 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
+- **Frontend Production Build**: **PASS** (1,606 modules transformed, 0 errors)
 - **Tauri Desktop Verification**: **PASS** (`cargo check`, 0 errors)
 - **Whitespace / Formatting Check**: **PASS** (`git diff --check`, 0 violations)
 

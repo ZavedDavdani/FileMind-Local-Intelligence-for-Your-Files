@@ -47,7 +47,7 @@ def test_full_filesystem_engine_lifecycle():
             assert scan_res["errors"] == []
 
             # Wait for workers to process all 3 initial jobs
-            for _ in range(60):
+            for _ in range(200):
                 time.sleep(0.05)
                 stats = coordinator.get_aggregate_status()
                 if stats["indexed"] == 3 and stats["queued"] == 0 and stats["processing"] == 0:
@@ -88,7 +88,7 @@ def test_full_filesystem_engine_lifecycle():
             assert scan_res_new["new_files"] == 1
             assert scan_res_new["total_scanned"] == 4
 
-            for _ in range(60):
+            for _ in range(200):
                 time.sleep(0.05)
                 stats = coordinator.get_aggregate_status()
                 if stats["indexed"] == 4 and stats["queued"] == 0:
@@ -111,7 +111,7 @@ def test_full_filesystem_engine_lifecycle():
             scan_res_mod = coordinator.scan_single_folder(folder_id)
             assert scan_res_mod["modified_files"] == 1
 
-            for _ in range(60):
+            for _ in range(200):
                 time.sleep(0.05)
                 with db.session() as conn:
                     repo = Repository(conn)

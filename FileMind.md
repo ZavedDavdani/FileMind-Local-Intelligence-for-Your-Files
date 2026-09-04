@@ -56,7 +56,7 @@ Phase 5.4 Batch 2 — Ask UX Polish:
 COMPLETE & PUSHED (Staged Progress, Copy Answer, Citation Auto-Scroll, In-Session History — Commit `ba45128`)
 
 Phase 5.5 — Private Local Second Brain Knowledge Layer:
-IN PROGRESS (Document Understanding, Related Content, Folder Understanding, Lightweight Connections)
+COMPLETE (Document Understanding, Related Content, Folder Understanding, Knowledge Connections)
 
 Phase 5.5 Batch 1 — Document Understanding Core:
 COMPLETE & PUSHED (`document_insights` schema v6, `DocumentUnderstandingService`, structural summaries, grounded executive summaries, key topics, decisions, citation validation, Ollama temperature forwarding — Commit `4d12526`)
@@ -64,17 +64,23 @@ COMPLETE & PUSHED (`document_insights` schema v6, `DocumentUnderstandingService`
 Phase 5.5 Batch 2 — Related Content:
 COMPLETE & PUSHED (`RelatedContentService`, Max Chunk Score file grouping, strict self-exclusion, provenance snippet preservation, `GET /retrieval/related/{file_id}`, frontend client & TypeScript interfaces, zero migrations — Commit `7442402`)
 
-Phase 5.5 Batch 3 — Folder Understanding Core & Knowledge Connections:
-NOT STARTED / NEXT PLANNED
+Phase 5.5 Batch 3.1 — Folder Understanding Core:
+COMPLETE (`FolderUnderstandingService`, structural statistics, grounded multi-file synthesis with citation enforcement, composite hash invalidation, `GET /ai/folder-insight/{folder_id}`, `POST /ai/folder-insight/{folder_id}/generate`)
+
+Phase 5.5 Batch 3.2 — Knowledge Connections:
+COMPLETE (`KnowledgeConnectionService`, shared-topic & exact file-reference link graph, zero schema migrations, `GET /ai/connections/{file_id}`)
+
+Hardening Batch 1 — Backend Core, Data Integrity & AI Hardening:
+COMPLETE & VERIFIED (`LocalGenerationCoordinator` concurrency control, zero-padded citation normalization `[E01]` -> `E1`, scanner multi-folder DB session reuse, WAL & anti-resurrection guards)
 
 Full Backend Regression Suite:
-423 / 424 PASS (423 passed, 1 skipped, 0 failed)
+468 / 469 PASS (468 passed, 1 skipped, 0 failed)
 
 Phase 5 / 5.5 AI Test Suites:
-93 / 93 PASS (Related Content, Document Understanding, Ask Pipeline, Grounded Generation, Context Budget, Ollama Provider, AI Status)
+142 / 142 PASS (Document Understanding, Related Content, Folder Understanding, Knowledge Connections, Ask Pipeline, Grounded Generation, Context Budget, Ollama Provider, AI Status, Hardening Batches 1–4)
 
 Frontend Production Build:
-VERIFIED PASS (TypeScript + Vite, 1,604 modules, 0 errors)
+VERIFIED PASS (TypeScript + Vite, 1,606 modules, 0 errors)
 
 Tauri v2 Desktop Check:
 VERIFIED PASS (`cargo check`, 0 errors)

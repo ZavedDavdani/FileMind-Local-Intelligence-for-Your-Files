@@ -61,15 +61,31 @@ class CitationValidator:
         unresolved_citation_ids: List[str] = []
 
         for match_num in matches:
-            citation_key = f"E{match_num}"
-            if citation_key in seen_keys:
-                continue
-            seen_keys.add(citation_key)
+            # Check both normalized integer key (e.g. '01' -> 'E1') and verbatim key
+            try:
+                norm_key = f"E{int(match_num)}"
+            except ValueError:
+                norm_key = f"E{match_num}"
 
-            if citation_key in citation_map:
-                valid_citations.append(citation_map[citation_key])
+            verbatim_key = f"E{match_num}"
+
+            # Determine canonical citation key
+            if norm_key in citation_map:
+                resolved_key = norm_key
+            elif verbatim_key in citation_map:
+                resolved_key = verbatim_key
             else:
-                unresolved_citation_ids.append(citation_key)
+                resolved_key = None
+
+            dedup_key = resolved_key or verbatim_key
+            if dedup_key in seen_keys:
+                continue
+            seen_keys.add(dedup_key)
+
+            if resolved_key:
+                valid_citations.append(citation_map[resolved_key])
+            else:
+                unresolved_citation_ids.append(verbatim_key)
 
         has_citations = len(valid_citations) > 0
         is_valid = len(unresolved_citation_ids) == 0
