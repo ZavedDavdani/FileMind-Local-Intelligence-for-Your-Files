@@ -171,13 +171,17 @@ class IndexingPipeline:
                     texts = [c.content if hasattr(c, "content") else c["content"] for c in chunks]
                     chunk_ids = [c.chunk_id if hasattr(c, "chunk_id") else c["chunk_id"] for c in chunks]
                     vectors = self.embedding_engine.embed_texts(texts)
+                    if not vectors or len(vectors) != len(chunks):
+                        raise RuntimeError(
+                            f"Embedding count mismatch: expected {len(chunks)}, got {len(vectors) if vectors else 0}"
+                        )
                     vec_records = [
                         {"chunk_id": cid, "file_id": file_id, "embedding": vec}
                         for cid, vec in zip(chunk_ids, vectors)
                     ]
                 except Exception as vec_exc:
                     logger.warning(
-                        "Vector embedding generation warning for file %s: %s", file_id, str(vec_exc)
+                        "Vector embedding generation failed for file %s: %s", file_id, str(vec_exc)
                     )
                     vector_write_skipped_reason = f"Vector embedding generation warning: {str(vec_exc)}"
 
@@ -189,13 +193,13 @@ class IndexingPipeline:
             ):
                 parse_warning_msg = doc.quality_assessment.to_json()
 
-            final_error = None
-            if parse_warning_msg and vector_write_skipped_reason:
-                final_error = f"{parse_warning_msg} | {vector_write_skipped_reason}"
-            elif parse_warning_msg:
-                final_error = parse_warning_msg
-            elif vector_write_skipped_reason:
-                final_error = vector_write_skipped_reason
+            final_error = parse_warning_msg
+            if vector_write_skipped_reason:
+                final_error = (
+                    f"{parse_warning_msg}; {vector_write_skipped_reason}"
+                    if parse_warning_msg
+                    else vector_write_skipped_reason
+                )
 
             return IndexingPipelineResult(
                 file_id=file_id,

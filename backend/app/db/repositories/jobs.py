@@ -1,8 +1,8 @@
-﻿"""Indexing jobs repository domain operations."""
+"""Indexing jobs repository domain operations."""
 
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 
@@ -80,8 +80,20 @@ class JobRepository:
                   SELECT 1 FROM indexing_jobs AS newer_job
                   WHERE newer_job.file_id = current_job.file_id
                     AND newer_job.job_id != current_job.job_id
-                    AND newer_job.status = 'PENDING'
-                    AND newer_job.created_at >= current_job.created_at
+                    AND (
+                        (newer_job.status = 'PENDING' AND (
+                            newer_job.created_at > current_job.created_at
+                            OR (newer_job.created_at = current_job.created_at AND current_job.status = 'PROCESSING')
+                        ))
+                        OR (newer_job.status = 'PROCESSING' AND (
+                            (newer_job.started_at IS NOT NULL AND current_job.started_at IS NOT NULL AND newer_job.started_at > current_job.started_at)
+                            OR (newer_job.created_at > current_job.created_at)
+                        ))
+                        OR (newer_job.status = 'COMPLETED' AND (
+                            (newer_job.started_at IS NOT NULL AND current_job.started_at IS NOT NULL AND newer_job.started_at > current_job.started_at)
+                            OR (newer_job.created_at > current_job.created_at)
+                        ))
+                    )
               );
             """,
             (job_id, file_id),
@@ -89,44 +101,54 @@ class JobRepository:
         return cursor.fetchone() is not None
 
     def claim_next_job(self) -> Optional[Dict[str, Any]]:
-        """Atomically claims the highest-priority pending or retryable job."""
-        now = _utcnow_iso()
-        query = """
-        UPDATE indexing_jobs
-        SET status = 'PROCESSING', started_at = ?, attempts = attempts + 1
-        WHERE job_id = (
-            SELECT job_id FROM indexing_jobs
-            WHERE status = 'PENDING' AND (retry_at IS NULL OR retry_at <= ?)
-            ORDER BY priority DESC, created_at ASC
-            LIMIT 1
-        )
-        RETURNING *;
-        """
-        cursor = self.conn.execute(query, (now, now))
-        row = cursor.fetchone()
-        if not row:
-            return None
-
-        job = dict(row)
-        # Fetch file and folder metadata
-        meta_cursor = self.conn.execute(
+        """Atomically claims the highest-priority pending or retryable job with an existing file and folder."""
+        while True:
+            now = _utcnow_iso()
+            query = """
+            UPDATE indexing_jobs
+            SET status = 'PROCESSING', started_at = ?, attempts = attempts + 1
+            WHERE job_id = (
+                SELECT job_id FROM indexing_jobs
+                WHERE status = 'PENDING' AND (retry_at IS NULL OR retry_at <= ?)
+                ORDER BY priority DESC, created_at ASC
+                LIMIT 1
+            )
+            RETURNING *;
             """
-            SELECT f.path as file_path, f.folder_id as file_folder_id, fo.integrity_mode
-            FROM files f
-            JOIN folders fo ON f.folder_id = fo.folder_id
-            WHERE f.file_id = ?;
-            """,
-            (job["file_id"],),
-        )
-        meta_row = meta_cursor.fetchone()
-        if meta_row:
-            job.update(dict(meta_row))
+            cursor = self.conn.execute(query, (now, now))
+            row = cursor.fetchone()
+            if not row:
+                return None
 
-        self.conn.execute(
-            "UPDATE files SET index_status = 'PROCESSING' WHERE file_id = ?;",
-            (job["file_id"],),
-        )
-        return job
+            job = dict(row)
+            meta_cursor = self.conn.execute(
+                """
+                SELECT f.path as file_path, f.folder_id as file_folder_id, fo.integrity_mode
+                FROM files f
+                JOIN folders fo ON f.folder_id = fo.folder_id
+                WHERE f.file_id = ?;
+                """,
+                (job["file_id"],),
+            )
+            meta_row = meta_cursor.fetchone()
+            if meta_row:
+                job.update(dict(meta_row))
+                self.conn.execute(
+                    "UPDATE files SET index_status = 'PROCESSING' WHERE file_id = ? AND index_status != 'MISSING';",
+                    (job["file_id"],),
+                )
+                return job
+
+            # Orphan job referencing missing file/folder -> permanently fail it and continue claiming
+            self.conn.execute(
+                """
+                UPDATE indexing_jobs
+                SET status = 'FAILED', error = 'Orphan job: file or folder record not found'
+                WHERE job_id = ?;
+                """,
+                (job["job_id"],),
+            )
+            self.prune_terminal_jobs()
 
     def complete_job(
         self,
@@ -150,7 +172,7 @@ class JobRepository:
             """,
             (now, job_id),
         )
-        if final_status and (job_cursor.rowcount > 0) and current_job:
+        if (job_cursor.rowcount > 0) and current_job:
             self.conn.execute(
                 """
                 UPDATE files
@@ -159,15 +181,6 @@ class JobRepository:
                 WHERE file_id = ? AND index_status != 'MISSING';
                 """,
                 (status_to_set, sha256, indexing_error, status_to_set, now, file_id),
-            )
-        elif (job_cursor.rowcount > 0) and current_job:
-            self.conn.execute(
-                """
-                UPDATE files
-                SET index_status = 'INDEXED', sha256 = COALESCE(?, sha256), indexing_error = NULL, indexed_at = ?
-                WHERE file_id = ? AND index_status != 'MISSING';
-                """,
-                (sha256, now, file_id),
             )
         if job_cursor.rowcount > 0:
             self.prune_terminal_jobs()
@@ -204,23 +217,40 @@ class JobRepository:
             self.prune_terminal_jobs()
         return cursor.rowcount
 
-    def recover_stale_processing_jobs(self) -> int:
+    def recover_stale_processing_jobs(self, stale_threshold_seconds: Optional[float] = None) -> int:
         """Crash Recovery: Identifies any jobs stuck in PROCESSING and resets them to PENDING."""
-        cursor = self.conn.execute(
-            """
-            UPDATE indexing_jobs
-            SET status = 'PENDING', started_at = NULL, error = 'Recovered after engine restart'
-            WHERE status = 'PROCESSING';
-            """
-        )
-        recovered_count = cursor.rowcount
-        if recovered_count > 0:
-            self.conn.execute(
+        if stale_threshold_seconds is not None:
+            cutoff = (datetime.now(timezone.utc) - timedelta(seconds=stale_threshold_seconds)).isoformat()
+            cursor = self.conn.execute(
                 """
+                UPDATE indexing_jobs
+                SET status = 'PENDING', started_at = NULL, error = 'Recovered after stale timeout'
+                WHERE status = 'PROCESSING' AND (started_at IS NULL OR started_at <= ?)
+                RETURNING file_id;
+                """,
+                (cutoff,),
+            )
+        else:
+            cursor = self.conn.execute(
+                """
+                UPDATE indexing_jobs
+                SET status = 'PENDING', started_at = NULL, error = 'Recovered after engine restart'
+                WHERE status = 'PROCESSING'
+                RETURNING file_id;
+                """
+            )
+        recovered_rows = cursor.fetchall()
+        recovered_count = len(recovered_rows)
+        if recovered_count > 0:
+            file_ids = list({r["file_id"] for r in recovered_rows})
+            placeholders = ",".join("?" * len(file_ids))
+            self.conn.execute(
+                f"""
                 UPDATE files
                 SET index_status = 'QUEUED'
-                WHERE index_status = 'PROCESSING';
-                """
+                WHERE file_id IN ({placeholders}) AND index_status = 'PROCESSING';
+                """,
+                file_ids,
             )
         return recovered_count
 

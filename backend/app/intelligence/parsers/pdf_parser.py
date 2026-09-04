@@ -83,6 +83,8 @@ class PyMuPDFParser(BaseParser):
             current_h2_id = None
             raw_page_texts = []
             total_images = 0
+            current_line_num = 1
+            current_char_offset = 0
 
             for page_num in range(1, pdf_doc.page_count + 1):
                 page = pdf_doc[page_num - 1]
@@ -218,6 +220,22 @@ class PyMuPDFParser(BaseParser):
                     element_idx += 1
                     elem_id = f"{file_id}_elem_{element_idx}"
                     e_type = item_data["type"]
+                    text_content = item_data["text"]
+
+                    line_start = None
+                    line_end = None
+                    char_start = None
+                    char_end = None
+
+                    if e_type != ElementType.TABLE:
+                        num_lines = len(text_content.splitlines())
+                        line_start = current_line_num
+                        line_end = current_line_num + max(0, num_lines - 1)
+                        char_start = current_char_offset
+                        char_end = current_char_offset + len(text_content)
+
+                        current_line_num = line_end + 1
+                        current_char_offset = char_end + 2
 
                     if e_type == ElementType.HEADING:
                         level = item_data.get("level", 1)
@@ -225,8 +243,12 @@ class PyMuPDFParser(BaseParser):
                             elem = DocumentElement(
                                 element_id=elem_id,
                                 element_type=ElementType.HEADING,
-                                text=item_data["text"],
+                                text=text_content,
                                 page_number=page_num,
+                                line_start=line_start,
+                                line_end=line_end,
+                                char_start=char_start,
+                                char_end=char_end,
                                 level=1,
                             )
                             current_h1_id = elem_id
@@ -235,8 +257,12 @@ class PyMuPDFParser(BaseParser):
                             elem = DocumentElement(
                                 element_id=elem_id,
                                 element_type=ElementType.HEADING,
-                                text=item_data["text"],
+                                text=text_content,
                                 page_number=page_num,
+                                line_start=line_start,
+                                line_end=line_end,
+                                char_start=char_start,
+                                char_end=char_end,
                                 level=2,
                                 parent_heading_id=current_h1_id,
                             )
@@ -245,7 +271,7 @@ class PyMuPDFParser(BaseParser):
                         elem = DocumentElement(
                             element_id=elem_id,
                             element_type=ElementType.TABLE,
-                            text=item_data["text"],
+                            text=text_content,
                             page_number=page_num,
                             table_data=item_data.get("table_data"),
                             parent_heading_id=current_h2_id or current_h1_id,
@@ -254,16 +280,24 @@ class PyMuPDFParser(BaseParser):
                         elem = DocumentElement(
                             element_id=elem_id,
                             element_type=ElementType.LIST_ITEM,
-                            text=item_data["text"],
+                            text=text_content,
                             page_number=page_num,
+                            line_start=line_start,
+                            line_end=line_end,
+                            char_start=char_start,
+                            char_end=char_end,
                             parent_heading_id=current_h2_id or current_h1_id,
                         )
                     else:
                         elem = DocumentElement(
                             element_id=elem_id,
                             element_type=ElementType.PARAGRAPH,
-                            text=item_data["text"],
+                            text=text_content,
                             page_number=page_num,
+                            line_start=line_start,
+                            line_end=line_end,
+                            char_start=char_start,
+                            char_end=char_end,
                             parent_heading_id=current_h2_id or current_h1_id,
                         )
 
@@ -340,6 +374,8 @@ class PyPDFParser(BaseParser):
         element_idx = 0
         raw_page_texts = []
         total_images = 0
+        current_line_num = 1
+        current_char_offset = 0
 
         for page_idx, page in enumerate(reader.pages, start=1):
             text = page.extract_text() or ""
@@ -354,14 +390,26 @@ class PyPDFParser(BaseParser):
                 p_str = p.strip()
                 if not p_str:
                     continue
+                num_lines = len(p_str.splitlines())
+                line_start = current_line_num
+                line_end = current_line_num + max(0, num_lines - 1)
+                char_start = current_char_offset
+                char_end = current_char_offset + len(p_str)
+
                 element_idx += 1
                 elem = DocumentElement(
                     element_id=f"{file_id}_elem_{element_idx}",
                     element_type=ElementType.PARAGRAPH,
                     text=p_str,
                     page_number=page_idx,
+                    line_start=line_start,
+                    line_end=line_end,
+                    char_start=char_start,
+                    char_end=char_end,
                 )
                 doc_obj.elements.append(elem)
+                current_line_num = line_end + 1
+                current_char_offset = char_end + 2
 
         # Hardening H3: Assess extraction quality
         full_raw_text = "".join(raw_page_texts)

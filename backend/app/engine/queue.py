@@ -3,9 +3,19 @@
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
-from app.core.config import INITIAL_BACKOFF_SECONDS, MAX_RETRY_ATTEMPTS
+from app.core.config import INITIAL_BACKOFF_SECONDS, MAX_BACKOFF_SECONDS, MAX_RETRY_ATTEMPTS
 from app.db.connection import DatabaseManager
 from app.db.repository import Repository
+
+
+def calculate_backoff_delay(
+    attempts: int,
+    initial_backoff: float = INITIAL_BACKOFF_SECONDS,
+    max_backoff: float = MAX_BACKOFF_SECONDS,
+) -> float:
+    """Calculates bounded exponential backoff delay based on attempt count."""
+    exp = max(0, attempts - 1)
+    return min(initial_backoff * (2 ** exp), max_backoff)
 
 
 class JobQueue:
@@ -33,7 +43,7 @@ class JobQueue:
             repo = Repository(conn)
             return repo.complete_job(job_id, file_id, sha256, final_status, indexing_error)
 
-    def fail_job(self, job_id: str, file_id: str, error_message: str, attempts: int = 0, permanent: bool = False) -> bool:
+    def fail_job(self, job_id: str, file_id: str, error_message: str, attempts: int = 1, permanent: bool = False) -> bool:
         """Calculates retry backoff or permanently fails the job.
 
         If ``permanent=True``, skips all backoff calculation and immediately marks
@@ -49,8 +59,8 @@ class JobQueue:
                 # Unconditional permanent failure — no retry
                 retry_at = None
             elif attempts < MAX_RETRY_ATTEMPTS:
-                # Exponential backoff: 1s, 2s, 4s...
-                delay_sec = INITIAL_BACKOFF_SECONDS * (2 ** (attempts - 1))
+                # Exponential backoff: attempts=1 -> 1s, attempts=2 -> 2s, attempts=3 -> 4s...
+                delay_sec = calculate_backoff_delay(attempts)
                 retry_dt = datetime.now(timezone.utc) + timedelta(seconds=delay_sec)
                 retry_at = retry_dt.isoformat()
             else:
@@ -58,11 +68,11 @@ class JobQueue:
 
             return repo.fail_job(job_id, file_id, error_message, retry_at)
 
-    def recover_stale_jobs(self) -> int:
+    def recover_stale_jobs(self, stale_threshold_seconds: Optional[float] = None) -> int:
         """Resets any jobs left in PROCESSING by a prior interrupted session to PENDING."""
         with self.db.session() as conn:
             repo = Repository(conn)
-            return repo.recover_stale_processing_jobs()
+            return repo.recover_stale_processing_jobs(stale_threshold_seconds=stale_threshold_seconds)
 
     def count_jobs(self) -> Dict[str, int]:
         with self.db.session() as conn:

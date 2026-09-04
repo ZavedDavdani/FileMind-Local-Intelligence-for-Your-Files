@@ -1,4 +1,4 @@
-﻿"""Filesystem safe action and directory scan API routes."""
+"""Filesystem safe action and directory scan API routes."""
 
 from datetime import datetime, timezone
 import os

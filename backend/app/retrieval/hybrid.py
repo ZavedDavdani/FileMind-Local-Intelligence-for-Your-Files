@@ -278,8 +278,8 @@ class HybridRetriever:
                     "retrieval_method": mode,
                     "explicit_filename_intent": filename_intent,
                 }
-            elif mode == "dense" and not effective_filters.get("file_id") and len(matched_files) == 1:
-                # If explicit filename matches an indexed file in Dense mode, scope dense retrieval to that file
+            elif not effective_filters.get("file_id") and len(matched_files) == 1:
+                # If explicit filename matches an indexed file, scope retrieval to that file across all modes
                 matched_fid = matched_files[0][0] if isinstance(matched_files[0], (tuple, list)) else matched_files[0]["file_id"]
                 effective_filters["file_id"] = matched_fid
 

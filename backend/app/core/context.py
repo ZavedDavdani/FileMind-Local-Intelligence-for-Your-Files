@@ -47,7 +47,7 @@ class AppContext:
         if self._db_manager is not None:
             return self._db_manager
         main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "db_manager"):
+        if main_mod and hasattr(main_mod, "db_manager") and main_mod.db_manager is not None:
             return main_mod.db_manager
         return db_manager
 
@@ -60,7 +60,7 @@ class AppContext:
         if self._embedding_engine is not None:
             return self._embedding_engine
         main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "embedding_engine"):
+        if main_mod and hasattr(main_mod, "embedding_engine") and main_mod.embedding_engine is not None:
             return main_mod.embedding_engine
         return default_embedding_engine
 
@@ -73,7 +73,7 @@ class AppContext:
         if self._reranker is not None:
             return self._reranker
         main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "reranker"):
+        if main_mod and hasattr(main_mod, "reranker") and main_mod.reranker is not None:
             return main_mod.reranker
         return default_reranker
 
@@ -86,7 +86,7 @@ class AppContext:
         if self._model_registry is not None:
             return self._model_registry
         main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "model_registry"):
+        if main_mod and hasattr(main_mod, "model_registry") and main_mod.model_registry is not None:
             return main_mod.model_registry
         return default_model_registry
 
@@ -99,7 +99,7 @@ class AppContext:
         if self._generation_coordinator is not None:
             return self._generation_coordinator
         main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "generation_coordinator"):
+        if main_mod and hasattr(main_mod, "generation_coordinator") and main_mod.generation_coordinator is not None:
             return main_mod.generation_coordinator
         return default_generation_coordinator
 
@@ -112,7 +112,7 @@ class AppContext:
         if self._engine_coordinator is not None:
             return self._engine_coordinator
         main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "coordinator"):
+        if main_mod and hasattr(main_mod, "coordinator") and main_mod.coordinator is not None:
             return main_mod.coordinator
         return coordinator
 
@@ -122,9 +122,6 @@ class AppContext:
 
     @property
     def ollama_provider(self):
-        main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "ollama_provider"):
-            return main_mod.ollama_provider
         from app.ai.ollama_provider import OllamaProvider
         return OllamaProvider()
 

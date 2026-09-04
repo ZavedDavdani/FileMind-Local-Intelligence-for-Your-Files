@@ -95,17 +95,8 @@ def ask_filemind(
     local Ollama generation, and citation validation.
     """
     try:
-        if ctx is default_app_context:
-            from app.ai import default_ask_service
-            return default_ask_service.ask(req)
-        from app.ai.ask_service import AskService
-        svc = AskService(
-            db_manager=ctx.db_manager,
-            embedding_engine=ctx.embedding_engine,
-            reranker=ctx.reranker,
-            generation_coordinator=ctx.generation_coordinator,
-        )
-        return svc.ask(req)
+        from app.ai.ask_service import default_ask_service
+        return default_ask_service.ask(req)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

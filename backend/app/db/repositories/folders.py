@@ -4,15 +4,46 @@ import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def normalize_exclude_patterns(patterns: Any) -> str:
+    """Normalizes exclude_patterns into a single canonical JSON-encoded list string."""
+    if patterns is None:
+        return "[]"
+    if isinstance(patterns, str):
+        p_str = patterns.strip()
+        if not p_str:
+            return "[]"
+        try:
+            parsed = json.loads(p_str)
+            if isinstance(parsed, list):
+                return json.dumps([str(x) for x in parsed if x is not None])
+            elif isinstance(parsed, str):
+                try:
+                    inner = json.loads(parsed)
+                    if isinstance(inner, list):
+                        return json.dumps([str(x) for x in inner if x is not None])
+                except Exception:
+                    pass
+                return json.dumps([parsed])
+        except Exception:
+            if "," in p_str:
+                return json.dumps([x.strip() for x in p_str.split(",") if x.strip()])
+            return json.dumps([p_str])
+    if isinstance(patterns, (list, tuple, set)):
+        return json.dumps([str(x) for x in patterns if x is not None])
+    return "[]"
+
+
 class FolderRepository:
     """Provides strongly typed CRUD queries for tracked folders."""
+
+    normalize_exclude_patterns = staticmethod(normalize_exclude_patterns)
 
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
@@ -23,12 +54,12 @@ class FolderRepository:
         recursive: bool = True,
         integrity_mode: str = "NORMAL",
         indexing_enabled: bool = True,
-        exclude_patterns: Optional[List[str]] = None,
+        exclude_patterns: Optional[Union[List[str], str]] = None,
         folder_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         fid = folder_id or str(uuid.uuid4())
         now = _utcnow_iso()
-        patterns_json = json.dumps(exclude_patterns or [])
+        patterns_json = normalize_exclude_patterns(exclude_patterns)
 
         query = """
         INSERT INTO folders (folder_id, path, recursive, integrity_mode, indexing_enabled, exclude_patterns, created_at, updated_at)
@@ -62,7 +93,7 @@ class FolderRepository:
         recursive: Optional[bool] = None,
         integrity_mode: Optional[str] = None,
         indexing_enabled: Optional[bool] = None,
-        exclude_patterns: Optional[List[str]] = None,
+        exclude_patterns: Optional[Union[List[str], str]] = None,
     ) -> Optional[Dict[str, Any]]:
         existing = self.get_folder(folder_id)
         if not existing:
@@ -72,7 +103,8 @@ class FolderRepository:
         new_rec = 1 if (recursive if recursive is not None else existing["recursive"]) else 0
         new_mode = (integrity_mode or existing["integrity_mode"]).upper()
         new_enabled = 1 if (indexing_enabled if indexing_enabled is not None else existing["indexing_enabled"]) else 0
-        new_patterns = json.dumps(exclude_patterns if exclude_patterns is not None else existing["exclude_patterns"])
+        raw_patterns = exclude_patterns if exclude_patterns is not None else existing["exclude_patterns"]
+        new_patterns = normalize_exclude_patterns(raw_patterns)
 
         self.conn.execute(
             """
@@ -107,7 +139,13 @@ class FolderRepository:
         d["recursive"] = bool(d["recursive"])
         d["indexing_enabled"] = bool(d["indexing_enabled"])
         try:
-            d["exclude_patterns"] = json.loads(d["exclude_patterns"])
+            val = json.loads(d["exclude_patterns"])
+            if isinstance(val, str):
+                try:
+                    val = json.loads(val)
+                except Exception:
+                    val = [val]
+            d["exclude_patterns"] = val if isinstance(val, list) else []
         except Exception:
             d["exclude_patterns"] = []
         return d

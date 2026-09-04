@@ -140,7 +140,7 @@ class WorkerPool:
                 with self.db.session() as conn:
                     repo = Repository(conn)
                     repo.purge_file_index(file_id)
-                self.queue.complete_job(job_id, file_id)
+                    repo.complete_job(job_id, file_id)
                 return
 
             if not file_path or not os.path.exists(file_path):
@@ -206,8 +206,13 @@ class WorkerPool:
             file_rec_current = repo.get_file_by_id(file_id)
             if file_rec_current is None or file_rec_current.get("index_status") == "MISSING":
                 logger.info(
-                    "File %s was deleted or marked missing during processing — skipping persistence",
+                    "File %s was deleted or marked missing during processing — reconciling terminal job state",
                     file_id,
+                )
+                repo.fail_job(
+                    job_id=job_id,
+                    file_id=file_id,
+                    error_message="File was deleted or marked missing during processing",
                 )
                 return
 
@@ -232,6 +237,7 @@ class WorkerPool:
             repo.purge_file_index(file_id)
 
             final_error = result.indexing_error
+            final_status = result.status
 
             if result.status == "INDEXED":
                 if result.chunks:
@@ -250,7 +256,7 @@ class WorkerPool:
                             "differs from existing vector index. Dense search is unavailable for this file; "
                             "a full corpus re-embed/rebuild is required."
                         )
-                        logger.error(
+                        logger.warning(
                             "Embedding model identity mismatch for file %s: %s",
                             file_id,
                             vec_mismatch_reason,
@@ -274,6 +280,6 @@ class WorkerPool:
                 job_id=job_id,
                 file_id=file_id,
                 sha256=result.sha256,
-                final_status=result.status,
+                final_status=final_status,
                 indexing_error=final_error,
             )
