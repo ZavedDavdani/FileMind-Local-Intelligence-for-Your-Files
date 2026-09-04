@@ -2,11 +2,21 @@
 
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class SecurityError(Exception):
     """Raised when a path fails security constraints (traversal, escape, symlink)."""
+    pass
+
+
+class SecurityForbiddenError(SecurityError):
+    """Raised when a path is outside registered folders or contains symlinks/junctions."""
+    pass
+
+
+class SecurityNotFoundError(SecurityError):
+    """Raised when a normalized path does not exist on disk."""
     pass
 
 
@@ -133,3 +143,43 @@ def find_overlapping_path(candidate_path: str, existing_paths: List[str]) -> Opt
         if paths_overlap(candidate_path, existing):
             return existing
     return None
+
+
+def resolve_and_authorize(
+    target_path_input: str, registered_folders: List[Union[Dict[str, Any], str]]
+) -> Tuple[str, str]:
+    """Validates, normalizes, and authorizes a target path against registered FileMind folders.
+
+    Enforces:
+      1. Non-empty string and normalization (SecurityError if invalid/null-byte)
+      2. Path existence on disk (SecurityNotFoundError if missing)
+      3. Registered folder containment (SecurityForbiddenError if outside all registered folders)
+      4. Symlink and junction rejection (SecurityForbiddenError if target or parent is symlink/junction)
+
+    Returns:
+      (canonical_target_path, matched_root_folder_path)
+    """
+    target_path = normalize_path(target_path_input)
+
+    if not os.path.exists(target_path):
+        raise SecurityNotFoundError(f"Target path does not exist: {target_path}")
+
+    matched_rf_path = None
+    for rf in registered_folders:
+        rf_path = rf if isinstance(rf, str) else rf.get("path", "")
+        if not rf_path:
+            continue
+        try:
+            if is_path_within_root(target_path, rf_path):
+                matched_rf_path = normalize_path(rf_path)
+                break
+        except Exception:
+            continue
+
+    if not matched_rf_path:
+        raise SecurityForbiddenError("Access denied: target path is outside all registered FileMind folders.")
+
+    if is_symlink_or_junction(target_path) or contains_symlink_or_junction(target_path, matched_rf_path):
+        raise SecurityForbiddenError("Access denied: symlinks and junctions are not permitted for filesystem actions.")
+
+    return target_path, matched_rf_path
