@@ -27,18 +27,17 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Phase 5.5 Batch 2** | Related Content (`RelatedContentService`, hybrid retrieval, Max Chunk Score grouping) | ✅ Complete / PUSHED (`7442402`) |
 | **Phase 5.5 Batch 3.1** | Folder Understanding Core (`FolderUnderstandingService`, structural metrics, folder insights) | ✅ Complete / IMPLEMENTED |
 | **Phase 5.5 Batch 3.2** | Knowledge Connections (`KnowledgeConnectionService`, shared-topic & reference graph) | ✅ Complete / IMPLEMENTED |
-| **Hardening Batch 1** | Backend Core, Data Integrity & AI Hardening (`LocalGenerationCoordinator`, zero-padded citations) | ✅ Complete / VERIFIED |
-| **Hardening Batch 2** | Filesystem, Parsers & Security Hardening (Unclosed MD code blocks, Go parsing, PPTX notes, XLSX lines, Explorer quoting) | ✅ Complete / VERIFIED |
-| **Hardening Batch 3** | Frontend, Tauri & E2E Reliability (React lifecycle, zero-padded Ask citations, Page Visibility polling, sheet cancellation) | ✅ Complete / VERIFIED |
-| **Hardening Batch 4** | Final Performance, Audit & Phase 5 Freeze (Knowledge connections $O(C \cdot N)$ scale, 115-item reconciliation) | ❄️ **PHASE 5 FROZEN** |
+| **Hardening Batches 1–4** | Final Performance, Audit & Phase 5 Freeze (Knowledge connections $O(C \cdot N)$ scale, 115-item reconciliation) | ❄️ **PHASE 5 FROZEN** |
 | **Phase 6** | Backend Architecture & Performance Refactor (Modular APIRouters, domain repos, FTS5 trigram, $O(1)$ vector probe, poll suppression) | ✅ Complete / VERIFIED |
-| **Phase 7** | Conversational Intelligence, Streaming RAG, Local OCR & Visual Knowledge Graph | 📋 AUDITED & PLANNED |
+| **Pre-Phase-7 Batch 1** | AppContext / Dependency Injection (Request-scoped DI, model registry, decoupled routers) | ✅ Complete / VERIFIED (`8ca6830`) |
+| **Pre-Phase-7 Batch 2** | Indexing Integrity & Reliability (Single persistence tx, vector-first deletion, worker event wakeup, retrieval pool) | ✅ Complete / VERIFIED (`0fd44ac`) |
+| **Pre-Phase-7 Freeze** | Final Pre-Phase-7 Architecture Freeze Audit (24-dimension audit, 0 blockers) | ❄️ **ARCHITECTURE READY — FREEZE** |
+| **Phase 7** | Conversational Intelligence, Streaming RAG, Local OCR & Visual Knowledge Graph | 📋 READY FOR EXECUTION |
 | **Phase 8** | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
-
 | **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
 | **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
 
-> **Current Boundary & Scope Note**: **Phase 5 and Phase 6 are FROZEN and VERIFIED**. Phase 5.1–5.5 (Local RAG, Document/Folder Understanding, Knowledge Connections), Hardening Batches 1–4, and Phase 6 (Router decomposition, domain repositories, FTS5 trigram search acceleration, and vector hot-path optimization) are **fully implemented and verified (522/523 tests passing)**. Phase 7 candidate roadmap covers token-by-token streaming RAG, persistent multi-turn chat sessions, local OCR for scanned documents, and interactive visual graph explorer.
+> **Current Boundary & Scope Note**: **Phase 5, Phase 6, and Pre-Phase-7 Architecture are FROZEN and VERIFIED**. Architecture hardening batches (AppContext DI, transactional indexing boundaries, vector-first purge, event-driven worker wakeups, retrieval candidate pools) and the Pre-Phase-7 Architecture Freeze Audit are **fully completed with 540 / 541 tests passing (1 skipped)**. Phase 7 feature execution can proceed directly on this frozen foundation.
 
 ---
 
