@@ -339,8 +339,14 @@ class DocumentUnderstandingService:
             current_chunker = chunks[0].get("chunker_version") if chunks else ""
 
             is_stale = not self.is_cached_insight_current(file_rec, chunks, cached, self.model_name)
+            is_active = (file_id in self._active_generations)
 
-            reported_status = "STALE" if (is_stale and cached["status"] == "READY") else cached["status"]
+            if cached["status"] == "GENERATING" and not is_active:
+                reported_status = "STALE"
+            elif is_stale and cached["status"] == "READY":
+                reported_status = "STALE"
+            else:
+                reported_status = cached["status"]
 
             return {
                 "insight_id": cached.get("insight_id"),

@@ -52,6 +52,7 @@ class DebouncedEventManager:
         self._pending_events: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
         self._timer: Optional[threading.Timer] = None
+        self._stopped: bool = False
 
     def push_event(self, event_data: Dict[str, Any]):
         path = event_data["path"]
@@ -59,6 +60,9 @@ class DebouncedEventManager:
         is_directory = event_data.get("is_directory", False)
 
         with self._lock:
+            if self._stopped:
+                return
+
             if is_directory and event_type == "DELETE":
                 # 1. Prune all existing pending child events under this deleted directory subtree
                 keys_to_purge = [
@@ -123,6 +127,8 @@ class DebouncedEventManager:
             self._reset_timer()
 
     def _reset_timer(self):
+        if self._stopped:
+            return
         if self._timer:
             self._timer.cancel()
         self._timer = threading.Timer(self.debounce_window_sec, self._flush)
@@ -131,13 +137,26 @@ class DebouncedEventManager:
 
     def flush(self):
         """Immediately flushes all pending debounced events synchronously."""
-        if self._timer:
-            self._timer.cancel()
-            self._timer = None
+        with self._lock:
+            if self._timer:
+                self._timer.cancel()
+                self._timer = None
+        self._flush()
+
+    def stop(self):
+        """Stops the debouncer, cancels pending timers, and flushes remaining events."""
+        with self._lock:
+            self._stopped = True
+            if self._timer:
+                self._timer.cancel()
+                self._timer = None
         self._flush()
 
     def _flush(self):
         with self._lock:
+            if self._timer:
+                self._timer.cancel()
+                self._timer = None
             events_to_process = list(self._pending_events.values())
             self._pending_events.clear()
 
@@ -334,7 +353,7 @@ class WatcherService:
                 self.observer.join(timeout=2.0)
                 self.observer = None
             self.watches.clear()
-        self.debouncer.flush()
+        self.debouncer.stop()
         logger.info("WatcherService stopped")
 
     def sync_watches(self):

@@ -13,6 +13,10 @@ class LocalGenerationCoordinator:
     def __init__(self, capacity: int = 1):
         self._semaphore = threading.BoundedSemaphore(capacity)
 
+    @property
+    def available_slots(self) -> int:
+        return self._semaphore._value
+
     @contextmanager
     def acquire(self) -> Iterator[None]:
         if not self._semaphore.acquire(blocking=False):

@@ -84,27 +84,49 @@ def split_oversized_table(
     sub_elements: List[DocumentElement] = []
     current_rows: List[str] = []
     current_chars = 0
+    slice_start_row_idx = 0
 
-    for row in data_lines:
+    # Calculate cumulative char offsets of data lines within raw_text
+    data_line_char_offsets: List[int] = []
+    accum_offset = header_len + (1 if header_text else 0)
+    for r in data_lines:
+        data_line_char_offsets.append(accum_offset)
+        accum_offset += len(r) + 1
+
+    for row_idx, row in enumerate(data_lines):
         row_len = len(row) + 1
         if current_rows and (current_chars + row_len > effective_target or (header_len + current_chars + row_len > max_chunk_chars)):
             slice_body = "\n".join(current_rows)
             slice_text = f"{header_text}\n{slice_body}".strip() if header_text else slice_body
+            slice_idx = len(sub_elements) + 1
+
+            # Compute slice-specific line and char offsets
+            slice_line_start = (table_elem.line_start + len(header_lines) + slice_start_row_idx) if table_elem.line_start is not None else None
+            slice_line_end = (slice_line_start + len(current_rows) - 1) if slice_line_start is not None else None
+            
+            slice_char_start = (table_elem.char_start + data_line_char_offsets[slice_start_row_idx]) if table_elem.char_start is not None and slice_start_row_idx < len(data_line_char_offsets) else table_elem.char_start
+            slice_char_end = (slice_char_start + len(slice_body)) if slice_char_start is not None else table_elem.char_end
+
+            slice_meta = dict(table_elem.metadata or {})
+            slice_meta["is_table_slice"] = True
+            slice_meta["slice_index"] = slice_idx
+
             sub_elements.append(
                 DocumentElement(
-                    element_id=f"{table_elem.element_id}_slice_{len(sub_elements) + 1}",
+                    element_id=f"{table_elem.element_id}_slice_{slice_idx}",
                     element_type=ElementType.TABLE,
                     text=slice_text,
                     page_number=table_elem.page_number,
-                    line_start=table_elem.line_start,
-                    line_end=table_elem.line_end,
-                    char_start=table_elem.char_start,
-                    char_end=table_elem.char_end,
-                    metadata=dict(table_elem.metadata or {}),
+                    line_start=slice_line_start,
+                    line_end=slice_line_end,
+                    char_start=slice_char_start,
+                    char_end=slice_char_end,
+                    metadata=slice_meta,
                 )
             )
             current_rows = []
             current_chars = 0
+            slice_start_row_idx = row_idx
 
         current_rows.append(row)
         current_chars += row_len
@@ -112,19 +134,37 @@ def split_oversized_table(
     if current_rows or not sub_elements:
         slice_body = "\n".join(current_rows)
         slice_text = f"{header_text}\n{slice_body}".strip() if header_text else slice_body
+        slice_idx = len(sub_elements) + 1
+
+        slice_line_start = (table_elem.line_start + len(header_lines) + slice_start_row_idx) if table_elem.line_start is not None else None
+        slice_line_end = (slice_line_start + len(current_rows) - 1) if slice_line_start is not None else None
+
+        slice_char_start = (table_elem.char_start + data_line_char_offsets[slice_start_row_idx]) if table_elem.char_start is not None and slice_start_row_idx < len(data_line_char_offsets) else table_elem.char_start
+        slice_char_end = (slice_char_start + len(slice_body)) if slice_char_start is not None else table_elem.char_end
+
+        slice_meta = dict(table_elem.metadata or {})
+        slice_meta["is_table_slice"] = True
+        slice_meta["slice_index"] = slice_idx
+
         sub_elements.append(
             DocumentElement(
-                element_id=f"{table_elem.element_id}_slice_{len(sub_elements) + 1}",
+                element_id=f"{table_elem.element_id}_slice_{slice_idx}",
                 element_type=ElementType.TABLE,
                 text=slice_text,
                 page_number=table_elem.page_number,
-                line_start=table_elem.line_start,
-                line_end=table_elem.line_end,
-                char_start=table_elem.char_start,
-                char_end=table_elem.char_end,
-                metadata=dict(table_elem.metadata or {}),
+                line_start=slice_line_start,
+                line_end=slice_line_end,
+                char_start=slice_char_start,
+                char_end=slice_char_end,
+                metadata=slice_meta,
             )
         )
+
+    # Attach total_slices to all created sub-elements
+    total_slices = len(sub_elements)
+    for elem in sub_elements:
+        if elem.metadata:
+            elem.metadata["total_slices"] = total_slices
 
     return sub_elements
 

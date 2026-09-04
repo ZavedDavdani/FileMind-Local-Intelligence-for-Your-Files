@@ -152,7 +152,8 @@ CREATE TRIGGER IF NOT EXISTS trg_chunks_au AFTER UPDATE ON chunks BEGIN
     VALUES (new.rowid, new.content, COALESCE(new.h1_parent, ''), COALESCE(new.h2_parent, ''), COALESCE(new.section, ''), new.source_file, new.chunk_id, new.file_id);
 END;
 
--- Populate existing rows if any
+-- Populate existing rows if any (delete first to ensure idempotency)
+DELETE FROM chunks_fts;
 INSERT INTO chunks_fts (rowid, content, h1_parent, h2_parent, section, source_file, chunk_id, file_id)
 SELECT rowid, content, COALESCE(h1_parent, ''), COALESCE(h2_parent, ''), COALESCE(section, ''), source_file, chunk_id, file_id FROM chunks;
 """
@@ -293,7 +294,8 @@ CREATE TRIGGER IF NOT EXISTS trg_files_au AFTER UPDATE ON files BEGIN
     VALUES (new.rowid, new.filename, new.relative_path, COALESCE(new.sha256, ''), new.file_id);
 END;
 
--- Backfill existing rows if any
+-- Backfill existing rows if any (delete first to ensure idempotency)
+DELETE FROM files_fts;
 INSERT INTO files_fts (rowid, filename, relative_path, sha256, file_id)
 SELECT rowid, filename, relative_path, COALESCE(sha256, ''), file_id FROM files;
 """

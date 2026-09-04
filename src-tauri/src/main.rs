@@ -29,7 +29,7 @@ fn is_backend_healthy() -> bool {
         Ok(s) => s,
         Err(_) => return false,
     };
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(600)));
     let _ = stream.set_write_timeout(Some(Duration::from_millis(400)));
 
     let request = format!(
@@ -40,13 +40,13 @@ fn is_backend_healthy() -> bool {
         return false;
     }
 
-    let mut buf = [0u8; 4096];
-    let n = match stream.read(&mut buf) {
-        Ok(n) if n > 0 => n,
-        _ => return false,
-    };
+    let mut buf = Vec::new();
+    let _ = stream.read_to_end(&mut buf);
+    if buf.is_empty() {
+        return false;
+    }
 
-    let resp = match std::str::from_utf8(&buf[..n]) {
+    let resp = match std::str::from_utf8(&buf) {
         Ok(s) => s,
         Err(_) => return false,
     };
@@ -65,9 +65,9 @@ fn is_backend_healthy() -> bool {
     };
 
     if let Ok(val) = serde_json::from_str::<serde_json::Value>(body.trim()) {
-        if let Some(status) = val.get("status").and_then(|s| s.as_str()) {
-            return status == "healthy";
-        }
+        let is_healthy = val.get("status").and_then(|s| s.as_str()) == Some("healthy");
+        let is_filemind = val.get("service").and_then(|s| s.as_str()) == Some("FileMind Backend");
+        return is_healthy && is_filemind;
     }
     false
 }
@@ -229,6 +229,39 @@ fn log_dev_backend_failure() {
     eprintln!("  Failure Reason: No viable Python environment or runner script found in search paths.");
 }
 
+fn handle_spawned_child(
+    mut child: Child,
+    job_guard: Option<JobObjectGuard>,
+    backend_state: &ManagedBackend,
+) -> bool {
+    let pid = child.id();
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(ref guard) = job_guard {
+            if let Err(err) = guard.assign_child(&child) {
+                eprintln!(
+                    "[Tauri Supervisor] CRITICAL: Failed to assign backend PID {} to Job Object: {}. Terminating unmanaged child.",
+                    pid, err
+                );
+                let _ = child.kill();
+                return false;
+            }
+        } else {
+            eprintln!(
+                "[Tauri Supervisor] CRITICAL: No Job Object available on Windows for backend PID {}. Terminating unmanaged child.",
+                pid
+            );
+            let _ = child.kill();
+            return false;
+        }
+    }
+
+    let mut state = backend_state.lock().unwrap();
+    state.child_process = Some(child);
+    state.job_guard = job_guard;
+    true
+}
+
 fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
     if is_backend_healthy() {
         println!("[Tauri Supervisor] Local backend is already online on port {}", BACKEND_PORT);
@@ -238,7 +271,7 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
     }
 
     // Initialize Windows Job Object with KILL_ON_JOB_CLOSE before spawning child
-    let job_guard = match JobObjectGuard::create_with_kill_on_close() {
+    let mut job_guard = match JobObjectGuard::create_with_kill_on_close() {
         Ok(guard) => Some(guard),
         Err(err) => {
             eprintln!("[Tauri Supervisor] CRITICAL: Failed to create Windows Job Object: {}", err);
@@ -273,22 +306,10 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
 
         match cmd.spawn() {
             Ok(child) => {
-                let pid = child.id();
-                println!("[Tauri Supervisor] Backend spawned via dev venv with PID {}", pid);
-
-                if let Some(ref guard) = job_guard {
-                    if let Err(err) = guard.assign_child(&child) {
-                        eprintln!(
-                            "[Tauri Supervisor] WARNING: Failed to assign backend PID {} to Job Object: {}",
-                            pid, err
-                        );
-                    }
+                println!("[Tauri Supervisor] Backend spawned via dev venv with PID {}", child.id());
+                if handle_spawned_child(child, job_guard.take(), &backend_state) {
+                    return;
                 }
-
-                let mut state = backend_state.lock().unwrap();
-                state.child_process = Some(child);
-                state.job_guard = job_guard;
-                return;
             }
             Err(err) => {
                 eprintln!("[Tauri Supervisor] Failed to spawn backend via dev venv: {}", err);
@@ -336,19 +357,8 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
 
         match cmd.spawn() {
             Ok(child) => {
-                let pid = child.id();
-                println!("[Tauri Supervisor] Backend spawned successfully with PID {}", pid);
-
-                // Assign the exact spawned backend process to the Job Object
-                if let Some(ref guard) = job_guard {
-                    if let Err(err) = guard.assign_child(&child) {
-                        eprintln!("[Tauri Supervisor] WARNING: Failed to assign backend PID {} to Job Object: {}", pid, err);
-                    }
-                }
-
-                let mut state = backend_state.lock().unwrap();
-                state.child_process = Some(child);
-                state.job_guard = job_guard;
+                println!("[Tauri Supervisor] Backend spawned successfully with PID {}", child.id());
+                handle_spawned_child(child, job_guard.take(), &backend_state);
             }
             Err(err) => {
                 eprintln!("[Tauri Supervisor] Failed to spawn backend binary: {}", err);
@@ -381,18 +391,8 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
 
             match cmd.spawn() {
                 Ok(child) => {
-                    let pid = child.id();
-                    println!("[Tauri Supervisor] Backend spawned via dev venv with PID {}", pid);
-
-                    if let Some(ref guard) = job_guard {
-                        if let Err(err) = guard.assign_child(&child) {
-                            eprintln!("[Tauri Supervisor] WARNING: Failed to assign backend PID {} to Job Object: {}", pid, err);
-                        }
-                    }
-
-                    let mut state = backend_state.lock().unwrap();
-                    state.child_process = Some(child);
-                    state.job_guard = job_guard;
+                    println!("[Tauri Supervisor] Backend spawned via dev venv with PID {}", child.id());
+                    handle_spawned_child(child, job_guard.take(), &backend_state);
                 }
                 Err(err) => {
                     eprintln!("[Tauri Supervisor] Failed to spawn backend via dev venv: {}", err);
@@ -402,7 +402,6 @@ fn spawn_backend(app_handle: &AppHandle, backend_state: ManagedBackend) {
             log_dev_backend_failure();
         }
     }
-
 }
 
 

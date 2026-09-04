@@ -83,8 +83,31 @@ class SqliteVecStore(BaseVectorStore):
         self.initialize()
 
     def initialize(self):
-        """Creates vec0 virtual table for chunk vectors."""
+        """Creates vec0 virtual table for chunk vectors with dimension recovery."""
         try:
+            # Check if chunk_vectors already exists with a different dimension
+            cursor = self.conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='chunk_vectors';")
+            row = cursor.fetchone()
+            if row and row[0]:
+                import re
+                m = re.search(r'FLOAT\[(\d+)\]', row[0], re.IGNORECASE)
+                if m:
+                    existing_dim = int(m.group(1))
+                    if existing_dim != self.dimension:
+                        if self.is_empty():
+                            logger.info(
+                                "Recreating empty chunk_vectors table from dimension %d to %d",
+                                existing_dim,
+                                self.dimension,
+                            )
+                            self.conn.execute("DROP TABLE IF EXISTS chunk_vectors;")
+                        else:
+                            logger.warning(
+                                "chunk_vectors has dimension %d with populated rows, but store initialized with dimension %d",
+                                existing_dim,
+                                self.dimension,
+                            )
+
             self.conn.execute(
                 f"""
                 CREATE VIRTUAL TABLE IF NOT EXISTS chunk_vectors USING vec0(
@@ -164,7 +187,17 @@ class SqliteVecStore(BaseVectorStore):
     def upsert_vectors(self, records: List[Dict[str, Any]]) -> int:
         if not records:
             return 0
-        
+
+        # Validate vector dimensions before mutating index
+        for r in records:
+            emb = r.get("embedding")
+            if not emb:
+                raise ValueError("Embedding vector cannot be empty")
+            if len(emb) != self.dimension:
+                raise ValueError(
+                    f"embedding dimension mismatch: expected {self.dimension}, got {len(emb)}"
+                )
+
         # In vec0, replace existing chunk_ids
         chunk_ids = [r["chunk_id"] for r in records]
         self.delete_by_chunk_ids(chunk_ids)

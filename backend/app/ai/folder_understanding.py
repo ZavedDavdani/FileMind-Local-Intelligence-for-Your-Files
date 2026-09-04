@@ -316,12 +316,19 @@ class FolderUnderstandingService:
                 }
 
             # Check for freshness
+            is_active = (folder_id in self._active_generations)
             is_stale = (
                 cached.get("composite_hash") != composite_hash
                 or cached.get("model_name") != self.model_name
                 or cached.get("status") == "STALE"
+                or (cached.get("status") == "GENERATING" and not is_active)
             )
-            display_status = "STALE" if (is_stale and cached.get("status") == "READY") else cached.get("status", "READY")
+            if cached.get("status") == "GENERATING" and not is_active:
+                display_status = "STALE"
+            elif is_stale and cached.get("status") == "READY":
+                display_status = "STALE"
+            else:
+                display_status = cached.get("status", "READY")
 
             return {
                 "insight_id": cached.get("insight_id"),

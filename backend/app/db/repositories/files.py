@@ -420,13 +420,15 @@ class FileRepository:
 
     def delete_file(self, file_id: str) -> bool:
         # Clean up chunk_vectors virtual table entries before cascading relational delete
-        self.conn.execute(
-            """
-            DELETE FROM chunk_vectors
-            WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ?);
-            """,
-            (file_id,),
-        )
+        cursor = self.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chunk_vectors';")
+        if cursor.fetchone() is not None:
+            self.conn.execute(
+                """
+                DELETE FROM chunk_vectors
+                WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ?);
+                """,
+                (file_id,),
+            )
         cursor = self.conn.execute("DELETE FROM files WHERE file_id = ?;", (file_id,))
         return cursor.rowcount > 0
 

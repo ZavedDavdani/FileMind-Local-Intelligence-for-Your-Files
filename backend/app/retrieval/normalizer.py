@@ -34,6 +34,19 @@ _SUBTOKEN_SPLIT_REGEX = re.compile(r'[\s_\-\./\\:,;]+')
 _FTS5_KEYWORDS = {"AND", "OR", "NOT", "NEAR"}
 
 
+def is_cjk_char(c: str) -> bool:
+    """Returns True if the character is in a CJK, Hiragana, Katakana, or Hangul Unicode block."""
+    cp = ord(c)
+    return (
+        0x4E00 <= cp <= 0x9FFF
+        or 0x3400 <= cp <= 0x4DBF
+        or 0x20000 <= cp <= 0x2A6DF
+        or 0x3040 <= cp <= 0x309F
+        or 0x30A0 <= cp <= 0x30FF
+        or 0xAC00 <= cp <= 0xD7AF
+    )
+
+
 def normalize_query(raw_query: Optional[str]) -> NormalizedQuery:
     """
     Normalizes a user query deterministically.
@@ -124,12 +137,16 @@ def normalize_query(raw_query: Optional[str]) -> NormalizedQuery:
         else:
             # Escape internal double quotes
             safe_t = t.replace('"', '""')
+            is_cjk = any(is_cjk_char(c) for c in t)
             subparts = [s.replace('"', '""') for s in _SUBTOKEN_SPLIT_REGEX.split(t) if s.strip()]
             # If the token contains multiple sub-parts (e.g. sample.txt or FILEMIND_PRACTICAL),
-            # support both composite prefix matching and constituent sub-tokens in FTS5
+            # support both composite matching and constituent sub-tokens in FTS5
             if len(subparts) > 1:
                 fts_parts.append(f'"{safe_t}"')
-            elif len(safe_t) >= 2 and not safe_t.endswith("*"):
+                for sub in subparts:
+                    if len(sub) >= 2 and sub.lower() not in seen_fts_tokens and sub.upper() not in _FTS5_KEYWORDS:
+                        fts_parts.append(f'"{sub}"*')
+            elif (len(safe_t) >= 2 or is_cjk) and not safe_t.endswith("*"):
                 fts_parts.append(f'"{safe_t}"*')
             else:
                 fts_parts.append(f'"{safe_t}"')

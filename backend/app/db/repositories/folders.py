@@ -118,18 +118,20 @@ class FolderRepository:
 
     def delete_folder(self, folder_id: str) -> bool:
         # Clean up chunk_vectors virtual table entries for all chunks belonging to files in this folder
-        self.conn.execute(
-            """
-            DELETE FROM chunk_vectors
-            WHERE chunk_id IN (
-                SELECT c.chunk_id
-                FROM chunks c
-                JOIN files f ON c.file_id = f.file_id
-                WHERE f.folder_id = ?
-            );
-            """,
-            (folder_id,),
-        )
+        cursor = self.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chunk_vectors';")
+        if cursor.fetchone() is not None:
+            self.conn.execute(
+                """
+                DELETE FROM chunk_vectors
+                WHERE chunk_id IN (
+                    SELECT c.chunk_id
+                    FROM chunks c
+                    JOIN files f ON c.file_id = f.file_id
+                    WHERE f.folder_id = ?
+                );
+                """,
+                (folder_id,),
+            )
 
         cursor = self.conn.execute("DELETE FROM folders WHERE folder_id = ?;", (folder_id,))
         return cursor.rowcount > 0

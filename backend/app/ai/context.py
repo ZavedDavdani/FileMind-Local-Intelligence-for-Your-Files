@@ -110,6 +110,39 @@ class ContextBudgetConfig:
         if self.max_chunks < 0:
             raise ValueError("max_chunks cannot be negative")
 
+    @classmethod
+    def for_model(cls, model_name: Optional[str] = None) -> "ContextBudgetConfig":
+        """
+        Dynamically adjusts context limits based on the model identity.
+        Models with larger context windows (e.g. 8k, 16k, 32k, 128k) receive expanded
+        evidence budgets while preserving system & output headroom.
+        """
+        if not model_name:
+            return cls()
+        m_lower = model_name.lower()
+        if any(tag in m_lower for tag in ("32k", "128k", "qwen2.5", "qwen:7b", "qwen:14b", "qwen:32b")):
+            return cls(
+                max_context_tokens=8192,
+                reserved_system_tokens=800,
+                reserved_output_tokens=1500,
+                max_chunks=30,
+            )
+        elif any(tag in m_lower for tag in ("8k", "llama3", "mistral")):
+            return cls(
+                max_context_tokens=8192,
+                reserved_system_tokens=600,
+                reserved_output_tokens=1200,
+                max_chunks=25,
+            )
+        elif any(tag in m_lower for tag in ("2k", "tiny", "phi")):
+            return cls(
+                max_context_tokens=2048,
+                reserved_system_tokens=400,
+                reserved_output_tokens=600,
+                max_chunks=10,
+            )
+        return cls()
+
     @property
     def evidence_budget(self) -> int:
         """Available budget strictly allocated for retrieved evidence."""

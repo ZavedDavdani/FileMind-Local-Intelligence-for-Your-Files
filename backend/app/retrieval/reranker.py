@@ -197,12 +197,31 @@ class Reranker:
         scores_iter = self._model.rerank(query, documents, batch_size=32)
         raw_scores = list(scores_iter)
 
+        if len(raw_scores) != len(candidates):
+            logger.warning(
+                "Reranker returned %d scores for %d candidates; falling back to candidate order",
+                len(raw_scores),
+                len(candidates),
+            )
+            # If length mismatch, assign default fallback scores to avoid dropping candidates
+            if len(raw_scores) < len(candidates):
+                raw_scores.extend([0.0] * (len(candidates) - len(raw_scores)))
+            else:
+                raw_scores = raw_scores[:len(candidates)]
+
         scored_items: List[Dict[str, Any]] = []
         for cand, score in zip(candidates, raw_scores):
             score_float = round(_sigmoid(float(score)), 6)
             item = dict(cand)
             item["reranker_score"] = score_float
             item["score"] = score_float
+            # Explicitly preserve underlying score metadata
+            if "rrf_score" in cand:
+                item["rrf_score"] = cand["rrf_score"]
+            if "dense_score" in cand:
+                item["dense_score"] = cand["dense_score"]
+            if "lexical_score" in cand:
+                item["lexical_score"] = cand["lexical_score"]
             # Preserve existing retrieval_method or mark hybrid
             if not item.get("retrieval_method"):
                 item["retrieval_method"] = "hybrid"

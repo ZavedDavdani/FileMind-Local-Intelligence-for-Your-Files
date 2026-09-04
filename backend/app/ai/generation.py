@@ -196,18 +196,17 @@ class GroundedGenerationService:
 
         # 3. Invoke Local Provider
         try:
-            try:
-                with self.generation_coordinator.acquire():
+            with self.generation_coordinator.acquire():
+                try:
                     response: OllamaResponse = self.provider.generate(
                         prompt.full_prompt,
                         temperature=gen_cfg.temperature,
                     )
-            except TypeError as te:
-                if "temperature" in str(te) or "unexpected keyword argument" in str(te):
-                    with self.generation_coordinator.acquire():
+                except TypeError as te:
+                    if "temperature" in str(te) or "unexpected keyword argument" in str(te):
                         response = self.provider.generate(prompt.full_prompt)
-                else:
-                    raise
+                    else:
+                        raise
         except OllamaConnectionError as exc:
             logger.warning("Local Ollama endpoint unreachable: %s", exc)
             return GroundedGenerationResponse(

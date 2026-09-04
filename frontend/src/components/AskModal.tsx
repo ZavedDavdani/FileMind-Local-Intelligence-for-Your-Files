@@ -50,12 +50,6 @@ export const AskModal: React.FC<AskModalProps> = ({
   const abortControllerRef = useRef<AbortController | null>(null);
   const readinessAbortRef = useRef<AbortController | null>(null);
   const requestSeqRef = useRef(0);
-  const stageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  const clearStageTimers = useCallback(() => {
-    stageTimersRef.current.forEach(clearTimeout);
-    stageTimersRef.current = [];
-  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -75,7 +69,6 @@ export const AskModal: React.FC<AskModalProps> = ({
           // Non-blocking fallback
         });
     } else {
-      clearStageTimers();
       setProgressStage(null);
       setCopied(false);
       abortControllerRef.current?.abort();
@@ -83,16 +76,15 @@ export const AskModal: React.FC<AskModalProps> = ({
       requestSeqRef.current++;
       setLoading(false);
     }
-  }, [isOpen, clearStageTimers]);
+  }, [isOpen]);
 
   // Clean up on component unmount
   useEffect(() => {
     return () => {
-      clearStageTimers();
       abortControllerRef.current?.abort();
       readinessAbortRef.current?.abort();
     };
-  }, [clearStageTimers]);
+  }, []);
 
   const handleCitationClick = useCallback(
     (citId: string) => {
@@ -143,36 +135,14 @@ export const AskModal: React.FC<AskModalProps> = ({
       abortControllerRef.current = controller;
       const seq = ++requestSeqRef.current;
 
-      clearStageTimers();
       setLoading(true);
       setError(null);
       setSelectedCitationId(null);
       setCopied(false);
-      setProgressStage("Searching files…");
+      setProgressStage("Searching and generating answer…");
 
       // Record query in transient in-session history
       setQueryHistory((prev) => [q, ...prev.filter((h) => h.toLowerCase() !== q.toLowerCase())].slice(0, 10));
-
-      // Phased progress timers reflecting pipeline stages
-      const t1 = setTimeout(() => {
-        if (seq === requestSeqRef.current) {
-          setProgressStage("Preparing evidence…");
-        }
-      }, 250);
-
-      const t2 = setTimeout(() => {
-        if (seq === requestSeqRef.current) {
-          setProgressStage("Generating local answer…");
-        }
-      }, 900);
-
-      const t3 = setTimeout(() => {
-        if (seq === requestSeqRef.current) {
-          setProgressStage("Checking citations…");
-        }
-      }, 3200);
-
-      stageTimersRef.current = [t1, t2, t3];
 
       try {
         const req: AskRequest = {
@@ -185,11 +155,9 @@ export const AskModal: React.FC<AskModalProps> = ({
         if (seq !== requestSeqRef.current || controller.signal.aborted) {
           return;
         }
-        clearStageTimers();
         setProgressStage(null);
         setResponse(res);
       } catch (err: unknown) {
-        clearStageTimers();
         setProgressStage(null);
         const isAbort = err instanceof Error && err.name === "AbortError";
         if (isAbort || seq !== requestSeqRef.current) {
@@ -200,13 +168,12 @@ export const AskModal: React.FC<AskModalProps> = ({
         setError(msg);
       } finally {
         if (seq === requestSeqRef.current) {
-          clearStageTimers();
           setProgressStage(null);
           setLoading(false);
         }
       }
     },
-    [query, quality, loading, clearStageTimers]
+    [query, quality, loading]
   );
 
   if (!isOpen) return null;

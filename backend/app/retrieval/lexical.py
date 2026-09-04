@@ -178,7 +178,7 @@ class LexicalRetriever:
             c.metadata_json,
             bm25(chunks_fts, {BM25_WEIGHT_CONTENT}, {BM25_WEIGHT_H1}, {BM25_WEIGHT_H2}, {BM25_WEIGHT_SECTION}, {BM25_WEIGHT_FILE}) AS raw_bm25_score
         FROM chunks_fts
-        JOIN chunks c ON c.rowid = chunks_fts.rowid
+        JOIN chunks c ON c.chunk_id = chunks_fts.chunk_id
         JOIN files f ON f.file_id = c.file_id
         WHERE {where_sql}
         ORDER BY raw_bm25_score ASC, c.chunk_id ASC
