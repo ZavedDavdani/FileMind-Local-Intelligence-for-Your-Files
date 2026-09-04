@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { FolderInsight, Folder } from "../types";
 import { fetchFolderInsight, generateFolderInsight } from "../services/api";
 
-export function FolderSummaryBanner({ folders }: { folders: Folder[] }) {
+export const FolderSummaryBanner = memo(function FolderSummaryBanner({ folders }: { folders: Folder[] }) {
   const [folderId, setFolderId] = useState("");
   const [insight, setInsight] = useState<FolderInsight | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -95,4 +95,4 @@ export function FolderSummaryBanner({ folders }: { folders: Folder[] }) {
       )}
     </section>
   );
-}
+});

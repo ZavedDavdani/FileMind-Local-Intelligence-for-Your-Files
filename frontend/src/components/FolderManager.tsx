@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Folder, IntegrityMode } from "../types";
 import {
   FolderPlus,
@@ -21,7 +21,7 @@ interface FolderManagerProps {
   disabled?: boolean;
 }
 
-export function FolderManager({
+export const FolderManager = memo(function FolderManager({
   folders = [],
   onAddFolder,
   onUpdateFolder,
@@ -466,4 +466,5 @@ export function FolderManager({
       )}
     </div>
   );
-}
+});
+

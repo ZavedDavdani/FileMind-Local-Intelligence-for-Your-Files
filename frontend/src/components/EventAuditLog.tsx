@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { EventItem } from "../types";
 import { History, ChevronDown, ChevronUp } from "lucide-react";
 
@@ -38,7 +38,7 @@ function getEventBadge(type: string) {
   }
 }
 
-export function EventAuditLog({ events = [] }: EventAuditLogProps) {
+export const EventAuditLog = memo(function EventAuditLog({ events = [] }: EventAuditLogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const safeEvents = Array.isArray(events) ? events : [];
 
@@ -86,4 +86,4 @@ export function EventAuditLog({ events = [] }: EventAuditLogProps) {
       )}
     </div>
   );
-}
+});

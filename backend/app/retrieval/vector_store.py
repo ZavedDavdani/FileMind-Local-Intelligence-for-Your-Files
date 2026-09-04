@@ -200,6 +200,11 @@ class SqliteVecStore(BaseVectorStore):
         row = cursor.fetchone()
         return row[0] if row else 0
 
+    def is_empty(self) -> bool:
+        """Returns True if chunk_vectors contains no rows, checked via O(1) LIMIT 1 probe."""
+        cursor = self.conn.execute("SELECT chunk_id FROM chunk_vectors LIMIT 1;")
+        return cursor.fetchone() is None
+
     def search(
         self,
         query_vector: List[float],
@@ -214,13 +219,13 @@ class SqliteVecStore(BaseVectorStore):
         packed_q = self._pack_vector(query_vector)
         filters = filters or {}
 
-        total_vectors = self.count()
-        if total_vectors == 0:
+        # Cheap O(1) existence check without scanning entire index
+        if self.is_empty():
             return []
 
-        # When no filters are active, query top_k directly
+        # When no filters are active, query top_k directly without calculating total vectors
         has_filters = any(filters.get(k) for k in ("folder_id", "extension", "file_id", "source_path"))
-        fetch_k = top_k if not has_filters else min(total_vectors, max(top_k * 2, 20))
+        fetch_k = top_k if not has_filters else max(top_k * 2, 20)
 
         # 1. Retrieve candidates from vec0 (adaptively if filtered)
         vec_sql = """
@@ -316,11 +321,11 @@ class SqliteVecStore(BaseVectorStore):
             _iteration += 1
 
             # If enough valid filtered candidates gathered, or all vectors exhausted, or cap reached, stop
-            if len(all_matched_chunks) >= top_k or len(vec_rows) < fetch_k or fetch_k >= total_vectors or _iteration >= MAX_ADAPTIVE_ITERATIONS:
+            if len(all_matched_chunks) >= top_k or len(vec_rows) < fetch_k or _iteration >= MAX_ADAPTIVE_ITERATIONS:
                 break
 
             # Adaptively expand fetch_k
-            fetch_k = min(total_vectors, max(fetch_k * 2, fetch_k + top_k * 5))
+            fetch_k = max(fetch_k * 2, fetch_k + top_k * 5)
 
         # 3. Sort by vector distance ASC, then chunk_id ASC
         sorted_ids = sorted(

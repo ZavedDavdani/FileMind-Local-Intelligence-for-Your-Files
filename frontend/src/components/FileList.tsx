@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { FileItem, IndexStatus } from "../types";
 import { fetchFiles, executeSafeAction } from "../services/api";
 import { ChunkInspector } from "./ChunkInspector";
@@ -107,7 +107,7 @@ function getStatusBadge(status: IndexStatus) {
   }
 }
 
-export function FileList({
+export const FileList = memo(function FileList({
   files: initialFiles,
   isLoading: initialLoading,
   statusFilter,
@@ -405,4 +405,5 @@ export function FileList({
       )}
     </div>
   );
-}
+});
+

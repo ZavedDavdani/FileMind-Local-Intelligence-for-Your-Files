@@ -3,7 +3,7 @@
 import sqlite3
 from typing import List, Tuple
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 
 MIGRATION_V1_SQL = """
@@ -264,6 +264,39 @@ ALTER TABLE file_events_new RENAME TO file_events;
 CREATE INDEX IF NOT EXISTS idx_events_folder_time ON file_events(folder_id, observed_at DESC);
 """
 
+MIGRATION_V9_SQL = """
+-- Phase 6 Performance: Files FTS5 index and query performance indexes
+CREATE INDEX IF NOT EXISTS idx_files_modified_at ON files(modified_at DESC);
+CREATE INDEX IF NOT EXISTS idx_files_folder_status ON files(folder_id, index_status);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
+    filename,
+    relative_path,
+    sha256,
+    file_id UNINDEXED,
+    tokenize='trigram'
+);
+
+-- Triggers to maintain files_fts synchronized with files table
+CREATE TRIGGER IF NOT EXISTS trg_files_ai AFTER INSERT ON files BEGIN
+    INSERT INTO files_fts (rowid, filename, relative_path, sha256, file_id)
+    VALUES (new.rowid, new.filename, new.relative_path, COALESCE(new.sha256, ''), new.file_id);
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_files_ad AFTER DELETE ON files BEGIN
+    DELETE FROM files_fts WHERE rowid = old.rowid;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_files_au AFTER UPDATE ON files BEGIN
+    DELETE FROM files_fts WHERE rowid = old.rowid;
+    INSERT INTO files_fts (rowid, filename, relative_path, sha256, file_id)
+    VALUES (new.rowid, new.filename, new.relative_path, COALESCE(new.sha256, ''), new.file_id);
+END;
+
+-- Backfill existing rows if any
+INSERT INTO files_fts (rowid, filename, relative_path, sha256, file_id)
+SELECT rowid, filename, relative_path, COALESCE(sha256, ''), file_id FROM files;
+"""
 
 
 def apply_migrations(conn: sqlite3.Connection) -> int:
@@ -323,5 +356,10 @@ def apply_migrations(conn: sqlite3.Connection) -> int:
         cursor.executescript(MIGRATION_V8_SQL)
         cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (8);")
         current_version = 8
+
+    if current_version < 9:
+        cursor.executescript(MIGRATION_V9_SQL)
+        cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (9);")
+        current_version = 9
 
     return current_version

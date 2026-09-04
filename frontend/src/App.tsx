@@ -53,6 +53,63 @@ export function App() {
   const isRefreshingRef = useRef(false);
   const prevIndexingStatusRef = useRef<IndexingStatus | null>(null);
 
+  const areFoldersEqual = (prev: Folder[], next: Folder[]): boolean => {
+    if (prev === next) return true;
+    if (prev.length !== next.length) return false;
+    for (let i = 0; i < prev.length; i++) {
+      const p = prev[i];
+      const n = next[i];
+      if (
+        p.folder_id !== n.folder_id ||
+        p.path !== n.path ||
+        p.recursive !== n.recursive ||
+        p.integrity_mode !== n.integrity_mode ||
+        p.indexing_enabled !== n.indexing_enabled ||
+        p.updated_at !== n.updated_at
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const areEventsEqual = (prev: EventItem[], next: EventItem[]): boolean => {
+    if (prev === next) return true;
+    if (prev.length !== next.length) return false;
+    for (let i = 0; i < prev.length; i++) {
+      const p = prev[i];
+      const n = next[i];
+      if (
+        p.event_id !== n.event_id ||
+        p.processing_status !== n.processing_status ||
+        p.observed_at !== n.observed_at ||
+        p.path !== n.path ||
+        p.event_type !== n.event_type
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const areIndexingStatusesEqual = (prev: IndexingStatus | null, next: IndexingStatus | null): boolean => {
+    if (prev === next) return true;
+    if (!prev || !next) return false;
+    return (
+      prev.total_files === next.total_files &&
+      prev.indexed === next.indexed &&
+      prev.processing === next.processing &&
+      prev.failed === next.failed &&
+      prev.queued === next.queued &&
+      prev.discovered === next.discovered &&
+      prev.missing === next.missing &&
+      prev.skipped === next.skipped &&
+      prev.is_running === next.is_running &&
+      prev.is_paused === next.is_paused &&
+      prev.progress_percent === next.progress_percent
+    );
+  };
+
   const refreshAll = useCallback(async () => {
     if (status !== "online" || isRefreshingRef.current) return;
     isRefreshingRef.current = true;
@@ -62,25 +119,21 @@ export function App() {
         fetchIndexingStatus(),
         fetchEvents(undefined, 20),
       ]);
-      setFolders(Array.isArray(foldersData) ? foldersData : []);
+      const validFolders = Array.isArray(foldersData) ? foldersData : [];
+      setFolders((prev) => (areFoldersEqual(prev, validFolders) ? prev : validFolders));
 
       const prev = prevIndexingStatusRef.current;
-      const hasChanged =
-        !prev ||
-        prev.total_files !== statusData.total_files ||
-        prev.indexed !== statusData.indexed ||
-        prev.processing !== statusData.processing ||
-        prev.failed !== statusData.failed ||
-        prev.queued !== statusData.queued;
-
-      prevIndexingStatusRef.current = statusData;
-      setIndexingStatus(statusData);
+      const hasChanged = !areIndexingStatusesEqual(prev, statusData);
 
       if (hasChanged) {
+        prevIndexingStatusRef.current = statusData;
+        setIndexingStatus(statusData);
         setRefreshTick((t) => t + 1);
       }
 
-      setEvents(Array.isArray(eventsData) ? eventsData : []);
+      const validEvents = Array.isArray(eventsData) ? eventsData : [];
+      setEvents((prev) => (areEventsEqual(prev, validEvents) ? prev : validEvents));
+
       setLastSyncTime(new Date().toISOString());
       setErrorBanner(null);
     } catch (err: unknown) {
@@ -131,72 +184,95 @@ export function App() {
   }, []);
 
   // Folder Operations
-  const handleAddFolder = async (
-    path: string,
-    recursive: boolean,
-    mode: IntegrityMode,
-    exclusions: string[]
-  ) => {
-    try {
-      const created = await createFolder(path, recursive, mode, true, exclusions);
-      notify(`Registered folder: ${created.path}`);
-      setRefreshTick((t) => t + 1);
-      refreshAll();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to register folder";
-      setErrorBanner(msg);
-    }
-  };
+  const handleAddFolder = useCallback(
+    async (
+      path: string,
+      recursive: boolean,
+      mode: IntegrityMode,
+      exclusions: string[]
+    ) => {
+      try {
+        const created = await createFolder(path, recursive, mode, true, exclusions);
+        notify(`Registered folder: ${created.path}`);
+        setRefreshTick((t) => t + 1);
+        refreshAll();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to register folder";
+        setErrorBanner(msg);
+      }
+    },
+    [notify, refreshAll]
+  );
 
-  const handleUpdateFolder = async (id: string, updates: Partial<Folder>) => {
-    try {
-      await updateFolder(id, updates);
-      notify("Folder configuration updated");
-      setRefreshTick((t) => t + 1);
-      refreshAll();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to update folder";
-      setErrorBanner(msg);
-    }
-  };
+  const handleUpdateFolder = useCallback(
+    async (id: string, updates: Partial<Folder>) => {
+      try {
+        await updateFolder(id, updates);
+        notify("Folder configuration updated");
+        setRefreshTick((t) => t + 1);
+        refreshAll();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to update folder";
+        setErrorBanner(msg);
+      }
+    },
+    [notify, refreshAll]
+  );
 
-  const handleDeleteFolder = async (id: string) => {
-    try {
-      await deleteFolder(id);
-      notify("Folder removed from tracking");
-      setRefreshTick((t) => t + 1);
-      refreshAll();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to delete folder";
-      setErrorBanner(msg);
-    }
-  };
+  const handleDeleteFolder = useCallback(
+    async (id: string) => {
+      try {
+        await deleteFolder(id);
+        notify("Folder removed from tracking");
+        setRefreshTick((t) => t + 1);
+        refreshAll();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to delete folder";
+        setErrorBanner(msg);
+      }
+    },
+    [notify, refreshAll]
+  );
 
-  const handleRescanFolder = async (id: string) => {
-    try {
-      await controlIndexing("RESCAN", id);
-      notify("Rescan initiated for folder");
-      setRefreshTick((t) => t + 1);
-      refreshAll();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Rescan failed";
-      setErrorBanner(msg);
-    }
-  };
+  const handleRescanFolder = useCallback(
+    async (id: string) => {
+      try {
+        await controlIndexing("RESCAN", id);
+        notify("Rescan initiated for folder");
+        setRefreshTick((t) => t + 1);
+        refreshAll();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Rescan failed";
+        setErrorBanner(msg);
+      }
+    },
+    [notify, refreshAll]
+  );
 
   // Global Indexing Control Actions
-  const handleIndexingControl = async (action: "START" | "PAUSE" | "RESUME" | "STOP" | "RESCAN") => {
-    try {
-      const newStatus = await controlIndexing(action);
-      setIndexingStatus(newStatus);
-      notify(`Action triggered: ${action}`);
-      setRefreshTick((t) => t + 1);
-      refreshAll();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Control action failed";
-      setErrorBanner(msg);
-    }
-  };
+  const handleIndexingControl = useCallback(
+    async (action: "START" | "PAUSE" | "RESUME" | "STOP" | "RESCAN") => {
+      try {
+        const newStatus = await controlIndexing(action);
+        setIndexingStatus(newStatus);
+        notify(`Action triggered: ${action}`);
+        setRefreshTick((t) => t + 1);
+        refreshAll();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Control action failed";
+        setErrorBanner(msg);
+      }
+    },
+    [notify, refreshAll]
+  );
+
+  const handleStatusFilterChange = useCallback((s: string | null) => {
+    setStatusFilter(s);
+  }, []);
+
+  const handleOpenKnowledge = useCallback((id: string, name: string) => {
+    setKnowledgeFile({ id, name });
+  }, []);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-dark-900 text-slate-100 overflow-hidden font-sans">
@@ -299,10 +375,10 @@ export function App() {
         {/* Discovered & Tracked Files Table */}
         <FileList
           statusFilter={statusFilter}
-          onStatusFilterChange={(s) => setStatusFilter(s)}
+          onStatusFilterChange={handleStatusFilterChange}
           onNotification={notify}
           refreshTrigger={refreshTick}
-          onOpenKnowledge={(id, name) => setKnowledgeFile({ id, name })}
+          onOpenKnowledge={handleOpenKnowledge}
         />
 
         {/* Filesystem Event Audit Log */}

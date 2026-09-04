@@ -4,7 +4,7 @@ import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.security import normalize_path
 
@@ -103,6 +103,58 @@ class FileRepository:
         row = cursor.fetchone()
         return dict(row) if row else None
 
+    def _build_file_filters(
+        self,
+        folder_id: Optional[str] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+    ) -> Tuple[str, str, List[Any]]:
+        """Constructs FROM clause, WHERE clause, and parameter list for file listing and counting."""
+        conditions: List[str] = []
+        params: List[Any] = []
+        use_fts = False
+        fts_query = None
+
+        if folder_id:
+            conditions.append("f.folder_id = ?")
+            params.append(folder_id)
+        if status:
+            conditions.append("f.index_status = ?")
+            params.append(status.upper())
+
+        if search and search.strip():
+            raw_search = search.strip()
+            words = [w.replace('"', '""') for w in raw_search.split() if w]
+            has_short = any(len(w) < 3 for w in words)
+
+            if words and not has_short:
+                fts_expr = " AND ".join(f'"{w}"' for w in words)
+                try:
+                    self.conn.execute("SELECT 1 FROM files_fts LIMIT 1;")
+                    use_fts = True
+                    fts_query = fts_expr
+                except Exception:
+                    use_fts = False
+
+            if use_fts and fts_query:
+                conditions.append("files_fts MATCH ?")
+                params.append(fts_query)
+            else:
+                escaped = escape_like_wildcards(raw_search)
+                pattern = f"%{escaped}%"
+                conditions.append(
+                    "(f.filename LIKE ? ESCAPE '\\' OR f.relative_path LIKE ? ESCAPE '\\' OR f.sha256 LIKE ? ESCAPE '\\')"
+                )
+                params.extend([pattern, pattern, pattern])
+
+        if use_fts:
+            from_clause = "files f JOIN files_fts ON files_fts.rowid = f.rowid"
+        else:
+            from_clause = "files f"
+
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        return from_clause, where_clause, params
+
     def list_files(
         self,
         folder_id: Optional[str] = None,
@@ -111,27 +163,12 @@ class FileRepository:
         limit: int = 200,
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
-        conditions = []
-        params = []
-        if folder_id:
-            conditions.append("folder_id = ?")
-            params.append(folder_id)
-        if status:
-            conditions.append("index_status = ?")
-            params.append(status.upper())
-        if search and search.strip():
-            escaped = escape_like_wildcards(search.strip())
-            pattern = f"%{escaped}%"
-            conditions.append(
-                "(filename LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\' OR sha256 LIKE ? ESCAPE '\\')"
-            )
-            params.extend([pattern, pattern, pattern])
+        from_clause, where_clause, params = self._build_file_filters(folder_id, status, search)
+        query = f"SELECT f.* FROM {from_clause} {where_clause} ORDER BY f.modified_at DESC LIMIT ? OFFSET ?;"
+        exec_params = list(params)
+        exec_params.extend([limit, offset])
 
-        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-        query = f"SELECT * FROM files {where_clause} ORDER BY modified_at DESC LIMIT ? OFFSET ?;"
-        params.extend([limit, offset])
-
-        cursor = self.conn.execute(query, params)
+        cursor = self.conn.execute(query, exec_params)
         return [dict(row) for row in cursor.fetchall()]
 
     def count_files(
@@ -140,24 +177,8 @@ class FileRepository:
         status: Optional[str] = None,
         search: Optional[str] = None,
     ) -> int:
-        conditions = []
-        params = []
-        if folder_id:
-            conditions.append("folder_id = ?")
-            params.append(folder_id)
-        if status:
-            conditions.append("index_status = ?")
-            params.append(status.upper())
-        if search and search.strip():
-            escaped = escape_like_wildcards(search.strip())
-            pattern = f"%{escaped}%"
-            conditions.append(
-                "(filename LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\' OR sha256 LIKE ? ESCAPE '\\')"
-            )
-            params.extend([pattern, pattern, pattern])
-
-        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-        query = f"SELECT COUNT(*) as cnt FROM files {where_clause};"
+        from_clause, where_clause, params = self._build_file_filters(folder_id, status, search)
+        query = f"SELECT COUNT(*) as cnt FROM {from_clause} {where_clause};"
         cursor = self.conn.execute(query, params)
         row = cursor.fetchone()
         return row["cnt"] if row else 0
