@@ -1,4 +1,4 @@
-﻿"""Folder repository domain operations."""
+"""Folder repository domain operations."""
 
 import json
 import sqlite3
