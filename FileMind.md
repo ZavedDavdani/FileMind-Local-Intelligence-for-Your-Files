@@ -76,6 +76,9 @@ COMPLETE & VERIFIED (`LocalGenerationCoordinator` concurrency control, zero-padd
 Hardening Batch 2 — Filesystem, Parsers & Security Hardening:
 COMPLETE & VERIFIED (Markdown EOF code block flush, Go structural parsing, ParserRegistry factory singleton caching, PPTX notes, XLSX line spans & workbook closure, Explorer /select comma quoting, Linux close_fds, bounded enumerate)
 
+Hardening Batch 3 — Frontend, Tauri & End-to-End Reliability:
+COMPLETE & VERIFIED (ChunkInspector listener ref & unmount guard, App.tsx state setter decoupling, EventAuditLog deterministic keys, AskModal zero-padded citation resolution, Page Visibility API polling optimization, SecondBrainSheet & FolderSummaryBanner AbortController cancellation, Tauri explorer command quoting)
+
 Full Backend Regression Suite:
 473 / 474 PASS (473 passed, 1 skipped, 0 failed)
 

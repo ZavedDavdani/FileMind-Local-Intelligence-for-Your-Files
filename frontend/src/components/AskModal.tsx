@@ -273,15 +273,20 @@ export const AskModal: React.FC<AskModalProps> = ({
         {parts.map((part, idx) => {
           const match = part.match(/^\[E(\d+)\]$/);
           if (match) {
-            const citId = `E${match[1]}`;
-            const exists = response?.citations.some((c) => c.citation_id === citId);
-            const isSelected = selectedCitationId === citId;
+            const rawCitId = `E${match[1]}`;
+            const normalizedCitId = `E${parseInt(match[1], 10)}`;
+            const matchedCitation = response?.citations.find(
+              (c) => c.citation_id === rawCitId || c.citation_id === normalizedCitId
+            );
+            const exists = Boolean(matchedCitation);
+            const targetCitId = matchedCitation ? matchedCitation.citation_id : normalizedCitId;
+            const isSelected = selectedCitationId === targetCitId;
 
             return (
               <button
                 key={idx}
                 type="button"
-                onClick={() => handleCitationClick(citId)}
+                onClick={() => handleCitationClick(targetCitId)}
                 className={`inline-flex items-center px-1.5 py-0.5 mx-0.5 text-xs font-mono font-bold rounded transition-colors ${
                   exists
                     ? isSelected
@@ -289,10 +294,10 @@ export const AskModal: React.FC<AskModalProps> = ({
                       : "bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border border-indigo-500/30"
                     : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
                 }`}
-                title={exists ? `Inspect evidence for [${citId}]` : `Unresolved citation [${citId}]`}
-                aria-label={`Citation ${citId}`}
+                title={exists ? `Inspect evidence for [${rawCitId}]` : `Unresolved citation [${rawCitId}]`}
+                aria-label={`Citation ${rawCitId}`}
               >
-                [{citId}]
+                [{rawCitId}]
               </button>
             );
           }

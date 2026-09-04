@@ -29,13 +29,14 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Phase 5.5 Batch 3.2** | Knowledge Connections (`KnowledgeConnectionService`, shared-topic & reference graph) | ✅ Complete / IMPLEMENTED |
 | **Hardening Batch 1** | Backend Core, Data Integrity & AI Hardening (`LocalGenerationCoordinator`, zero-padded citations) | ✅ Complete / VERIFIED |
 | **Hardening Batch 2** | Filesystem, Parsers & Security Hardening (Unclosed MD code blocks, Go parsing, PPTX notes, XLSX lines, Explorer quoting) | ✅ Complete / VERIFIED |
+| **Hardening Batch 3** | Frontend, Tauri & E2E Reliability (React lifecycle, zero-padded Ask citations, Page Visibility polling, sheet cancellation) | ✅ Complete / VERIFIED |
 | **Phase 6** | Evaluation / MLOps (Expanded evaluation dataset, Ragas metrics, regression gates) | ⏳ PENDING |
 | **Phase 7** | Multimodal Intelligence (Optional: OCR, complex visual tables, ColPali) | ⏳ PENDING |
 | **Phase 8** | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
 | **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
 | **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
 
-> **Current Boundary & Scope Note**: Phase 5.1–5.4 (Local RAG / Ask FileMind), Phase 5.5 (Document Understanding, Related Content, Folder Understanding, Knowledge Connections), and Hardening Batches 1 & 2 are **fully implemented and verified**. The pipeline operates synchronously and locally on-device. Streaming, persistent chat databases, cloud fallbacks, autonomous tool-calling agents, and graph databases belong to future milestones and are **strictly not implemented**.
+> **Current Boundary & Scope Note**: Phase 5.1–5.4 (Local RAG / Ask FileMind), Phase 5.5 (Document Understanding, Related Content, Folder Understanding, Knowledge Connections), and Hardening Batches 1–3 are **fully implemented and verified**. The pipeline operates synchronously and locally on-device. Streaming, persistent chat databases, cloud fallbacks, autonomous tool-calling agents, and graph databases belong to future milestones and are **strictly not implemented**.
 
 ---
 
@@ -244,3 +245,4 @@ cargo tauri build
 - [Pre-Phase-5 Hardening Report (`docs/hardening/pre-phase-5-hardening-report.md`)](file:///c:/dev/FileMind/docs/hardening/pre-phase-5-hardening-report.md): Verification report for foundational hardening.
 - [Batch 1 Backend Hardening Report (`docs/hardening/batch1-backend-hardening-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch1-backend-hardening-report.md): Verification report for Batch 1 backend & AI hardening.
 - [Batch 2 Filesystem & Security Report (`docs/hardening/batch2-filesystem-parsers-security-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch2-filesystem-parsers-security-report.md): Verification report for Batch 2 parser, filesystem & security hardening.
+- [Batch 3 Frontend & Tauri Report (`docs/hardening/batch3-frontend-tauri-e2e-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch3-frontend-tauri-e2e-report.md): Verification report for Batch 3 frontend, Tauri & E2E reliability.

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { ChunkItem, ChunkListResponse } from "../types";
 import { fetchFileChunks } from "../services/api";
 
@@ -20,7 +20,13 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedChunk, setSelectedChunk] = useState<ChunkItem | null>(null);
 
+  const onCloseRef = useRef(onClose);
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    let mounted = true;
     if (!fileId) {
       setError("No file ID specified for chunk inspection");
       setLoading(false);
@@ -30,6 +36,7 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
     setError(null);
     fetchFileChunks(fileId)
       .then((res) => {
+        if (!mounted) return;
         setData(res);
         if (res.chunks && res.chunks.length > 0) {
           const matched = initialChunkId
@@ -38,19 +45,28 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
           setSelectedChunk(matched || res.chunks[0]);
         }
       })
-      .catch((err) => setError(err.message || "Failed to load chunks"))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || "Failed to load chunks");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, [fileId, initialChunkId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, []);
 
   return (
     <div

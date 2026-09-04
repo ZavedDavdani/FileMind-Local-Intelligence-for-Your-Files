@@ -71,17 +71,32 @@ export function useBackendHealth() {
 
     initialPoll();
 
-    // Regular interval poll every 6 seconds
+    // Regular interval poll every 6 seconds (skips when hidden)
     const interval = setInterval(() => {
       if (mounted) {
+        if (typeof document !== "undefined" && document.hidden) {
+          return;
+        }
         check(false);
       }
     }, 6000);
+
+    const handleVisibility = () => {
+      if (mounted && typeof document !== "undefined" && !document.hidden) {
+        check(false);
+      }
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibility);
+    }
 
     return () => {
       mounted = false;
       clearTimeout(initialTimer);
       clearInterval(interval);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibility);
+      }
     };
   }, [check]);
 

@@ -497,7 +497,7 @@ fn open_in_explorer(path: String) -> Result<(), String> {
     {
         if p.is_file() {
             let _ = Command::new("explorer.exe")
-                .arg(format!("/select,{}", path))
+                .arg(format!("/select,\"{}\"", path))
                 .spawn();
         } else {
             let _ = Command::new("explorer.exe").arg(&path).spawn();

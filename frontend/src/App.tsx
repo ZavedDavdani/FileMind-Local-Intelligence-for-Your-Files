@@ -51,6 +51,7 @@ export function App() {
   }, []);
 
   const isRefreshingRef = useRef(false);
+  const prevIndexingStatusRef = useRef<IndexingStatus | null>(null);
 
   const refreshAll = useCallback(async () => {
     if (status !== "online" || isRefreshingRef.current) return;
@@ -62,20 +63,23 @@ export function App() {
         fetchEvents(undefined, 20),
       ]);
       setFolders(Array.isArray(foldersData) ? foldersData : []);
-      setIndexingStatus((prev) => {
-        // Only trigger FileList refresh if indexing status/counts changed
-        if (
-          !prev ||
-          prev.total_files !== statusData.total_files ||
-          prev.indexed !== statusData.indexed ||
-          prev.processing !== statusData.processing ||
-          prev.failed !== statusData.failed ||
-          prev.queued !== statusData.queued
-        ) {
-          setRefreshTick((t) => t + 1);
-        }
-        return statusData;
-      });
+
+      const prev = prevIndexingStatusRef.current;
+      const hasChanged =
+        !prev ||
+        prev.total_files !== statusData.total_files ||
+        prev.indexed !== statusData.indexed ||
+        prev.processing !== statusData.processing ||
+        prev.failed !== statusData.failed ||
+        prev.queued !== statusData.queued;
+
+      prevIndexingStatusRef.current = statusData;
+      setIndexingStatus(statusData);
+
+      if (hasChanged) {
+        setRefreshTick((t) => t + 1);
+      }
+
       setEvents(Array.isArray(eventsData) ? eventsData : []);
       setLastSyncTime(new Date().toISOString());
       setErrorBanner(null);
@@ -88,11 +92,27 @@ export function App() {
     }
   }, [status]);
 
-  // Initial load and periodic polling every 2.5 seconds
+  // Initial load and periodic polling every 2.5 seconds (skips when window/tab is hidden)
   useEffect(() => {
     refreshAll();
-    const interval = setInterval(refreshAll, 2500);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) {
+        return;
+      }
+      refreshAll();
+    }, 2500);
+
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        refreshAll();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [refreshAll]);
 
   // Global Ctrl+K (Search) and Ctrl+J (Ask) shortcuts

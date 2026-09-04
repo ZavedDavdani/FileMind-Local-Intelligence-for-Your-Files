@@ -63,8 +63,8 @@ export function EventAuditLog({ events = [] }: EventAuditLogProps) {
           {safeEvents.length === 0 && (
             <div className="p-4 text-center text-slate-500">No events observed yet.</div>
           )}
-          {safeEvents.map((ev) => (
-            <div key={ev.event_id} className="py-1.5 px-2 flex items-center justify-between hover:bg-dark-700/20">
+          {safeEvents.map((ev, idx) => (
+            <div key={`${ev.event_id || "ev"}-${idx}`} className="py-1.5 px-2 flex items-center justify-between hover:bg-dark-700/20">
               <div className="flex items-center space-x-2.5 min-w-0 flex-1 pr-4">
                 {getEventBadge(ev.event_type)}
                 <span className="text-slate-300 truncate" title={ev.path}>
