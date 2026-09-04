@@ -4,7 +4,7 @@ import logging
 import os
 import threading
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from app.core.config import DEFAULT_MAX_WORKERS
 from app.db.connection import DatabaseManager
@@ -27,7 +27,12 @@ logger = logging.getLogger("FileMind.Worker")
 class WorkerPool:
     """Manages background worker threads that process indexing and document intelligence jobs asynchronously."""
 
-    def __init__(self, db_manager: DatabaseManager, max_workers: int = DEFAULT_MAX_WORKERS):
+    def __init__(
+        self,
+        db_manager: DatabaseManager,
+        max_workers: int = DEFAULT_MAX_WORKERS,
+        embedding_engine: Optional[Any] = None,
+    ):
         self.db = db_manager
         self.queue = JobQueue(db_manager)
         self.max_workers = max_workers
@@ -36,6 +41,14 @@ class WorkerPool:
         self._paused = False
         self._lock = threading.Lock()
         self.chunker = HierarchicalChunker()
+        self._embedding_engine = embedding_engine
+
+    @property
+    def embedding_engine(self):
+        if self._embedding_engine is not None:
+            return self._embedding_engine
+        from app.retrieval.embeddings import default_embedding_engine
+        return default_embedding_engine
 
     def start(self):
         """Starts the worker pool threads."""
@@ -237,11 +250,10 @@ class WorkerPool:
                     vector_write_skipped_reason: Optional[str] = None
                     if chunks:
                         try:
-                            from app.retrieval.embeddings import default_embedding_engine
-                            dimension = default_embedding_engine.dimension
+                            dimension = self.embedding_engine.dimension
                             texts = [c.content if hasattr(c, "content") else c["content"] for c in chunks]
                             chunk_ids = [c.chunk_id if hasattr(c, "chunk_id") else c["chunk_id"] for c in chunks]
-                            vectors = default_embedding_engine.embed_texts(texts)
+                            vectors = self.embedding_engine.embed_texts(texts)
                             vec_records = [
                                 {"chunk_id": cid, "file_id": file_id, "embedding": vec}
                                 for cid, vec in zip(chunk_ids, vectors)
@@ -268,7 +280,6 @@ class WorkerPool:
                             return
 
                         from app.retrieval.vector_store import SqliteVecStore
-                        from app.retrieval.embeddings import default_embedding_engine
                         vec_store = SqliteVecStore(conn, dimension=dimension)
 
                         # A1/A3.1 Invariant: Purge existing vectors before destroying old relational chunk pointers
@@ -277,7 +288,7 @@ class WorkerPool:
                         repo.replace_file_chunks(file_id, chunks)
 
                         if vec_records:
-                            identity = default_embedding_engine.get_identity()
+                            identity = self.embedding_engine.get_identity()
                             if not vec_store.verify_index_validity(identity):
                                 # The existing vector index was built with a different
                                 # embedding model/version/dimension than the one active

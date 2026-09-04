@@ -1,14 +1,14 @@
-﻿"""Folder management API routes."""
+"""Folder management API routes."""
 
 import os
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.deps import get_repo
+from app.core.context import AppContext
+from app.core.deps import get_app_context, get_repo
 from app.core.security import is_path_within_root, normalize_path, paths_overlap
 from app.db.repository import Repository
-from app.engine.coordinator import coordinator
 from app.schemas import FolderCreate, FolderResponse, FolderUpdate
 
 router = APIRouter(tags=["Folders"])
@@ -22,7 +22,11 @@ def list_registered_folders(repo: Repository = Depends(get_repo)) -> List[Folder
 
 
 @router.post("/folders", response_model=FolderResponse, status_code=status.HTTP_201_CREATED)
-def register_folder(payload: FolderCreate, repo: Repository = Depends(get_repo)) -> FolderResponse:
+def register_folder(
+    payload: FolderCreate,
+    repo: Repository = Depends(get_repo),
+    ctx: AppContext = Depends(get_app_context),
+) -> FolderResponse:
     """Registers a new folder for indexing and discovery."""
     try:
         norm_path = normalize_path(payload.path)
@@ -73,7 +77,7 @@ def register_folder(payload: FolderCreate, repo: Repository = Depends(get_repo))
 
     # Trigger discovery scan and sync watcher
     if payload.indexing_enabled:
-        coordinator.scan_single_folder(folder["folder_id"])
+        ctx.engine_coordinator.scan_single_folder(folder["folder_id"])
 
     return FolderResponse(**folder)
 
@@ -87,7 +91,12 @@ def get_folder(folder_id: str, repo: Repository = Depends(get_repo)) -> FolderRe
 
 
 @router.patch("/folders/{folder_id}", response_model=FolderResponse)
-def update_folder(folder_id: str, payload: FolderUpdate, repo: Repository = Depends(get_repo)) -> FolderResponse:
+def update_folder(
+    folder_id: str,
+    payload: FolderUpdate,
+    repo: Repository = Depends(get_repo),
+    ctx: AppContext = Depends(get_app_context),
+) -> FolderResponse:
     updated = repo.update_folder(
         folder_id=folder_id,
         recursive=payload.recursive,
@@ -99,16 +108,20 @@ def update_folder(folder_id: str, payload: FolderUpdate, repo: Repository = Depe
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found")
 
     repo.conn.commit()
-    coordinator.sync_watches()
+    ctx.engine_coordinator.sync_watches()
     return FolderResponse(**updated)
 
 
 @router.delete("/folders/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_folder(folder_id: str, repo: Repository = Depends(get_repo)):
+def delete_folder(
+    folder_id: str,
+    repo: Repository = Depends(get_repo),
+    ctx: AppContext = Depends(get_app_context),
+):
     deleted = repo.delete_folder(folder_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found")
 
     repo.conn.commit()
-    coordinator.sync_watches()
+    ctx.engine_coordinator.sync_watches()
     return None

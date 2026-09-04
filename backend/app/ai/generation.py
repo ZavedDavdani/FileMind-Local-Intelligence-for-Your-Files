@@ -133,9 +133,11 @@ class GroundedGenerationService:
         self,
         provider: Optional[BaseLLMProvider] = None,
         prompt_builder: Optional[PromptBuilder] = None,
+        generation_coordinator: Optional[Any] = None,
     ):
         self.provider = provider or OllamaProvider()
         self.prompt_builder = prompt_builder or default_prompt_builder
+        self.generation_coordinator = generation_coordinator or default_generation_coordinator
 
     def generate_answer(
         self,
@@ -192,14 +194,14 @@ class GroundedGenerationService:
         # 3. Invoke Local Provider
         try:
             try:
-                with default_generation_coordinator.acquire():
+                with self.generation_coordinator.acquire():
                     response: OllamaResponse = self.provider.generate(
                         prompt.full_prompt,
                         temperature=gen_cfg.temperature,
                     )
             except TypeError as te:
                 if "temperature" in str(te) or "unexpected keyword argument" in str(te):
-                    with default_generation_coordinator.acquire():
+                    with self.generation_coordinator.acquire():
                         response = self.provider.generate(prompt.full_prompt)
                 else:
                     raise

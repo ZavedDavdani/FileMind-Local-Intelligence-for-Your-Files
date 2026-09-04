@@ -106,13 +106,14 @@ def test_action_copy_path():
     FileMind folder.  This test registers the temp directory via POST /folders
     and deregisters it after the assertion.
     """
-    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-        tmp_path = tmp_file.name
+    tmp_dir = tempfile.mkdtemp()
+    tmp_path = os.path.join(tmp_dir, "test_action_file.txt")
+    with open(tmp_path, "w") as f:
+        f.write("test content")
 
-    tmp_dir = os.path.dirname(tmp_path)
     folder_id = None
     try:
-        # Register the temp directory so the scope check passes
+        # Register the dedicated temp directory so the scope check passes
         reg_resp = client.post(
             "/folders",
             json={"path": tmp_dir, "recursive": False, "indexing_enabled": False},
@@ -132,9 +133,13 @@ def test_action_copy_path():
         assert data["action"] == "COPY_PATH"
         assert data["target_path"] == os.path.normpath(os.path.abspath(tmp_path))
     finally:
-        os.unlink(tmp_path)
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
         if folder_id:
             client.delete(f"/folders/{folder_id}")
+        if os.path.exists(tmp_dir):
+            import shutil
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def test_action_nonexistent_path():

@@ -22,8 +22,11 @@ from app.ai.generation import (
     GroundedGenerationService,
     default_generation_service,
 )
-from app.db.connection import db_manager
+from app.ai.generation_coordinator import LocalGenerationCoordinator
+from app.db.connection import DatabaseManager, db_manager
+from app.retrieval.embeddings import EmbeddingEngine
 from app.retrieval.hybrid import HybridRetriever
+from app.retrieval.reranker import Reranker
 from app.schemas import (
     AskRequest,
     AskResponse,
@@ -42,13 +45,26 @@ class AskService:
 
     def __init__(
         self,
-        db_manager_instance=None,
+        db_manager: Optional[DatabaseManager] = None,
+        db_manager_instance: Optional[DatabaseManager] = None,
         context_builder: Optional[ContextBuilder] = None,
         generation_service: Optional[GroundedGenerationService] = None,
+        embedding_engine: Optional[EmbeddingEngine] = None,
+        reranker: Optional[Reranker] = None,
+        generation_coordinator: Optional[LocalGenerationCoordinator] = None,
     ):
-        self.db_manager = db_manager_instance or db_manager
+        self.db_manager = db_manager or db_manager_instance or db_manager
         self.context_builder = context_builder or default_context_builder
-        self.generation_service = generation_service or default_generation_service
+        self.embedding_engine = embedding_engine
+        self.reranker = reranker
+        if generation_service is not None:
+            self.generation_service = generation_service
+        elif generation_coordinator is not None:
+            self.generation_service = GroundedGenerationService(
+                generation_coordinator=generation_coordinator
+            )
+        else:
+            self.generation_service = default_generation_service
 
     def ask(self, req: AskRequest) -> AskResponse:
         """
@@ -96,7 +112,11 @@ class AskService:
         )
 
         with self.db_manager.session() as conn:
-            retriever = HybridRetriever(conn)
+            retriever = HybridRetriever(
+                conn,
+                embedding_engine=self.embedding_engine,
+                reranker=self.reranker,
+            )
             search_res = retriever.search(
                 query=query_str,
                 top_k=req.top_k,

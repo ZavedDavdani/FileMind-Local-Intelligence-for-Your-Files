@@ -24,7 +24,7 @@ Thread-lifetime contract (Batch 1 hardening):
 import logging
 import threading
 import time
-from typing import List, Optional
+from typing import Any, List, Optional
 import numpy as np
 
 from app.core.config import EMBEDDING_RETRY_COOLDOWN_SECONDS
@@ -70,11 +70,13 @@ class EmbeddingEngine:
         model_name: str = DEFAULT_MODEL_NAME,
         load_timeout: float = EMBEDDING_LOAD_TIMEOUT_SECONDS,
         retry_cooldown: float = RETRY_COOLDOWN_SECONDS,
+        model_registry: Optional[Any] = None,
     ):
         self.model_name = model_name
         self.dimension = MODEL_DIMENSIONS.get(model_name, 384)
         self.load_timeout = load_timeout
         self.retry_cooldown = retry_cooldown
+        self._model_registry = model_registry
         self._model = None
         self._lock = threading.Lock()
         # Single init-thread state — no executor, no task queue.
@@ -82,6 +84,13 @@ class EmbeddingEngine:
         self._init_done = threading.Event()   # set when _run_init finishes (success or fail)
         self._init_error: Optional[Exception] = None
         self._last_failure_time: float = 0.0
+
+    @property
+    def model_registry(self):
+        if self._model_registry is not None:
+            return self._model_registry
+        from app.retrieval.model_registry import default_model_registry
+        return default_model_registry
 
     @property
     def model_version(self) -> str:
@@ -104,15 +113,15 @@ class EmbeddingEngine:
                 self._init_done.clear()
 
     def _run_init(self) -> None:
-        """Daemon thread: loads the FastEmbed model and signals _init_done.
+        """Daemon thread: loads the FastEmbed TextEmbedding model and signals _init_done.
 
-        _model is written before _init_done.set() so that any thread waking
+        Runs at most ONCE per load attempt. Any subsequent reader returning
         from _init_done.wait() observes a fully-initialised model (GIL + Event
         provide the required happens-before).
         """
         try:
-            from app.retrieval.model_registry import default_model_registry, ModelReadiness
-            default_model_registry.update_readiness(
+            from app.retrieval.model_registry import ModelReadiness
+            self.model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
                 ModelReadiness.LOADING,
             )
@@ -125,7 +134,7 @@ class EmbeddingEngine:
             self._model = model          # visible to all waiters after _init_done.set()
             self._init_error = None
             self._last_failure_time = 0.0
-            default_model_registry.update_readiness(
+            self.model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
                 ModelReadiness.READY,
             )
@@ -133,8 +142,8 @@ class EmbeddingEngine:
         except Exception as exc:
             self._init_error = exc
             self._last_failure_time = time.time()
-            from app.retrieval.model_registry import default_model_registry, ModelReadiness
-            default_model_registry.update_readiness(
+            from app.retrieval.model_registry import ModelReadiness
+            self.model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
                 ModelReadiness.FAILED,
                 error=str(exc),

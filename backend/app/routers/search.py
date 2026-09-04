@@ -1,9 +1,10 @@
-﻿"""Search and related files retrieval API routes."""
+"""Search and related files retrieval API routes."""
 
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.core.deps import get_db
+from app.core.context import AppContext
+from app.core.deps import get_app_context, get_db
 from app.db.connection import DatabaseManager
 from app.retrieval.hybrid import HybridRetriever
 from app.retrieval.related import RelatedContentService
@@ -14,7 +15,10 @@ router = APIRouter(tags=["Retrieval"])
 
 
 @router.post("/search", response_model=SearchResponse)
-def search_evidence(req: SearchRequest, db: DatabaseManager = Depends(get_db)) -> SearchResponse:
+def search_evidence(
+    req: SearchRequest,
+    ctx: AppContext = Depends(get_app_context),
+) -> SearchResponse:
     """
     Local hybrid evidence retrieval endpoint.
     Supports Fast and Quality search modes across BM25, Dense, and Hybrid retrieval.
@@ -51,8 +55,12 @@ def search_evidence(req: SearchRequest, db: DatabaseManager = Depends(get_db)) -
     if req.file_id:
         filters["file_id"] = req.file_id
 
-    with db.session() as conn:
-        retriever = HybridRetriever(conn)
+    with ctx.db_manager.session() as conn:
+        retriever = HybridRetriever(
+            conn,
+            embedding_engine=ctx.embedding_engine,
+            reranker=ctx.reranker,
+        )
         resp = retriever.search(
             query=req.query,
             top_k=req.top_k,
@@ -68,7 +76,7 @@ def get_related_files(
     file_id: str,
     limit: int = Query(5, ge=1, le=50, description="Max related files to return"),
     quality: str = Query("fast", description="Search quality: fast or quality"),
-    db: DatabaseManager = Depends(get_db),
+    ctx: AppContext = Depends(get_app_context),
 ) -> RelatedFilesResponse:
     """
     Discovers indexed files related to the specified file using hybrid retrieval.
@@ -83,7 +91,11 @@ def get_related_files(
         )
 
     try:
-        svc = RelatedContentService(db_manager=db)
+        svc = RelatedContentService(
+            db_manager=ctx.db_manager,
+            embedding_engine=ctx.embedding_engine,
+            reranker=ctx.reranker,
+        )
         resp = svc.get_related_files(file_id=file_id, limit=limit, quality=quality_lower)
         return RelatedFilesResponse(**resp)
     except ValueError as exc:

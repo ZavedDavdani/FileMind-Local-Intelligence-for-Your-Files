@@ -28,9 +28,13 @@ class RelatedContentService:
         self,
         db_manager: DatabaseManager,
         retriever: Optional[HybridRetriever] = None,
+        embedding_engine: Optional[Any] = None,
+        reranker: Optional[Any] = None,
     ):
         self.db = db_manager
         self.retriever = retriever
+        self.embedding_engine = embedding_engine
+        self.reranker = reranker
 
     def _build_synthetic_query(
         self,
@@ -171,7 +175,11 @@ class RelatedContentService:
             candidate_pool_size = min(max(effective_limit * 5, 30), 100)
 
             # Execute hybrid retrieval
-            retriever = self.retriever or HybridRetriever(conn)
+            retriever = self.retriever or HybridRetriever(
+                conn,
+                embedding_engine=self.embedding_engine,
+                reranker=self.reranker,
+            )
             search_resp = retriever.search(
                 query=synthetic_query,
                 top_k=candidate_pool_size,

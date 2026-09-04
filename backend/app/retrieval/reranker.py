@@ -53,16 +53,25 @@ class Reranker:
         model_name: str = DEFAULT_RERANK_MODEL_NAME,
         load_timeout: float = RERANKER_LOAD_TIMEOUT_SECONDS,
         retry_cooldown: float = RERANKER_RETRY_COOLDOWN_SECONDS,
+        model_registry: Optional[Any] = None,
     ):
         self.model_name = model_name
         self.load_timeout = load_timeout
         self.retry_cooldown = retry_cooldown
+        self._model_registry = model_registry
         self._model = None
         self._lock = threading.Lock()
         self._init_thread: Optional[threading.Thread] = None
         self._init_done = threading.Event()
         self._init_error: Optional[Exception] = None
         self._last_failure_time: float = 0.0
+
+    @property
+    def model_registry(self):
+        if self._model_registry is not None:
+            return self._model_registry
+        from app.retrieval.model_registry import default_model_registry
+        return default_model_registry
 
     def reset_init_state(self) -> None:
         """Resets failure state to force a clean re-initialization on next call."""
@@ -75,8 +84,8 @@ class Reranker:
     def _run_init(self) -> None:
         """Daemon thread: loads the FastEmbed TextCrossEncoder model and signals _init_done."""
         try:
-            from app.retrieval.model_registry import default_model_registry, ModelReadiness
-            default_model_registry.update_readiness(
+            from app.retrieval.model_registry import ModelReadiness
+            self.model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
                 ModelReadiness.LOADING,
             )
@@ -89,7 +98,7 @@ class Reranker:
             self._model = model
             self._init_error = None
             self._last_failure_time = 0.0
-            default_model_registry.update_readiness(
+            self.model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
                 ModelReadiness.READY,
             )
@@ -97,8 +106,8 @@ class Reranker:
         except Exception as exc:
             self._init_error = exc
             self._last_failure_time = time.time()
-            from app.retrieval.model_registry import default_model_registry, ModelReadiness
-            default_model_registry.update_readiness(
+            from app.retrieval.model_registry import ModelReadiness
+            self.model_registry.update_readiness(
                 f"fastembed:{self.model_name}",
                 ModelReadiness.FAILED,
                 error=str(exc),

@@ -1,13 +1,14 @@
-﻿"""AI, Document/Folder Understanding, and Knowledge Connections API routes."""
+"""AI, Document/Folder Understanding, and Knowledge Connections API routes."""
 
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.deps import get_db
+from app.core.context import AppContext, default_app_context
+from app.core.deps import get_app_context, get_db
 from app.core.errors import map_service_errors
 from app.db.connection import DatabaseManager
-from app.retrieval.model_registry import ModelType, default_model_registry
+from app.retrieval.model_registry import ModelType
 from app.schemas import (
     AIStatusResponse,
     AskRequest,
@@ -26,10 +27,11 @@ router = APIRouter()
 
 
 @router.get("/ai/status", response_model=AIStatusResponse, tags=["AI Readiness"])
-def get_ai_status() -> AIStatusResponse:
+def get_ai_status(ctx: AppContext = Depends(get_app_context)) -> AIStatusResponse:
     """Returns authoritative readiness status for local AI / retrieval components."""
-    emb_model = default_model_registry.get_active_model(ModelType.EMBEDDING)
-    rerank_model = default_model_registry.get_active_model(ModelType.RERANKER)
+    registry = ctx.model_registry
+    emb_model = registry.get_active_model(ModelType.EMBEDDING)
+    rerank_model = registry.get_active_model(ModelType.RERANKER)
 
     emb_status = ComponentAIStatus(
         model_name=emb_model.name if emb_model else "sentence-transformers/all-MiniLM-L6-v2",
@@ -83,7 +85,10 @@ def get_ai_status() -> AIStatusResponse:
 
 
 @router.post("/ai/ask", response_model=AskResponse, tags=["Ask FileMind"])
-def ask_filemind(req: AskRequest) -> AskResponse:
+def ask_filemind(
+    req: AskRequest,
+    ctx: AppContext = Depends(get_app_context),
+) -> AskResponse:
     """
     End-to-end grounded question-answering endpoint for local files.
     Orchestrates hybrid retrieval, context budgeting, grounded prompt assembly,
@@ -91,7 +96,16 @@ def ask_filemind(req: AskRequest) -> AskResponse:
     """
     try:
         from app.ai import default_ask_service
-        return default_ask_service.ask(req)
+        from app.ai.ask_service import AskService
+        if ctx is default_app_context:
+            return default_ask_service.ask(req)
+        svc = AskService(
+            db_manager=ctx.db_manager,
+            embedding_engine=ctx.embedding_engine,
+            reranker=ctx.reranker,
+            generation_coordinator=ctx.generation_coordinator,
+        )
+        return svc.ask(req)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -107,47 +121,76 @@ def ask_filemind(req: AskRequest) -> AskResponse:
 
 @router.get("/ai/document-insight/{file_id}", response_model=DocumentInsightResponse, tags=["Document Understanding"])
 @map_service_errors(logger, "retrieving document insight", custom_500_detail="An error occurred while retrieving document insight.")
-def get_document_insight(file_id: str, db: DatabaseManager = Depends(get_db)) -> DocumentInsightResponse:
+def get_document_insight(
+    file_id: str,
+    ctx: AppContext = Depends(get_app_context),
+) -> DocumentInsightResponse:
     """Retrieves cached document insight or returns NOT_GENERATED/STALE."""
     from app.ai.document_understanding import DocumentUnderstandingService
-    svc = DocumentUnderstandingService(db_manager=db)
+    svc = DocumentUnderstandingService(
+        db_manager=ctx.db_manager,
+        generation_coordinator=ctx.generation_coordinator,
+    )
     res = svc.get_insight(file_id)
     return DocumentInsightResponse(**res)
 
 
 @router.post("/ai/document-insight/{file_id}/generate", response_model=DocumentInsightResponse, tags=["Document Understanding"])
 @map_service_errors(logger, "generating document insight", custom_500_detail="An error occurred while generating document insight.")
-def generate_document_insight(file_id: str, db: DatabaseManager = Depends(get_db)) -> DocumentInsightResponse:
+def generate_document_insight(
+    file_id: str,
+    ctx: AppContext = Depends(get_app_context),
+) -> DocumentInsightResponse:
     """Generates grounded document understanding with local LLM and stores insight atomically."""
     from app.ai.document_understanding import DocumentUnderstandingService
-    svc = DocumentUnderstandingService(db_manager=db)
+    svc = DocumentUnderstandingService(
+        db_manager=ctx.db_manager,
+        generation_coordinator=ctx.generation_coordinator,
+    )
     res = svc.generate_insight(file_id)
     return DocumentInsightResponse(**res)
 
 
 @router.get("/ai/folder-insight/{folder_id}", response_model=FolderInsightResponse, tags=["Folder Understanding"])
 @map_service_errors(logger, "retrieving folder insight", custom_500_detail="An error occurred while retrieving folder insight.")
-def get_folder_insight(folder_id: str, db: DatabaseManager = Depends(get_db)) -> FolderInsightResponse:
+def get_folder_insight(
+    folder_id: str,
+    ctx: AppContext = Depends(get_app_context),
+) -> FolderInsightResponse:
     """Retrieves deterministic structural statistics and cached folder AI insight."""
     from app.ai.folder_understanding import FolderUnderstandingService
-    svc = FolderUnderstandingService(db_manager=db)
+    svc = FolderUnderstandingService(
+        db_manager=ctx.db_manager,
+        generation_coordinator=ctx.generation_coordinator,
+    )
     res = svc.get_folder_insight(folder_id)
     return FolderInsightResponse(**res)
 
 
 @router.post("/ai/folder-insight/{folder_id}/generate", response_model=FolderInsightResponse, tags=["Folder Understanding"])
 @map_service_errors(logger, "generating folder insight", custom_500_detail="An error occurred while generating folder insight.")
-def generate_folder_insight(folder_id: str, db: DatabaseManager = Depends(get_db)) -> FolderInsightResponse:
+def generate_folder_insight(
+    folder_id: str,
+    ctx: AppContext = Depends(get_app_context),
+) -> FolderInsightResponse:
     """Generates grounded folder understanding with local LLM and stores insight atomically."""
     from app.ai.folder_understanding import FolderUnderstandingService
-    svc = FolderUnderstandingService(db_manager=db)
+    svc = FolderUnderstandingService(
+        db_manager=ctx.db_manager,
+        generation_coordinator=ctx.generation_coordinator,
+    )
     res = svc.generate_insight(folder_id)
     return FolderInsightResponse(**res)
 
 
 @router.get("/ai/connections/{file_id}", response_model=KnowledgeConnectionsResponse, tags=["Knowledge Connections"])
 @map_service_errors(logger, "building knowledge connections", custom_500_detail="An error occurred while building knowledge connections.")
-def get_knowledge_connections(file_id: str, db: DatabaseManager = Depends(get_db)) -> KnowledgeConnectionsResponse:
+def get_knowledge_connections(
+    file_id: str,
+    ctx: AppContext = Depends(get_app_context),
+) -> KnowledgeConnectionsResponse:
     """Returns dynamic, source-backed topic and file-reference connections."""
     from app.ai.knowledge_connections import KnowledgeConnectionService
-    return KnowledgeConnectionsResponse(**KnowledgeConnectionService(db_manager=db).get_connections(file_id))
+    return KnowledgeConnectionsResponse(
+        **KnowledgeConnectionService(db_manager=ctx.db_manager).get_connections(file_id)
+    )

@@ -81,6 +81,7 @@ class FolderUnderstandingService:
         context_builder: Optional[ContextBuilder] = None,
         generation_config: Optional[GenerationConfig] = None,
         model_name: str = OLLAMA_MODEL,
+        generation_coordinator: Optional[Any] = None,
     ):
         self.db = db_manager
         self.provider = llm_provider or OllamaProvider(base_url=OLLAMA_BASE_URL, model=model_name)
@@ -88,6 +89,7 @@ class FolderUnderstandingService:
         self.generation_config = generation_config or GenerationConfig(temperature=0.1)
         self.model_name = model_name
         self.model_identity = ModelIdentity(provider="ollama", model_name=model_name, is_local=True)
+        self.generation_coordinator = generation_coordinator or default_generation_coordinator
         self._lock = threading.Lock()
         self._active_generations: Set[str] = set()
 
@@ -564,7 +566,7 @@ class FolderUnderstandingService:
 
             # Execute generation via Ollama
             try:
-                with default_generation_coordinator.acquire():
+                with self.generation_coordinator.acquire():
                     gen_response = self.provider.generate(
                         prompt_text, temperature=self.generation_config.temperature
                     )

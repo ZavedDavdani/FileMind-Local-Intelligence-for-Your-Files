@@ -1,4 +1,4 @@
-﻿"""FileMind Local Backend Service - Phase 1 Filesystem Engine."""
+"""FileMind Local Backend Service - Phase 1 Filesystem Engine."""
 
 from contextlib import asynccontextmanager
 
@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app import __version__
+from app.core.context import AppContext, default_app_context
 from app.core.logging_config import setup_logging
 from app.db.connection import db_manager
 from app.engine.coordinator import coordinator
@@ -35,10 +36,14 @@ _app_logger = setup_logging()
 async def lifespan(app: FastAPI):
     """Lifecycle manager: initializes database migrations, crash recovery, and worker pool."""
     _app_logger.info("FileMind backend starting up (version=%s)", __version__)
-    coordinator.initialize()
+    context: AppContext = getattr(app.state, "context", None)
+    if context is None:
+        context = default_app_context
+        app.state.context = context
+    context.engine_coordinator.initialize()
     yield
     _app_logger.info("FileMind backend shutting down")
-    coordinator.shutdown()
+    context.engine_coordinator.shutdown()
 
 
 app = FastAPI(
@@ -47,6 +52,7 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+app.state.context = default_app_context
 
 ALLOWED_ORIGINS = [
     "http://localhost",

@@ -1,8 +1,9 @@
-﻿"""Indexing coordinator control API routes."""
+"""Indexing coordinator control API routes."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.engine.coordinator import coordinator
+from app.core.context import AppContext
+from app.core.deps import get_app_context
 from app.schemas import (
     IndexingControlAction,
     IndexingControlRequest,
@@ -14,16 +15,20 @@ router = APIRouter(tags=["Indexing"])
 
 
 @router.get("/indexing/status", response_model=IndexingStatusResponse)
-def get_indexing_status() -> IndexingStatusResponse:
+def get_indexing_status(ctx: AppContext = Depends(get_app_context)) -> IndexingStatusResponse:
     """Returns live progressive indexing statistics across all folders."""
-    stats = coordinator.get_aggregate_status()
+    stats = ctx.engine_coordinator.get_aggregate_status()
     return IndexingStatusResponse(**stats)
 
 
 @router.post("/indexing/control", response_model=IndexingControlResponse)
-def control_indexing(payload: IndexingControlRequest) -> IndexingControlResponse:
+def control_indexing(
+    payload: IndexingControlRequest,
+    ctx: AppContext = Depends(get_app_context),
+) -> IndexingControlResponse:
     """Controls the background indexing engine (Start, Pause, Resume, Stop, Rescan)."""
     action = payload.action
+    coordinator = ctx.engine_coordinator
 
     if action == IndexingControlAction.PAUSE:
         coordinator.pause_indexing()

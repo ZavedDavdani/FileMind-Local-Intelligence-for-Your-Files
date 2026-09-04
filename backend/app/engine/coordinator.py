@@ -18,12 +18,20 @@ logger = logging.getLogger("FileMind.Coordinator")
 class EngineCoordinator:
     """High-level coordinator managing the lifecycle of the FileMind Filesystem Engine."""
 
-    def __init__(self, db: DatabaseManager = db_manager):
+    def __init__(self, db: DatabaseManager = db_manager, embedding_engine: Optional[Any] = None):
         self.db = db
-        self.worker_pool = WorkerPool(db)
+        self._embedding_engine = embedding_engine
+        self.worker_pool = WorkerPool(db, embedding_engine=embedding_engine)
         self.watcher_service = WatcherService(db)
         self._is_initialized = False
         self._lock = threading.Lock()
+
+    @property
+    def embedding_engine(self):
+        if self._embedding_engine is not None:
+            return self._embedding_engine
+        from app.retrieval.embeddings import default_embedding_engine
+        return default_embedding_engine
 
     def initialize(self):
         """Initializes database migrations, recovers stale jobs, and starts background services."""
@@ -51,12 +59,11 @@ class EngineCoordinator:
                 # are handled by the retrieval layer and worker — but it
                 # ensures the mismatch is never silent.
                 try:
-                    from app.retrieval.embeddings import default_embedding_engine
                     from app.retrieval.vector_store import SqliteVecStore
-                    vec_store = SqliteVecStore(conn, dimension=default_embedding_engine.dimension)
+                    vec_store = SqliteVecStore(conn, dimension=self.embedding_engine.dimension)
                     stored_identity = vec_store.get_index_metadata()
                     if stored_identity is not None:
-                        active_identity = default_embedding_engine.get_identity()
+                        active_identity = self.embedding_engine.get_identity()
                         if not vec_store.verify_index_validity(active_identity):
                             logger.error(
                                 "Embedding model mismatch detected at startup: stored vector "
