@@ -125,9 +125,17 @@ User Action (Search Ctrl+K / Ask Ctrl+J / Document Insight / Related Files)
   - Computes dynamically on demand with zero database migrations and zero auxiliary vector stores.
   - Supports `GET /retrieval/related/{file_id}` with `limit` and `quality` (`fast` / `quality`) parameters.
 
+### 6. Modular Backend & Clean Service Architecture (Phase 6)
+- **FastAPI Modular Routers (`app/routers/`)**: 8 domain-specific routers (`folders`, `files`, `indexing`, `events`, `jobs`, `fs_actions`, `search`, `ai`) separating API definitions from application composition and lifecycle management (`main.py`).
+- **Request-Scoped Dependencies (`app/core/deps.py`)**: Centralized `get_repo` and `get_db` providers managing per-request database session lifetimes cleanly and supporting seamless test overrides.
+- **Centralized Service Error Mapping (`app/core/errors.py`)**: `@map_service_errors` decorator providing deterministic mapping of service layer exceptions (`ValueError` -> 404, `RuntimeError` -> 409, `Exception` -> 500) with preserved custom error semantics.
+- **Extracted Filesystem Security Boundary (`app/core/security.py`)**: `resolve_and_authorize` enforcing registered-folder containment, path normalization, directory traversal protection, and symlink/junction reparse-point rejection.
+- **Repository Domain Layer (`app/db/repositories/`)**: Domain-specific query managers unified under the authoritative `Repository` façade.
+
 ---
 
 ## Local AI Setup & Requirements
+
 
 FileMind uses **Ollama** for on-device generation:
 
