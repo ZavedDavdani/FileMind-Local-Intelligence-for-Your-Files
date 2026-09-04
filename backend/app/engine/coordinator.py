@@ -98,11 +98,13 @@ class EngineCoordinator:
         with self.db.session() as conn:
             repo = Repository(conn)
             folders = repo.list_folders()
-            scanner = FilesystemScanner(repo)
 
-            for f in folders:
-                if f["indexing_enabled"]:
-                    try:
+        for f in folders:
+            if f["indexing_enabled"]:
+                try:
+                    with self.db.session() as conn:
+                        repo = Repository(conn)
+                        scanner = FilesystemScanner(repo)
                         res = scanner.scan_folder(f["folder_id"])
                         results[f["folder_id"]] = {
                             "total_scanned": res.total_scanned,
@@ -112,8 +114,8 @@ class EngineCoordinator:
                             "skipped_exclusions": res.skipped_exclusions,
                             "errors": res.errors,
                         }
-                    except Exception as exc:
-                        results[f["folder_id"]] = {"error": str(exc)}
+                except Exception as exc:
+                    results[f["folder_id"]] = {"error": str(exc)}
 
         self.watcher_service.sync_watches()
         self.worker_pool.notify_job_available()
@@ -141,7 +143,6 @@ class EngineCoordinator:
         with self.db.session() as conn:
             repo = Repository(conn)
             file_counts = repo.count_files_by_status()
-            job_counts = repo.count_jobs_by_status()
             folders = repo.list_folders()
 
         total = file_counts["TOTAL"]
@@ -154,8 +155,8 @@ class EngineCoordinator:
             "total_folders": len(folders),
             "total_files": total,
             "discovered": file_counts["DISCOVERED"],
-            "queued": file_counts["QUEUED"] + job_counts["PENDING"],
-            "processing": file_counts["PROCESSING"] + job_counts["PROCESSING"],
+            "queued": file_counts["QUEUED"],
+            "processing": file_counts["PROCESSING"],
             "indexed": indexed,
             "failed": file_counts["FAILED"],
             "skipped": file_counts["SKIPPED"],

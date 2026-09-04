@@ -144,13 +144,18 @@ class SqliteVecStore(BaseVectorStore):
         """Verifies whether the indexed vectors match the active embedding model identity."""
         meta = self.get_index_metadata()
         if not meta:
-            return True  # No metadata recorded yet (empty or uninitialized index)
+            # If the vector store is empty, an uninitialized index is valid
+            return self.is_empty()
+
+        # Incomplete metadata is invalid
+        if not meta.get("provider") or not meta.get("model_name") or not meta.get("dimension"):
+            return False
 
         if meta["provider"] != expected_identity.get("provider", "fastembed"):
             return False
         if meta["model_name"] != expected_identity.get("model_name"):
             return False
-        if meta["model_version"] != expected_identity.get("model_version", "1.0.0"):
+        if meta.get("model_version", "1.0.0") != expected_identity.get("model_version", "1.0.0"):
             return False
         if meta["dimension"] != expected_identity.get("dimension", self.dimension):
             return False
@@ -240,9 +245,8 @@ class SqliteVecStore(BaseVectorStore):
         all_chunk_distances: Dict[str, float] = {}
 
         # Maximum number of adaptive expansion iterations to prevent unbounded work
-        # on large corpora with very narrow filters. After MAX_ADAPTIVE_ITERATIONS
-        # the loop exits with whatever candidates have been gathered so far.
-        MAX_ADAPTIVE_ITERATIONS = 5
+        # on very large corpora with narrow filters. Expanded geometrically to cover full corpus.
+        MAX_ADAPTIVE_ITERATIONS = 10
         _iteration = 0
 
         while True:
@@ -324,8 +328,8 @@ class SqliteVecStore(BaseVectorStore):
             if len(all_matched_chunks) >= top_k or len(vec_rows) < fetch_k or _iteration >= MAX_ADAPTIVE_ITERATIONS:
                 break
 
-            # Adaptively expand fetch_k
-            fetch_k = max(fetch_k * 2, fetch_k + top_k * 5)
+            # Adaptively expand fetch_k geometrically
+            fetch_k = max(fetch_k * 4, fetch_k + top_k * 10)
 
         # 3. Sort by vector distance ASC, then chunk_id ASC
         sorted_ids = sorted(

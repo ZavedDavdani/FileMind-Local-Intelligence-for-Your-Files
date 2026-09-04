@@ -103,6 +103,12 @@ def setup_benchmark_corpus(target_dir: str, db_path: str) -> Dict[str, Any]:
                 for c, v in zip(chunks_indexed, vectors)
             ]
             vec_store.upsert_vectors(records)
+            vec_store.set_index_metadata(
+                provider="fastembed",
+                model_name=default_embedding_engine.model_name,
+                model_version=getattr(default_embedding_engine, "model_version", "1.0.0"),
+                dimension=default_embedding_engine.dimension,
+            )
 
     return {
         "corpus_version": CORPUS_VERSION,

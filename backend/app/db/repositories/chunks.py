@@ -1,4 +1,4 @@
-﻿"""Document chunks, provenance, and embedding metadata repository operations."""
+"""Document chunks, provenance, and embedding metadata repository operations."""
 
 import json
 import sqlite3
@@ -44,8 +44,8 @@ class ChunkRepository:
             rows_to_insert.append((
                 c_dict["chunk_id"],
                 file_id,
-                c_dict["source_file"],
-                c_dict["source_path"],
+                c_dict.get("source_file", "unknown"),
+                c_dict.get("source_path", ""),
                 c_dict.get("page"),
                 c_dict.get("section"),
                 c_dict.get("h1_parent"),
@@ -54,7 +54,7 @@ class ChunkRepository:
                 c_dict.get("line_end"),
                 c_dict.get("char_start"),
                 c_dict.get("char_end"),
-                c_dict["content_hash"],
+                c_dict.get("content_hash", ""),
                 c_dict.get("chunk_index", 0),
                 c_dict.get("parser_name", "unknown"),
                 c_dict.get("parser_version", "unknown"),

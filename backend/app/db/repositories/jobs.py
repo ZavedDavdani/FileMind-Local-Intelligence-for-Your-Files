@@ -108,9 +108,12 @@ class JobRepository:
             UPDATE indexing_jobs
             SET status = 'PROCESSING', started_at = ?, attempts = attempts + 1
             WHERE job_id = (
-                SELECT job_id FROM indexing_jobs
-                WHERE status = 'PENDING' AND (retry_at IS NULL OR retry_at <= ?)
-                ORDER BY priority DESC, created_at ASC
+                SELECT j.job_id FROM indexing_jobs j
+                LEFT JOIN folders fo ON j.folder_id = fo.folder_id
+                WHERE j.status = 'PENDING'
+                  AND (j.retry_at IS NULL OR j.retry_at <= ?)
+                  AND (fo.folder_id IS NULL OR fo.indexing_enabled = 1 OR j.job_type = 'DELETE_CLEANUP')
+                ORDER BY j.priority DESC, j.created_at ASC
                 LIMIT 1
             )
             RETURNING *;
@@ -133,10 +136,11 @@ class JobRepository:
             meta_row = meta_cursor.fetchone()
             if meta_row:
                 job.update(dict(meta_row))
-                self.conn.execute(
-                    "UPDATE files SET index_status = 'PROCESSING' WHERE file_id = ? AND index_status != 'MISSING';",
-                    (job["file_id"],),
-                )
+                if job.get("job_type") != "DELETE_CLEANUP":
+                    self.conn.execute(
+                        "UPDATE files SET index_status = 'PROCESSING' WHERE file_id = ? AND index_status != 'MISSING';",
+                        (job["file_id"],),
+                    )
                 return job
 
             # Orphan job referencing missing file/folder -> permanently fail it and continue claiming
@@ -224,7 +228,7 @@ class JobRepository:
             cursor = self.conn.execute(
                 """
                 UPDATE indexing_jobs
-                SET status = 'PENDING', started_at = NULL, error = 'Recovered after stale timeout'
+                SET status = 'PENDING', started_at = NULL, attempts = MAX(0, attempts - 1), error = 'Recovered after stale timeout'
                 WHERE status = 'PROCESSING' AND (started_at IS NULL OR started_at <= ?)
                 RETURNING file_id;
                 """,
@@ -234,7 +238,7 @@ class JobRepository:
             cursor = self.conn.execute(
                 """
                 UPDATE indexing_jobs
-                SET status = 'PENDING', started_at = NULL, error = 'Recovered after engine restart'
+                SET status = 'PENDING', started_at = NULL, attempts = MAX(0, attempts - 1), error = 'Recovered after engine restart'
                 WHERE status = 'PROCESSING'
                 RETURNING file_id;
                 """

@@ -140,7 +140,7 @@ class WorkerPool:
                 with self.db.session() as conn:
                     repo = Repository(conn)
                     repo.purge_file_index(file_id)
-                    repo.complete_job(job_id, file_id)
+                    repo.complete_job(job_id, file_id, final_status="MISSING")
                 return
 
             if not file_path or not os.path.exists(file_path):

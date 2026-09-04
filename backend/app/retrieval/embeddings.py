@@ -73,10 +73,19 @@ class EmbeddingEngine:
         model_registry: Optional[Any] = None,
     ):
         self.model_name = model_name
-        self.dimension = MODEL_DIMENSIONS.get(model_name, 384)
+        self._model_registry = model_registry
+        if model_name in MODEL_DIMENSIONS:
+            self.dimension = MODEL_DIMENSIONS[model_name]
+        elif self.model_registry.get_model(f"fastembed:{model_name}") is not None:
+            mod_info = self.model_registry.get_model(f"fastembed:{model_name}")
+            self.dimension = mod_info.dimension if mod_info and mod_info.dimension else 384
+        else:
+            raise ValueError(
+                f"Unknown or unconfigured embedding model '{model_name}'. "
+                f"Model must be registered in MODEL_DIMENSIONS or ModelRegistry."
+            )
         self.load_timeout = load_timeout
         self.retry_cooldown = retry_cooldown
-        self._model_registry = model_registry
         self._model = None
         self._lock = threading.Lock()
         # Single init-thread state — no executor, no task queue.
@@ -225,7 +234,14 @@ class EmbeddingEngine:
         if not texts:
             return []
         self._ensure_loaded()
-        embeddings_iter = self._model.embed(texts, batch_size=batch_size)
+        if "nomic" in self.model_name.lower():
+            prefixed_texts = [
+                t if t.startswith("search_document: ") else f"search_document: {t}"
+                for t in texts
+            ]
+        else:
+            prefixed_texts = texts
+        embeddings_iter = self._model.embed(prefixed_texts, batch_size=batch_size)
         vectors = []
         for emb in embeddings_iter:
             vec = np.array(emb, dtype=np.float32)
@@ -241,7 +257,7 @@ class EmbeddingEngine:
         self._ensure_loaded()
         # Nomic uses specific prefix for search queries
         if "nomic" in self.model_name.lower():
-            text = f"search_query: {query_text}"
+            text = query_text if query_text.startswith("search_query: ") else f"search_query: {query_text}"
         else:
             text = query_text
         embeddings = list(self._model.embed([text]))

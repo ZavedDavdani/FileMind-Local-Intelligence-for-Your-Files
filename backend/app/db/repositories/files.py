@@ -46,6 +46,7 @@ class FileRepository:
     ) -> Dict[str, Any]:
         fid = file_id or str(uuid.uuid4())
         now = _utcnow_iso()
+        clean_path = path
 
         query = """
         INSERT INTO files (
@@ -64,8 +65,19 @@ class FileRepository:
             modified_at = excluded.modified_at,
             last_seen_at = excluded.last_seen_at,
             sha256 = COALESCE(excluded.sha256, files.sha256),
-            index_status = excluded.index_status,
-            indexing_error = excluded.indexing_error,
+            index_status = CASE
+                WHEN excluded.index_status IN ('INDEXED', 'FAILED', 'SKIPPED') THEN excluded.index_status
+                WHEN excluded.modified_at != files.modified_at OR excluded.size_bytes != files.size_bytes THEN excluded.index_status
+                WHEN files.index_status = 'MISSING' THEN excluded.index_status
+                WHEN files.index_status IN ('PROCESSING', 'INDEXED', 'FAILED', 'SKIPPED') THEN files.index_status
+                ELSE excluded.index_status
+            END,
+            indexing_error = CASE
+                WHEN excluded.index_status IN ('INDEXED', 'FAILED', 'SKIPPED') THEN excluded.indexing_error
+                WHEN excluded.modified_at != files.modified_at OR excluded.size_bytes != files.size_bytes THEN excluded.indexing_error
+                WHEN files.index_status IN ('PROCESSING', 'INDEXED', 'FAILED', 'SKIPPED') THEN files.indexing_error
+                ELSE excluded.indexing_error
+            END,
             indexed_at = CASE WHEN excluded.index_status = 'INDEXED' THEN excluded.last_seen_at ELSE files.indexed_at END
         RETURNING *;
         """
@@ -75,7 +87,7 @@ class FileRepository:
             (
                 fid,
                 folder_id,
-                path,
+                clean_path,
                 relative_path,
                 filename,
                 extension,
@@ -94,7 +106,9 @@ class FileRepository:
         return dict(row)
 
     def get_file_by_path(self, path: str) -> Optional[Dict[str, Any]]:
-        cursor = self.conn.execute("SELECT * FROM files WHERE path = ?;", (path,))
+        alt1 = path.replace('/', '\\')
+        alt2 = path.replace('\\', '/')
+        cursor = self.conn.execute("SELECT * FROM files WHERE path = ? OR path = ? OR path = ?;", (path, alt1, alt2))
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -221,9 +235,11 @@ class FileRepository:
         return [{"file_id": row["file_id"], "path": row["path"]} for row in cursor.fetchall()]
 
     def mark_file_missing(self, path: str) -> bool:
+        alt1 = path.replace('/', '\\')
+        alt2 = path.replace('\\', '/')
         cursor = self.conn.execute(
-            "UPDATE files SET index_status = 'MISSING', last_seen_at = ? WHERE path = ?;",
-            (_utcnow_iso(), path),
+            "UPDATE files SET index_status = 'MISSING', last_seen_at = ? WHERE path = ? OR path = ? OR path = ?;",
+            (_utcnow_iso(), path, alt1, alt2),
         )
         return cursor.rowcount > 0
 
@@ -232,18 +248,22 @@ class FileRepository:
         Marks all files under a deleted directory subtree as MISSING in a single atomic query,
         and cancels all active/pending indexing jobs for those files.
         """
-        dir_clean = normalize_path(dir_path)
-        dir_prefix = dir_clean + os.sep
+        dir_fwd = dir_path.replace('\\', '/').rstrip('/') + '/'
+        dir_bwd = dir_path.replace('/', '\\').rstrip('\\') + '\\'
+        clean_fwd = dir_path.replace('\\', '/').rstrip('/')
+        clean_bwd = dir_path.replace('/', '\\').rstrip('\\')
         now = _utcnow_iso()
-        like_pattern = escape_like_wildcards(dir_prefix) + "%"
+
+        pattern_fwd = escape_like_wildcards(dir_fwd) + "%"
+        pattern_bwd = escape_like_wildcards(dir_bwd) + "%"
 
         cursor = self.conn.execute(
             """
             UPDATE files
             SET index_status = 'MISSING', last_seen_at = ?
-            WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path = ?) AND index_status != 'MISSING';
+            WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path LIKE ? ESCAPE '\\' OR path = ? OR path = ?) AND index_status != 'MISSING';
             """,
-            (now, folder_id, like_pattern, dir_clean),
+            (now, folder_id, pattern_fwd, pattern_bwd, clean_fwd, clean_bwd),
         )
         affected = cursor.rowcount
 
@@ -254,21 +274,23 @@ class FileRepository:
             WHERE folder_id = ? AND status IN ('PENDING', 'PROCESSING')
               AND file_id IN (
                   SELECT file_id FROM files
-                  WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path = ?)
+                  WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path LIKE ? ESCAPE '\\' OR path = ? OR path = ?)
               );
             """,
-            (folder_id, folder_id, like_pattern, dir_clean),
+            (folder_id, folder_id, pattern_fwd, pattern_bwd, clean_fwd, clean_bwd),
         )
         return affected
 
     def rename_file_path(self, old_path: str, new_path: str, new_rel_path: str, new_filename: str, new_ext: str) -> bool:
+        alt1 = old_path.replace('/', '\\')
+        alt2 = old_path.replace('\\', '/')
         cursor = self.conn.execute(
             """
             UPDATE files
             SET path = ?, relative_path = ?, filename = ?, extension = ?, last_seen_at = ?
-            WHERE path = ?;
+            WHERE path = ? OR path = ? OR path = ?;
             """,
-            (new_path, new_rel_path, new_filename, new_ext, _utcnow_iso(), old_path),
+            (new_path, new_rel_path, new_filename, new_ext, _utcnow_iso(), old_path, alt1, alt2),
         )
         return cursor.rowcount > 0
 
@@ -277,30 +299,41 @@ class FileRepository:
         Renames all files belonging to folder_id in an old directory subtree to the new directory path.
         Updates path, relative_path, and enqueues HASH_VERIFICATION jobs.
         """
-        old_clean = normalize_path(old_dir_path)
-        new_clean = normalize_path(new_dir_path)
-        old_prefix = old_clean + os.sep
-        new_prefix = new_clean + os.sep
-        like_pattern = escape_like_wildcards(old_prefix) + "%"
+        old_fwd = old_dir_path.replace('\\', '/').rstrip('/') + '/'
+        old_bwd = old_dir_path.replace('/', '\\').rstrip('\\') + '\\'
+        clean_fwd = old_dir_path.replace('\\', '/').rstrip('/')
+        clean_bwd = old_dir_path.replace('/', '\\').rstrip('\\')
+
+        pattern_fwd = escape_like_wildcards(old_fwd) + "%"
+        pattern_bwd = escape_like_wildcards(old_bwd) + "%"
 
         cursor = self.conn.execute(
-            "SELECT file_id, path FROM files WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path = ?);",
-            (folder_id, like_pattern, old_clean),
+            """
+            SELECT file_id, path FROM files
+            WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path LIKE ? ESCAPE '\\' OR path = ? OR path = ?);
+            """,
+            (folder_id, pattern_fwd, pattern_bwd, clean_fwd, clean_bwd),
         )
         rows = cursor.fetchall()
         now = _utcnow_iso()
 
         for row in rows:
             old_p = row["path"]
+            sep = '/' if '/' in old_p and '\\' not in old_p else os.sep
+            old_prefix = old_dir_path.replace('\\', sep).replace('/', sep).rstrip(sep) + sep
+            new_prefix = new_dir_path.replace('\\', sep).replace('/', sep).rstrip(sep) + sep
+            old_exact = old_dir_path.replace('\\', sep).replace('/', sep).rstrip(sep)
+            new_exact = new_dir_path.replace('\\', sep).replace('/', sep).rstrip(sep)
+
             if old_p.startswith(old_prefix):
                 rel_tail = old_p[len(old_prefix):]
                 new_p = new_prefix + rel_tail
-            elif old_p == old_clean:
-                new_p = new_clean
+            elif old_p == old_exact:
+                new_p = new_exact
             else:
                 continue
 
-            new_rel = os.path.relpath(new_p, root_folder_path).replace("\\", "/")
+            new_rel = os.path.relpath(new_p.replace('/', os.sep), root_folder_path.replace('/', os.sep)).replace("\\", "/")
             new_filename = os.path.basename(new_p)
             _, new_ext = os.path.splitext(new_filename)
 
