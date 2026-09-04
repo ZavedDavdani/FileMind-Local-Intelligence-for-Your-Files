@@ -212,6 +212,10 @@ class RelatedContentService:
                     "results": [],
                 }
 
+            # Batch fetch all candidate file records in a single query
+            other_file_ids = list(file_groups.keys())
+            batch_file_recs = repo.get_files_by_ids(other_file_ids) if hasattr(repo, "get_files_by_ids") else {}
+
             # Compute file-level metrics and Max Chunk Score
             ranked_files: List[Dict[str, Any]] = []
             for other_fid, cand_list in file_groups.items():
@@ -227,7 +231,7 @@ class RelatedContentService:
                 supporting_cands = cand_list[1:3]
 
                 # Resolve file metadata from DB if missing in chunk
-                other_file_rec = repo.get_file_by_id(other_fid)
+                other_file_rec = batch_file_recs.get(other_fid) or repo.get_file_by_id(other_fid)
                 if other_file_rec:
                     fn = other_file_rec.get("filename", primary_cand.get("source_file", "Unknown"))
                     path = other_file_rec.get("path", primary_cand.get("source_path", ""))

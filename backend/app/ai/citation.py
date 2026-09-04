@@ -12,7 +12,7 @@ from typing import Dict, List, Set, Tuple
 from app.ai.prompt import CitationSource
 
 
-CITATION_PATTERN = re.compile(r"\[E(\d+)\]")
+CITATION_PATTERN = re.compile(r"\[[Ee]\s*(\d+)\]")
 
 
 @dataclass

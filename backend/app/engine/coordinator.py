@@ -116,6 +116,7 @@ class EngineCoordinator:
                         results[f["folder_id"]] = {"error": str(exc)}
 
         self.watcher_service.sync_watches()
+        self.worker_pool.notify_job_available()
         return results
 
     def scan_single_folder(self, folder_id: str, force_strict: bool = False) -> Dict[str, Any]:
@@ -125,6 +126,7 @@ class EngineCoordinator:
             res = scanner.scan_folder(folder_id, force_strict_rehash=force_strict)
 
         self.watcher_service.sync_watches()
+        self.worker_pool.notify_job_available()
         return {
             "total_scanned": res.total_scanned,
             "new_files": res.new_files,

@@ -23,7 +23,7 @@ from app.ai.generation import (
     default_generation_service,
 )
 from app.ai.generation_coordinator import LocalGenerationCoordinator
-from app.db.connection import DatabaseManager, db_manager
+from app.db.connection import DatabaseManager, db_manager as default_db_manager
 from app.retrieval.embeddings import EmbeddingEngine
 from app.retrieval.hybrid import HybridRetriever
 from app.retrieval.reranker import Reranker
@@ -53,7 +53,7 @@ class AskService:
         reranker: Optional[Reranker] = None,
         generation_coordinator: Optional[LocalGenerationCoordinator] = None,
     ):
-        self.db_manager = db_manager or db_manager_instance or db_manager
+        self.db_manager = db_manager or db_manager_instance or default_db_manager
         self.context_builder = context_builder or default_context_builder
         self.embedding_engine = embedding_engine
         self.reranker = reranker

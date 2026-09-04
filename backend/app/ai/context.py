@@ -51,6 +51,10 @@ class TokenEstimator:
         if not cleaned:
             return 0
 
+        # Fast path for standard ASCII text
+        if cleaned.isascii():
+            return max(1, math.ceil(len(cleaned) / self.chars_per_token_non_cjk))
+
         cjk_count = 0
         non_cjk_count = 0
         for char in cleaned:

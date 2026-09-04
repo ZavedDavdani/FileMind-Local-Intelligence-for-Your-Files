@@ -44,8 +44,10 @@ class OllamaResponse:
         }
 
 
+import threading
+
 class OllamaProvider:
-    """Thin local-only HTTP client for the Ollama generation API."""
+    """Thin local-only HTTP client for the Ollama generation API with connection reuse."""
 
     def __init__(
         self,
@@ -53,17 +55,51 @@ class OllamaProvider:
         model: str = "qwen3:4b",
         connect_timeout: float = 2.0,
         read_timeout: float = 120.0,
+        client: Optional[httpx.Client] = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
+        self._custom_client = client
+        self._client: Optional[httpx.Client] = client
+        self._lock = threading.Lock()
 
         if not self.base_url.startswith("http://127.0.0.1:"):
             raise ValueError(
                 "OllamaProvider only permits the local Ollama endpoint "
                 "http://127.0.0.1:<port>."
             )
+
+    def _get_client(self) -> httpx.Client:
+        if self._client is not None and not self._client.is_closed:
+            return self._client
+        with self._lock:
+            if self._client is not None and not self._client.is_closed:
+                return self._client
+            timeout = httpx.Timeout(
+                self.read_timeout,
+                connect=self.connect_timeout,
+            )
+            limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            self._client = httpx.Client(timeout=timeout, limits=limits)
+            return self._client
+
+    def close(self):
+        """Closes the underlying HTTP client session."""
+        with self._lock:
+            if self._client is not None and not self._client.is_closed:
+                try:
+                    self._client.close()
+                except Exception:
+                    pass
+                self._client = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def generate(
         self,
@@ -89,17 +125,22 @@ class OllamaProvider:
         if opts:
             payload["options"] = opts
 
-        timeout = httpx.Timeout(
-            self.read_timeout,
-            connect=self.connect_timeout,
-        )
-
         try:
-            response = httpx.post(
-                f"{self.base_url}/api/generate",
-                json=payload,
-                timeout=timeout,
-            )
+            if self._custom_client is not None:
+                response = self._custom_client.post(
+                    f"{self.base_url}/api/generate",
+                    json=payload,
+                )
+            else:
+                timeout = httpx.Timeout(
+                    self.read_timeout,
+                    connect=self.connect_timeout,
+                )
+                response = httpx.post(
+                    f"{self.base_url}/api/generate",
+                    json=payload,
+                    timeout=timeout,
+                )
         except httpx.ConnectError as exc:
             raise OllamaConnectionError(
                 f"Unable to connect to local Ollama at {self.base_url}."

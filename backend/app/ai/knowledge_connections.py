@@ -112,16 +112,30 @@ class KnowledgeConnectionService:
             if source.get("index_status") != "INDEXED":
                 return {"source_file": self._file_view(source), "connections": []}
 
-            indexed = [f for f in repo.list_files(status="INDEXED", limit=100000) if f["file_id"] != file_id]
+            # --- shared-topic connections: query only files with cached insights for active model ---
+            cursor = conn.execute(
+                """
+                SELECT DISTINCT f.file_id, f.folder_id, f.path, f.filename, f.relative_path, f.extension, f.size_bytes, f.sha256, f.index_status
+                FROM files f
+                JOIN document_insights di ON di.file_id = f.file_id
+                WHERE f.index_status = 'INDEXED' AND di.status = 'READY' AND di.model_name = ?;
+                """,
+                (OLLAMA_MODEL,),
+            )
+            files_with_insights = [dict(r) for r in cursor.fetchall()]
+            if not any(f["file_id"] == file_id for f in files_with_insights):
+                files_with_insights.append(source)
+
             connections: List[Dict[str, Any]] = []
             seen: Set[tuple[str, str, str]] = set()
 
-            # --- shared-topic connections: batched instead of per-target queries ---
-            insights_by_file = self._current_topic_insights_batch(repo, indexed + [source])
+            insights_by_file = self._current_topic_insights_batch(repo, files_with_insights)
             source_insight = insights_by_file.get(file_id)
             if source_insight:
                 source_topics = {_topic_key(t): str(t).strip() for t in source_insight["topics"] if _topic_key(t)}
-                for target in indexed:
+                for target in files_with_insights:
+                    if target["file_id"] == file_id:
+                        continue
                     target_insight = insights_by_file.get(target["file_id"])
                     if not target_insight:
                         continue
@@ -140,16 +154,17 @@ class KnowledgeConnectionService:
                             "target_evidence": target_insight["citations"],
                         })
 
-            # --- file-reference connections: single pass instead of chunk x file scan ---
+            # --- file-reference connections: single pass against bounded indexed file candidates ---
+            indexed_candidates = [f for f in repo.list_files(status="INDEXED", limit=5000) if f["file_id"] != file_id]
             filename_counts: Dict[str, int] = {}
-            for f in indexed + [source]:
+            for f in indexed_candidates + [source]:
                 name = (f.get("filename") or "").casefold()
                 if name:
                     filename_counts[name] = filename_counts.get(name, 0) + 1
 
             # Build the candidate reference list ONCE (not per chunk).
             reference_targets = []  # (relative, filename_if_unique, target_rec)
-            for target in indexed:
+            for target in indexed_candidates:
                 relative = (target.get("relative_path") or "").replace("\\", "/")
                 filename = target.get("filename") or ""
                 unique_filename = filename if filename_counts.get(filename.casefold(), 0) == 1 else None
@@ -169,7 +184,7 @@ class KnowledgeConnectionService:
                     if existing is None or candidate[:3] < existing[:3]:
                         reference_candidates[target["file_id"]] = candidate
 
-            indexed_by_id = {f["file_id"]: f for f in indexed}
+            indexed_by_id = {f["file_id"]: f for f in indexed_candidates}
             for target_id, (_, _, _, chunk, matched) in reference_candidates.items():
                 target = indexed_by_id[target_id]
                 connections.append({

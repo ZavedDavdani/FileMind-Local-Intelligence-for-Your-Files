@@ -103,6 +103,35 @@ class FileRepository:
         row = cursor.fetchone()
         return dict(row) if row else None
 
+    def get_files_by_ids(self, file_ids: List[str], chunk_size: int = 500) -> Dict[str, Dict[str, Any]]:
+        """Retrieves files mapped by file_id for a list of file_ids with parameter batching."""
+        if not file_ids:
+            return {}
+        unique_file_ids = list(dict.fromkeys(file_ids))
+        out: Dict[str, Dict[str, Any]] = {}
+        for i in range(0, len(unique_file_ids), chunk_size):
+            batch = unique_file_ids[i : i + chunk_size]
+            placeholders = ",".join("?" * len(batch))
+            cursor = self.conn.execute(
+                f"SELECT * FROM files WHERE file_id IN ({placeholders});",
+                batch,
+            )
+            for row in cursor.fetchall():
+                d = dict(row)
+                out[d["file_id"]] = d
+        return out
+
+    def purge_file_index(self, file_id: str) -> int:
+        """
+        Authoritatively purges all vector embeddings and relational chunks for a file.
+        Strict invariant: chunk_vectors virtual table first, relational chunks table second.
+        """
+        from app.retrieval.vector_store import SqliteVecStore
+        vec_store = SqliteVecStore(self.conn)
+        vec_store.delete_by_file_id(file_id)
+        cursor = self.conn.execute("DELETE FROM chunks WHERE file_id = ?;", (file_id,))
+        return cursor.rowcount
+
     def _build_file_filters(
         self,
         folder_id: Optional[str] = None,

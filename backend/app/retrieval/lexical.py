@@ -153,7 +153,8 @@ class LexicalRetriever:
         where_clauses.append("f.index_status != 'MISSING'")
 
         where_sql = " AND ".join(where_clauses)
-        params.append(top_k)
+        fetch_limit = max(top_k * 3, 100)
+        params.append(fetch_limit)
 
         # FTS5 bm25 returns lower/negative values for better matches.
         # Order by bm25 score ASC, then chunk_id ASC for deterministic tie-breaking.
@@ -230,6 +231,7 @@ class LexicalRetriever:
 
         # Re-sort by score DESC, then chunk_id ASC for deterministic ranking
         results.sort(key=lambda x: (-x["score"], x["chunk_id"]))
+        results = results[:top_k]
         for rank, res in enumerate(results, start=1):
             res["rank"] = rank
 

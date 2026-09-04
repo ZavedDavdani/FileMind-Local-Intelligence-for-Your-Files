@@ -11,7 +11,10 @@ import logging
 from typing import Any, Dict, List, Optional, Protocol
 
 from app.ai.citation import CitationValidator
-from app.ai.generation_coordinator import default_generation_coordinator
+from app.ai.generation_coordinator import (
+    LocalGenerationBusyError,
+    default_generation_coordinator,
+)
 from app.ai.context import (
     BoundedContextPackage,
     BudgetAccounting,
@@ -225,6 +228,20 @@ class GroundedGenerationService:
                 answer="",
                 query=query,
                 generation_status=GenerationStatus.TIMEOUT,
+                evidence_status=context_package.status,
+                citations=[],
+                unresolved_citations=[],
+                model_identity=model_id,
+                prompt_tokens_estimated=prompt.estimated_tokens,
+                context_budget=context_package.budget,
+                error=str(exc),
+            )
+        except LocalGenerationBusyError as exc:
+            logger.info("Local generation slot busy: %s", exc)
+            return GroundedGenerationResponse(
+                answer="A local AI generation is already in progress. Please try again in a moment.",
+                query=query,
+                generation_status=GenerationStatus.GENERATION_FAILED,
                 evidence_status=context_package.status,
                 citations=[],
                 unresolved_citations=[],

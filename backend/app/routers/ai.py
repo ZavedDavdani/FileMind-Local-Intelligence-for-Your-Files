@@ -95,10 +95,10 @@ def ask_filemind(
     local Ollama generation, and citation validation.
     """
     try:
-        from app.ai import default_ask_service
-        from app.ai.ask_service import AskService
         if ctx is default_app_context:
+            from app.ai import default_ask_service
             return default_ask_service.ask(req)
+        from app.ai.ask_service import AskService
         svc = AskService(
             db_manager=ctx.db_manager,
             embedding_engine=ctx.embedding_engine,
@@ -111,6 +111,13 @@ def ask_filemind(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Ask FileMind pipeline error: %s", exc)
         raise HTTPException(

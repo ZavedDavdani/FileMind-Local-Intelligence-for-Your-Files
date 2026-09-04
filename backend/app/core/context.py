@@ -120,6 +120,22 @@ class AppContext:
     def engine_coordinator(self, value: Optional[EngineCoordinator]) -> None:
         self._engine_coordinator = value
 
+    @property
+    def ollama_provider(self):
+        main_mod = sys.modules.get("app.main")
+        if main_mod and hasattr(main_mod, "ollama_provider"):
+            return main_mod.ollama_provider
+        from app.ai.ollama_provider import OllamaProvider
+        return OllamaProvider()
+
+    def close(self) -> None:
+        """Gracefully closes coordinators and resources."""
+        if self._engine_coordinator is not None:
+            try:
+                self._engine_coordinator.shutdown()
+            except Exception:
+                pass
+
 
 # Global default instance wrapping the authoritative runtime singletons
 default_app_context = AppContext()

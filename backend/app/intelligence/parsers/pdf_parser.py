@@ -141,7 +141,19 @@ class PyMuPDFParser(BaseParser):
                         continue
 
                     b_rect = fitz.Rect(b["bbox"])
-                    if any(b_rect.intersects(fitz.Rect(tr)) for tr in table_rects):
+                    b_area = b_rect.get_area()
+                    is_in_table = False
+                    if b_area > 0 and table_rects:
+                        for tr in table_rects:
+                            t_rect = fitz.Rect(tr)
+                            intersect = b_rect & t_rect
+                            if not intersect.is_empty and (intersect.get_area() / b_area) >= 0.5:
+                                is_in_table = True
+                                break
+                    elif table_rects:
+                        is_in_table = any(b_rect.intersects(fitz.Rect(tr)) for tr in table_rects)
+
+                    if is_in_table:
                         continue
 
                     block_text_parts = []
