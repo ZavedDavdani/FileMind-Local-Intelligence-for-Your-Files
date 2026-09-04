@@ -120,8 +120,8 @@ def execute_safe_action(payload: ActionRequest, repo: Repository = Depends(get_r
 
 
 @router.post("/fs/enumerate", response_model=EnumerateResponse)
-def enumerate_folder(payload: EnumerateRequest) -> EnumerateResponse:
-    """Safe recursive directory scan (Phase 0 legacy endpoint) with bounded enumeration limit."""
+def enumerate_folder(payload: EnumerateRequest, repo: Repository = Depends(get_repo)) -> EnumerateResponse:
+    """Safe recursive directory scan with registered-folder security boundary and bounded limit."""
     try:
         folder_path = normalize_path(payload.folder_path)
     except Exception as exc:
@@ -132,6 +132,25 @@ def enumerate_folder(payload: EnumerateRequest) -> EnumerateResponse:
 
     if not os.path.isdir(folder_path):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Specified path is not a directory: {folder_path}")
+
+    registered_folders = repo.list_folders()
+    try:
+        folder_path, _ = resolve_and_authorize(folder_path, registered_folders)
+    except SecurityNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+    except SecurityForbiddenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
     MAX_ENUMERATE_LIMIT = 10000
     start_time = time.perf_counter()

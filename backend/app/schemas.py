@@ -27,11 +27,16 @@ class ActionType(str, Enum):
 
 
 class HealthResponse(BaseModel):
-    """Deterministic health check contract for Phase 0 and Phase 1."""
+    """Deterministic health check contract for Phase 0, Phase 1, and Tauri supervisor."""
     status: str = "healthy"
     service: str = "FileMind Backend"
     version: str = "0.1.0"
     port: int = 24823
+    ready: bool = True
+    database: str = "healthy"
+    vector_store: str = "healthy"
+    worker: str = "healthy"
+    details: Optional[Dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------------------

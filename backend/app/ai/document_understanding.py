@@ -131,8 +131,11 @@ class DocumentUnderstandingService:
         """The single authoritative validity rule for cached document insights."""
         if cached.get("status") != "READY" or cached.get("content_hash") != (file_rec.get("sha256") or ""):
             return False
-        current_parser = chunks[0].get("parser_version") if chunks else ""
-        current_chunker = chunks[0].get("chunker_version") if chunks else ""
+        # If chunks were removed/purged for a document that originally had chunks, cache is invalid (Bug 21)
+        if not chunks and (cached.get("citations") or (cached.get("parser_version") and cached.get("parser_version") != "unknown")):
+            return False
+        current_parser = chunks[0].get("parser_version") if chunks else "unknown"
+        current_chunker = chunks[0].get("chunker_version") if chunks else "phase2-hierarchical-v2"
         return bool(
             cached.get("model_name") == model_name
             and (not current_parser or cached.get("parser_version") == current_parser)

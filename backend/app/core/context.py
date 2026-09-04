@@ -9,8 +9,11 @@ Provides an explicit, application-scoped container holding shared runtime depend
 - engine_coordinator (EngineCoordinator)
 """
 
+import logging
 import sys
 from typing import Optional
+
+logger = logging.getLogger("FileMind.AppContext")
 
 from app.ai.generation_coordinator import (
     LocalGenerationCoordinator,
@@ -59,9 +62,6 @@ class AppContext:
     def embedding_engine(self) -> EmbeddingEngine:
         if self._embedding_engine is not None:
             return self._embedding_engine
-        main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "embedding_engine") and main_mod.embedding_engine is not None:
-            return main_mod.embedding_engine
         return default_embedding_engine
 
     @embedding_engine.setter
@@ -72,9 +72,6 @@ class AppContext:
     def reranker(self) -> Reranker:
         if self._reranker is not None:
             return self._reranker
-        main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "reranker") and main_mod.reranker is not None:
-            return main_mod.reranker
         return default_reranker
 
     @reranker.setter
@@ -85,9 +82,6 @@ class AppContext:
     def model_registry(self) -> ModelRegistry:
         if self._model_registry is not None:
             return self._model_registry
-        main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "model_registry") and main_mod.model_registry is not None:
-            return main_mod.model_registry
         return default_model_registry
 
     @model_registry.setter
@@ -98,9 +92,6 @@ class AppContext:
     def generation_coordinator(self) -> LocalGenerationCoordinator:
         if self._generation_coordinator is not None:
             return self._generation_coordinator
-        main_mod = sys.modules.get("app.main")
-        if main_mod and hasattr(main_mod, "generation_coordinator") and main_mod.generation_coordinator is not None:
-            return main_mod.generation_coordinator
         return default_generation_coordinator
 
     @generation_coordinator.setter
@@ -130,8 +121,8 @@ class AppContext:
         if self._engine_coordinator is not None:
             try:
                 self._engine_coordinator.shutdown()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Error shutting down engine_coordinator during AppContext.close: %s", exc)
 
 
 # Global default instance wrapping the authoritative runtime singletons

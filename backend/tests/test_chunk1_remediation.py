@@ -255,3 +255,191 @@ def test_hybrid_search_filename_intent_scoped_to_file_id_filter(repo_env):
         # Since f1 is budget_2026.xlsx and filter is restricted to f1, budget_2025.xlsx from f2 should NOT be returned
         matched_file_ids = [r.get("file_id") for r in results.get("results", [])]
         assert f2["file_id"] not in matched_file_ids
+
+
+def test_fs_enumerate_security_boundary(tmp_path):
+    """Verify /fs/enumerate respects registered folders and rejects unauthorized paths (Bug 16 & 24)."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.schemas import EnumerateRequest
+
+    client = TestClient(app)
+
+    reg_root = tmp_path / "registered_root"
+    reg_root.mkdir()
+    sub_dir = reg_root / "child_dir"
+    sub_dir.mkdir()
+    (sub_dir / "sample.txt").write_text("hello", encoding="utf-8")
+
+    sibling_dir = tmp_path / "registered_root_sibling"
+    sibling_dir.mkdir()
+    (sibling_dir / "secret.txt").write_text("secret", encoding="utf-8")
+
+    prefix_collision_dir = tmp_path / "registered_root2"
+    prefix_collision_dir.mkdir()
+
+    unrelated_dir = tmp_path / "unrelated_dir"
+    unrelated_dir.mkdir()
+
+    # Register the root folder
+    reg_resp = client.post("/folders", json={"path": str(reg_root)})
+    assert reg_resp.status_code == 201
+    fid = reg_resp.json()["folder_id"]
+
+    try:
+        # 1. Registered root - allowed
+        resp = client.post("/fs/enumerate", json={"folder_path": str(reg_root)})
+        assert resp.status_code == 200
+        assert resp.json()["file_count"] == 1
+
+        # 2. Registered descendant - allowed
+        resp = client.post("/fs/enumerate", json={"folder_path": str(sub_dir)})
+        assert resp.status_code == 200
+
+        # 3. Sibling directory - forbidden 403
+        resp = client.post("/fs/enumerate", json={"folder_path": str(sibling_dir)})
+        assert resp.status_code == 403
+        assert "Access denied" in resp.json()["detail"]
+
+        # 4. Path prefix collision (C:\Root2 vs C:\Root) - forbidden 403
+        resp = client.post("/fs/enumerate", json={"folder_path": str(prefix_collision_dir)})
+        assert resp.status_code == 403
+
+        # 5. Unrelated absolute path - forbidden 403
+        resp = client.post("/fs/enumerate", json={"folder_path": str(unrelated_dir)})
+        assert resp.status_code == 403
+
+        # 6. .. directory traversal escape - forbidden 403
+        traversal_path = os.path.join(str(sub_dir), "..", "..", "registered_root_sibling")
+        resp = client.post("/fs/enumerate", json={"folder_path": traversal_path})
+        assert resp.status_code == 403
+    finally:
+        client.delete(f"/folders/{fid}")
+
+
+def test_insight_cache_invalid_with_empty_chunks():
+    """Verify is_cached_insight_current rejects cache when chunks are empty/purged (Bug 21)."""
+    from app.ai.document_understanding import DocumentUnderstandingService
+
+    file_rec = {"sha256": "abc123hash"}
+    cached = {
+        "status": "READY",
+        "content_hash": "abc123hash",
+        "model_name": "qwen2.5:7b",
+        "parser_version": "1.0",
+        "chunker_version": "1.0",
+    }
+    chunks = [{"parser_version": "1.0", "chunker_version": "1.0"}]
+
+    # Valid chunks present -> valid cache
+    assert DocumentUnderstandingService.is_cached_insight_current(
+        file_rec, chunks, cached, "qwen2.5:7b"
+    ) is True
+
+    # Empty chunks -> cache must NOT claim validity
+    assert DocumentUnderstandingService.is_cached_insight_current(
+        file_rec, [], cached, "qwen2.5:7b"
+    ) is False
+
+
+def test_health_readiness_and_subsystem_checks():
+    """Verify /health reports true subsystem readiness and /health/liveness checks process (Bug 101)."""
+    from fastapi.testclient import TestClient
+    from unittest.mock import MagicMock
+    from app.core.context import AppContext, default_app_context
+    from app.main import app
+
+    with TestClient(app) as client:
+        # 1. Healthy system
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "healthy"
+        assert data["ready"] is True
+        assert data["database"] == "healthy"
+        assert data["vector_store"] == "healthy"
+        assert data["worker"] == "healthy"
+
+        # 2. Liveness endpoint
+        live_resp = client.get("/health/liveness")
+        assert live_resp.status_code == 200
+        assert live_resp.json()["status"] == "alive"
+
+        # 3. DB failure surfacing
+        mock_db = MagicMock()
+        mock_db.session.side_effect = RuntimeError("Database connection timed out")
+        mock_ctx = AppContext(db_manager=mock_db)
+        app.state.context = mock_ctx
+        try:
+            resp = client.get("/health")
+            assert resp.status_code == 503
+            data = resp.json()
+            assert data["status"] == "unhealthy"
+            assert data["ready"] is False
+            assert data["database"] == "unhealthy"
+        finally:
+            app.state.context = default_app_context
+
+        # 4. Engine coordinator not initialized
+        uninit_coord = MagicMock()
+        uninit_coord._is_initialized = False
+        mock_ctx2 = AppContext(engine_coordinator=uninit_coord)
+        app.state.context = mock_ctx2
+        try:
+            resp = client.get("/health")
+            assert resp.status_code == 503
+            data = resp.json()
+            assert data["status"] == "initializing"
+            assert data["ready"] is False
+            assert data["worker"] == "initializing"
+        finally:
+            app.state.context = default_app_context
+
+
+def test_ask_filemind_injected_dependencies_and_busy_error():
+    """Verify /ai/ask honors AppContext dependencies, reports 409 on busy, and 400 on malformed input (Bug 4, 9, 19, Finding 1)."""
+    from fastapi.testclient import TestClient
+    from unittest.mock import patch
+    from app.ai.ask_service import AskService
+    from app.ai.generation_coordinator import LocalGenerationBusyError
+    from app.main import app
+
+    with TestClient(app) as client:
+        # 1. Malformed input (whitespace query) returns 400 Bad Request
+        resp = client.post("/ai/ask", json={"query": "   "})
+        assert resp.status_code == 400
+        assert "Query cannot be empty" in resp.json()["detail"]
+
+        # 2. Invalid mode/quality combo returns 400 Bad Request
+        resp = client.post("/ai/ask", json={"query": "hello", "mode": "dense", "quality": "quality"})
+        assert resp.status_code == 400
+        assert "Quality mode is only supported with hybrid retrieval" in resp.json()["detail"]
+
+        # 3. Busy generation coordinator returns 409 Conflict
+        with patch.object(AskService, "ask", side_effect=LocalGenerationBusyError("A local AI generation is already in progress")):
+            resp = client.post("/ai/ask", json={"query": "test query"})
+            assert resp.status_code == 409
+            assert "already in progress" in resp.json()["detail"]
+
+
+def test_app_context_close_and_fallbacks(caplog):
+    """Verify AppContext fallbacks and close exception logging (Findings 2 & 3)."""
+    import logging
+    from app.core.context import AppContext
+    from unittest.mock import MagicMock
+
+    # Verify fallbacks return default instances rather than None
+    ctx = AppContext()
+    assert ctx.embedding_engine is not None
+    assert ctx.reranker is not None
+    assert ctx.model_registry is not None
+    assert ctx.generation_coordinator is not None
+
+    # Verify close() logs warning on error instead of swallowing silently
+    failing_coord = MagicMock()
+    failing_coord.shutdown.side_effect = RuntimeError("Shutdown lock timeout")
+    err_ctx = AppContext(engine_coordinator=failing_coord)
+
+    with caplog.at_level(logging.WARNING):
+        err_ctx.close()
+    assert any("Error shutting down engine_coordinator" in r.message for r in caplog.records)

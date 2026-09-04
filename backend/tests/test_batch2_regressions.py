@@ -261,12 +261,12 @@ def test_health_response_authoritative_version():
     assert hr.version == __version__
 
     # 2. Runtime API endpoint
-    client = TestClient(app)
-    resp = client.get("/health")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["version"] == "0.1.0"
-    assert data["version"] == __version__
+    with TestClient(app) as client:
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["version"] == "0.1.0"
+        assert data["version"] == __version__
 
 
 # ---------------------------------------------------------------------------

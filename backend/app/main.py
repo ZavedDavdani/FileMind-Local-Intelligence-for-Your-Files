@@ -2,12 +2,13 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app import __version__
 from app.core.context import AppContext, default_app_context
+from app.core.deps import get_app_context
 from app.core.logging_config import setup_logging
 from app.db.connection import db_manager
 from app.engine.coordinator import coordinator
@@ -77,14 +78,85 @@ app.add_middleware(
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
-def get_health() -> HealthResponse:
-    """Deterministic health check endpoint for Tauri desktop supervisor."""
+def get_health(
+    response: Response,
+    ctx: AppContext = Depends(get_app_context),
+) -> HealthResponse:
+    """Meaningful health and readiness check endpoint for Tauri desktop supervisor."""
+    db_status = "healthy"
+    vec_status = "healthy"
+    worker_status = "healthy"
+    is_ready = True
+    errors = {}
+
+    # 1. Database availability check
+    try:
+        with ctx.db_manager.session() as conn:
+            conn.execute("SELECT 1;").fetchone()
+    except Exception as exc:
+        db_status = "unhealthy"
+        is_ready = False
+        errors["database"] = str(exc)
+
+    # 2. Vector store / sqlite-vec check
+    if db_status == "healthy":
+        try:
+            with ctx.db_manager.session() as conn:
+                conn.execute("SELECT vec_version();").fetchone()
+        except Exception as exc:
+            vec_status = "unhealthy"
+            is_ready = False
+            errors["vector_store"] = str(exc)
+    else:
+        vec_status = "unhealthy"
+        is_ready = False
+        errors["vector_store"] = "Database unavailable"
+
+    # 3. Engine coordinator & worker initialization check
+    engine_coord = getattr(ctx, "engine_coordinator", None)
+    if engine_coord is not None and not getattr(engine_coord, "_is_initialized", False):
+        if db_status == "healthy" and vec_status == "healthy":
+            try:
+                engine_coord.initialize()
+            except Exception:
+                pass
+
+    if engine_coord is None or not getattr(engine_coord, "_is_initialized", False):
+        worker_status = "initializing"
+        is_ready = False
+        errors["worker"] = "Filesystem engine not initialized"
+    elif not getattr(engine_coord.worker_pool, "is_running", False):
+        worker_status = "unhealthy"
+        is_ready = False
+        errors["worker"] = "Worker pool is stopped"
+
+    if not is_ready:
+        if db_status == "unhealthy" or vec_status == "unhealthy" or worker_status == "unhealthy":
+            overall_status = "unhealthy"
+        else:
+            overall_status = "initializing"
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    else:
+        overall_status = "healthy"
+        response.status_code = status.HTTP_200_OK
+
     return HealthResponse(
-        status="healthy",
+        status=overall_status,
         service="FileMind Backend",
         version=__version__,
         port=PORT,
+        ready=is_ready,
+        database=db_status,
+        vector_store=vec_status,
+        worker=worker_status,
+        details=errors if errors else None,
     )
+
+
+@app.get("/health/liveness", tags=["Health"])
+def get_liveness():
+    """Simple process liveness check verifying the HTTP server is responsive."""
+    return {"status": "alive", "service": "FileMind Backend", "version": __version__}
 
 
 # Include modular domain routers
