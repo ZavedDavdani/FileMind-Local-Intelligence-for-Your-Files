@@ -31,14 +31,14 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Hardening Batch 2** | Filesystem, Parsers & Security Hardening (Unclosed MD code blocks, Go parsing, PPTX notes, XLSX lines, Explorer quoting) | ✅ Complete / VERIFIED |
 | **Hardening Batch 3** | Frontend, Tauri & E2E Reliability (React lifecycle, zero-padded Ask citations, Page Visibility polling, sheet cancellation) | ✅ Complete / VERIFIED |
 | **Hardening Batch 4** | Final Performance, Audit & Phase 5 Freeze (Knowledge connections $O(C \cdot N)$ scale, 115-item reconciliation) | ❄️ **PHASE 5 FROZEN** |
-| **Phase 6** | Backend Architecture & Performance Refactor (Modular APIRouters, domain repos, batched connections, security extraction) | ✅ Complete / VERIFIED |
-| **Phase 7** | Evaluation / MLOps (Expanded evaluation dataset, Ragas metrics, regression gates) | ⏳ PENDING |
+| **Phase 6** | Backend Architecture & Performance Refactor (Modular APIRouters, domain repos, FTS5 trigram, $O(1)$ vector probe, poll suppression) | ✅ Complete / VERIFIED |
+| **Phase 7** | Conversational Intelligence, Streaming RAG, Local OCR & Visual Knowledge Graph | 📋 AUDITED & PLANNED |
 | **Phase 8** | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
 
 | **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
 | **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
 
-> **Current Boundary & Scope Note**: **Phase 5 is FROZEN**. Phase 5.1–5.4 (Local RAG / Ask FileMind), Phase 5.5 (Document Understanding, Related Content, Folder Understanding, Knowledge Connections), and Hardening Batches 1–4 are **fully implemented, verified, and locked**. The pipeline operates synchronously and locally on-device. Streaming, persistent chat databases, cloud fallbacks, autonomous tool-calling agents, and graph databases belong to future milestones and are **strictly not implemented**.
+> **Current Boundary & Scope Note**: **Phase 5 and Phase 6 are FROZEN and VERIFIED**. Phase 5.1–5.5 (Local RAG, Document/Folder Understanding, Knowledge Connections), Hardening Batches 1–4, and Phase 6 (Router decomposition, domain repositories, FTS5 trigram search acceleration, and vector hot-path optimization) are **fully implemented and verified (522/523 tests passing)**. Phase 7 candidate roadmap covers token-by-token streaming RAG, persistent multi-turn chat sessions, local OCR for scanned documents, and interactive visual graph explorer.
 
 ---
 
@@ -125,12 +125,15 @@ User Action (Search Ctrl+K / Ask Ctrl+J / Document Insight / Related Files)
   - Computes dynamically on demand with zero database migrations and zero auxiliary vector stores.
   - Supports `GET /retrieval/related/{file_id}` with `limit` and `quality` (`fast` / `quality`) parameters.
 
-### 6. Modular Backend & Clean Service Architecture (Phase 6)
+### 6. Modular Backend & Performance Architecture (Phase 6)
 - **FastAPI Modular Routers (`app/routers/`)**: 8 domain-specific routers (`folders`, `files`, `indexing`, `events`, `jobs`, `fs_actions`, `search`, `ai`) separating API definitions from application composition and lifecycle management (`main.py`).
 - **Request-Scoped Dependencies (`app/core/deps.py`)**: Centralized `get_repo` and `get_db` providers managing per-request database session lifetimes cleanly and supporting seamless test overrides.
 - **Centralized Service Error Mapping (`app/core/errors.py`)**: `@map_service_errors` decorator providing deterministic mapping of service layer exceptions (`ValueError` -> 404, `RuntimeError` -> 409, `Exception` -> 500) with preserved custom error semantics.
 - **Extracted Filesystem Security Boundary (`app/core/security.py`)**: `resolve_and_authorize` enforcing registered-folder containment, path normalization, directory traversal protection, and symlink/junction reparse-point rejection.
-- **Repository Domain Layer (`app/db/repositories/`)**: Domain-specific query managers unified under the authoritative `Repository` façade.
+- **Repository Domain Layer (`app/db/repositories/`)**: Domain-specific query managers (`folders`, `files`, `jobs`, `events`, `chunks`, `insights`) unified under the authoritative `Repository` façade.
+- **Vector Hot-Path Optimization**: $O(1)$ vector store emptiness probing (`SqliteVecStore.is_empty()`) removing redundant table scans on every search.
+- **FTS5 Trigram File Search (`files_fts`, Migration V9)**: High-speed substring matching across `filename`, `relative_path`, and `sha256` with automatic SQLite triggers and index-backed sorting (`idx_files_modified_at`, `idx_files_folder_status`).
+- **Frontend Poll Rerender Suppression**: `React.memo` wrapping and custom equality comparators (`areFoldersEqual`, `areEventsEqual`, `areIndexingStatusesEqual`) preventing unnecessary DOM reconciliations during background polling.
 
 ---
 
@@ -199,7 +202,13 @@ Authoritative baseline status:
   - `test_ollama_provider.py`: 5 / 5 PASS
   - `test_batch4_ai_status.py`: 9 / 9 PASS
   - Hardening Suites (`test_hardening_batch1..4.py`, `test_hardening_batch2_parsers_security.py`, `test_hardening_batch4_final_freeze.py`, `test_phase5_final_blockers.py`): 33 / 33 PASS
-- **Full Backend Regression Suite**: **476 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
+- **Phase 6 Test Suites**: **46 / 46 PASS**
+  - `test_domain_repositories.py`: 10 / 10 PASS
+  - `test_core_deps_and_errors.py`: 12 / 12 PASS
+  - `test_core_security.py`: 10 / 10 PASS
+  - `test_perf_optimizations.py`: 7 / 7 PASS
+  - Model & Error Resilience: 7 / 7 PASS
+- **Full Backend Regression Suite**: **522 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
 - **Frontend Production Build**: **PASS** (1,606 modules transformed, 0 errors)
 - **Tauri Desktop Verification**: **PASS** (`cargo check`, 0 errors)
 - **Whitespace / Formatting Check**: **PASS** (`git diff --check`, 0 violations)

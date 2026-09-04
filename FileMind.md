@@ -61,11 +61,21 @@ COMPLETE & FROZEN (Document Understanding, Related Content, Folder Understanding
 Hardening Batches 1–4 — Full Hardening & Freeze Pass:
 COMPLETE & FROZEN (Thread lifecycles, Ollama admission coordinator, citation normalizer, filesystem safety & parsers, React lifecycle guards, Page Visibility polling, Tauri supervisor, Knowledge Connections scale)
 
-Full Backend Regression Suite:
-476 / 477 PASS (476 passed, 1 skipped, 0 failed)
-
 Phase 5 / 5.5 AI Test Suites:
 150 / 150 PASS (Document Understanding, Related Content, Folder Understanding, Knowledge Connections, Ask Pipeline, Grounded Generation, Context Budget, Ollama Provider, AI Status, Hardening Batches 1–4, Batch 2 Parsers & Security, Batch 4 Final Freeze)
+
+Phase 5 Release Gate Decision:
+PHASE 5 — FROZEN (0 unresolved P0/P1 blockers, 115-item audit reconciled, release gates locked)
+
+Phase 6 — Backend Architecture & Performance Refactor:
+COMPLETE & VERIFIED
+- Pass 1: Error propagation & model retry resilience (`bec2b44`)
+- Pass 2: APIRouter modularization & request-scoped dependencies (`b641feb`)
+- Pass 3: Domain repository decomposition with unified façade (`cd4126b`)
+- Pass 4: Performance optimization pass (`13d09eb`): $O(1)$ vector emptiness probing, FTS5 trigram file search (`files_fts`, migration V9), composite query indexes (`idx_files_modified_at`, `idx_files_folder_status`), frontend poll rerender suppression (`React.memo` & custom comparators)
+
+Full Backend Regression Suite:
+522 / 523 PASS (522 passed, 1 skipped, 0 failed)
 
 Frontend Production Build:
 VERIFIED PASS (TypeScript + Vite, 1,606 modules, 0 errors)
@@ -73,14 +83,13 @@ VERIFIED PASS (TypeScript + Vite, 1,606 modules, 0 errors)
 Tauri v2 Desktop Check:
 VERIFIED PASS (`cargo check`, 0 errors)
 
-Phase 5 Release Gate Decision:
-PHASE 5 — FROZEN (0 unresolved P0/P1 blockers, 115-item audit reconciled, release gates locked)
-
-Phase 6 — Backend Architecture & Performance Refactor:
-COMPLETE & VERIFIED (Modular APIRouters, domain-separated repositories, request-scoped dependencies, @map_service_errors, resolve_and_authorize security boundary, batched Knowledge Connections)
-- Backend Test Suite: 490 / 491 PASS (490 passed, 1 skipped, 0 failed)
-- Frontend Production Build: VERIFIED PASS (TypeScript + Vite, 1,606 modules, 0 errors)
-- Tauri v2 Desktop Check: VERIFIED PASS (`cargo check`, 0 errors)
+Phase 7 — Product & Engineering Planning Audit:
+COMPLETE & AUDITED
+- Target Workstreams:
+  1. Conversational Intelligence & Streaming RAG (SSE `/ai/ask/stream`, persistent SQLite chat threads)
+  2. Desktop Onboarding & Local Model Management Hub (in-app Ollama detection & model pull)
+  3. Deep Document Intelligence & Local OCR (scanned PDF & image text extraction)
+  4. Interactive Visual Knowledge Graph Canvas & Search History Filter Chips
 
 
 
