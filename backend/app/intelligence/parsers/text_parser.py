@@ -55,8 +55,9 @@ class TextAndCodeParser(BaseParser):
     def supported_extensions(self) -> List[str]:
         return [
             ".txt", ".md", ".markdown", ".log", ".py", ".js", ".ts",
-            ".tsx", ".jsx", ".rs", ".go", ".c", ".cpp", ".h", ".java",
-            ".html", ".css", ".yaml", ".yml", ".xml",
+            ".tsx", ".jsx", ".rs", ".go", ".c", ".cpp", ".h", ".hpp", ".java",
+            ".html", ".css", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml",
+            ".sql", ".sh", ".bat", ".ps1",
         ]
 
     def parse(self, file_path: str, file_id: str, mime_type: str = "text/plain") -> Document:
@@ -234,6 +235,25 @@ class TextAndCodeParser(BaseParser):
 
             char_offset += line_len
 
+        # Flush any unclosed trailing code block at EOF
+        if in_code_block and code_lines:
+            code_text = "".join(code_lines).strip()
+            if code_text:
+                element_idx += 1
+                doc.elements.append(
+                    DocumentElement(
+                        element_id=f"{file_id}_elem_{element_idx}",
+                        element_type=ElementType.CODE_BLOCK,
+                        text=code_text,
+                        language=code_block_lang,
+                        line_start=code_start_line,
+                        line_end=len(lines),
+                        char_start=code_char_start,
+                        char_end=char_offset,
+                        parent_heading_id=current_h2_id or current_h1_id,
+                    )
+                )
+
         # Flush any trailing table
         if in_table and table_lines:
             element_idx = self._flush_markdown_table(table_lines, doc, file_id, element_idx, table_start_line, len(lines), table_char_start, char_offset, current_h2_id or current_h1_id)
@@ -311,7 +331,10 @@ class TextAndCodeParser(BaseParser):
                 "impl ", "pub impl ", "pub(crate) impl ",
                 "trait ", "pub trait ", "pub(crate) trait ",
             )
-            if line.startswith("class ") or ((ext in (".rs", "rust") or lang == "rust") and line.startswith(rust_types)):
+            go_types = (
+                "type ",
+            )
+            if line.startswith("class ") or ((ext in (".rs", "rust") or lang == "rust") and line.startswith(rust_types)) or ((ext in (".go", "go") or lang == "go") and line.startswith(go_types)):
                 if buffer_lines:
                     element_idx += 1
                     doc.elements.append(
@@ -352,6 +375,7 @@ class TextAndCodeParser(BaseParser):
             fn_prefixes = (
                 "def ", "async def ", "function ",
                 "fn ", "pub fn ", "pub(crate) fn ", "async fn ", "pub async fn ", "pub(crate) async fn ",
+                "func ", "func (",
                 "public void ", "public int ",
             )
             if line.startswith(fn_prefixes):

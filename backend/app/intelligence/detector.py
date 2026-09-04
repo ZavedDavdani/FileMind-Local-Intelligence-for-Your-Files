@@ -87,7 +87,7 @@ def detect_file_format(file_path: str) -> Tuple[str, str]:
         fmt = "CSV"
     elif ext == ".json" or mime == "application/json":
         fmt = "JSON"
-    elif ext in (".py", ".js", ".ts", ".tsx", ".jsx", ".rs", ".go", ".c", ".cpp", ".java", ".html", ".css", ".yaml", ".yml", ".xml"):
+    elif ext in (".py", ".js", ".ts", ".tsx", ".jsx", ".rs", ".go", ".c", ".cpp", ".h", ".hpp", ".java", ".html", ".css", ".yaml", ".yml", ".xml"):
         fmt = "CODE"
     elif mime.startswith("text/") or ext in (".txt", ".log"):
         fmt = "TEXT"

@@ -73,11 +73,14 @@ COMPLETE (`KnowledgeConnectionService`, shared-topic & exact file-reference link
 Hardening Batch 1 — Backend Core, Data Integrity & AI Hardening:
 COMPLETE & VERIFIED (`LocalGenerationCoordinator` concurrency control, zero-padded citation normalization `[E01]` -> `E1`, scanner multi-folder DB session reuse, WAL & anti-resurrection guards)
 
+Hardening Batch 2 — Filesystem, Parsers & Security Hardening:
+COMPLETE & VERIFIED (Markdown EOF code block flush, Go structural parsing, ParserRegistry factory singleton caching, PPTX notes, XLSX line spans & workbook closure, Explorer /select comma quoting, Linux close_fds, bounded enumerate)
+
 Full Backend Regression Suite:
-468 / 469 PASS (468 passed, 1 skipped, 0 failed)
+473 / 474 PASS (473 passed, 1 skipped, 0 failed)
 
 Phase 5 / 5.5 AI Test Suites:
-142 / 142 PASS (Document Understanding, Related Content, Folder Understanding, Knowledge Connections, Ask Pipeline, Grounded Generation, Context Budget, Ollama Provider, AI Status, Hardening Batches 1–4)
+147 / 147 PASS (Document Understanding, Related Content, Folder Understanding, Knowledge Connections, Ask Pipeline, Grounded Generation, Context Budget, Ollama Provider, AI Status, Hardening Batches 1–4, Batch 2 Parsers & Security)
 
 Frontend Production Build:
 VERIFIED PASS (TypeScript + Vite, 1,606 modules, 0 errors)

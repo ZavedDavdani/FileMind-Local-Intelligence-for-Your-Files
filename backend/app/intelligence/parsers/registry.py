@@ -40,9 +40,16 @@ class ParserRegistry:
             return None
 
         if callable(entry):
-            parser = entry()
+            factory = entry
+            parser = factory()
             if parser not in self._registered_parsers:
                 self._registered_parsers.append(parser)
+            for e, f in list(self._parsers_by_ext.items()):
+                if f is factory:
+                    self._parsers_by_ext[e] = parser
+            for m, f in list(self._parsers_by_mime.items()):
+                if f is factory:
+                    self._parsers_by_mime[m] = parser
             for e in parser.supported_extensions:
                 self._parsers_by_ext[e.lower()] = parser
             for m in parser.supported_mime_types:
@@ -55,9 +62,16 @@ class ParserRegistry:
         """Returns all registered parser instances, initializing all deferred parsers if needed."""
         for ext, entry in list(self._parsers_by_ext.items()):
             if callable(entry):
-                p = entry()
+                factory = entry
+                p = factory()
                 if p not in self._registered_parsers:
                     self._registered_parsers.append(p)
+                for e, f in list(self._parsers_by_ext.items()):
+                    if f is factory:
+                        self._parsers_by_ext[e] = p
+                for m, f in list(self._parsers_by_mime.items()):
+                    if f is factory:
+                        self._parsers_by_mime[m] = p
                 for e in p.supported_extensions:
                     self._parsers_by_ext[e.lower()] = p
                 for m in p.supported_mime_types:

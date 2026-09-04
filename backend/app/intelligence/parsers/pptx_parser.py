@@ -132,4 +132,22 @@ class PptxParser(BaseParser):
                             )
                         doc_obj.elements.append(elem)
 
+            # Extract slide speaker notes if available
+            try:
+                if slide.has_notes_slide:
+                    notes_slide = slide.notes_slide
+                    notes_text = notes_slide.notes_text_frame.text.strip() if notes_slide.notes_text_frame else ""
+                    if notes_text:
+                        element_idx += 1
+                        elem = DocumentElement(
+                            element_id=f"{file_id}_elem_{element_idx}",
+                            element_type=ElementType.PARAGRAPH,
+                            text=f"Speaker Notes: {notes_text}",
+                            page_number=slide_idx,
+                            parent_heading_id=current_slide_heading_id,
+                        )
+                        doc_obj.elements.append(elem)
+            except Exception:
+                pass
+
         return doc_obj

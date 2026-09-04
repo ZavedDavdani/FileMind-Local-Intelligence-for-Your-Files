@@ -139,39 +139,42 @@ class TabularParser(BaseParser):
 
     def _parse_xlsx(self, file_path: str, doc: Document, file_id: str):
         wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
-        doc.total_pages = len(wb.sheetnames)
-        element_idx = 0
+        try:
+            doc.total_pages = len(wb.sheetnames)
+            element_idx = 0
 
-        for sheet_idx, sheet_name in enumerate(wb.sheetnames, start=1):
-            sheet = wb[sheet_name]
-            rows_data = []
-            for row in sheet.iter_rows(values_only=True):
-                if any(c is not None and str(c).strip() for c in row):
-                    rows_data.append([str(c or "").strip() for c in row])
+            for sheet_idx, sheet_name in enumerate(wb.sheetnames, start=1):
+                sheet = wb[sheet_name]
+                rows_data = []
+                for row in sheet.iter_rows(values_only=True):
+                    if any(c is not None and str(c).strip() for c in row):
+                        rows_data.append([str(c or "").strip() for c in row])
 
-            if rows_data:
-                element_idx += 1
-                elem_h = DocumentElement(
-                    element_id=f"{file_id}_elem_{element_idx}",
-                    element_type=ElementType.HEADING,
-                    text=f"Worksheet: {sheet_name}",
-                    page_number=sheet_idx,
-                    level=1,
-                )
-                doc.elements.append(elem_h)
+                if rows_data:
+                    element_idx += 1
+                    elem_h = DocumentElement(
+                        element_id=f"{file_id}_elem_{element_idx}",
+                        element_type=ElementType.HEADING,
+                        text=f"Worksheet: {sheet_name}",
+                        page_number=sheet_idx,
+                        level=1,
+                    )
+                    doc.elements.append(elem_h)
 
-                headers = rows_data[0]
-                body_rows = rows_data[1:] if len(rows_data) > 1 else []
-                t_data = TableData(headers=headers, rows=body_rows, caption=sheet_name)
-                element_idx += 1
-                elem_t = DocumentElement(
-                    element_id=f"{file_id}_elem_{element_idx}",
-                    element_type=ElementType.TABLE,
-                    text=t_data.to_markdown(),
-                    page_number=sheet_idx,
-                    table_data=t_data,
-                    parent_heading_id=elem_h.element_id,
-                )
-                doc.elements.append(elem_t)
-
-        wb.close()
+                    headers = rows_data[0]
+                    body_rows = rows_data[1:] if len(rows_data) > 1 else []
+                    t_data = TableData(headers=headers, rows=body_rows, caption=sheet_name)
+                    element_idx += 1
+                    elem_t = DocumentElement(
+                        element_id=f"{file_id}_elem_{element_idx}",
+                        element_type=ElementType.TABLE,
+                        text=t_data.to_markdown(),
+                        page_number=sheet_idx,
+                        table_data=t_data,
+                        parent_heading_id=elem_h.element_id,
+                        line_start=1,
+                        line_end=len(rows_data),
+                    )
+                    doc.elements.append(elem_t)
+        finally:
+            wb.close()

@@ -90,9 +90,11 @@ def test_full_filesystem_engine_lifecycle():
 
             for _ in range(200):
                 time.sleep(0.05)
-                stats = coordinator.get_aggregate_status()
-                if stats["indexed"] == 4 and stats["queued"] == 0:
-                    break
+                with db.session() as conn:
+                    repo = Repository(conn)
+                    f4_rec = repo.get_file_by_path(f4)
+                    if f4_rec and f4_rec["index_status"] == "INDEXED":
+                        break
 
             with db.session() as conn:
                 repo = Repository(conn)

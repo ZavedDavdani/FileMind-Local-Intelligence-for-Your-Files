@@ -479,7 +479,7 @@ def execute_safe_action(payload: ActionRequest) -> ActionResponse:
             if sys.platform == "win32":
                 os.startfile(target_path)
             else:
-                subprocess.Popen(["xdg-open", target_path])
+                subprocess.Popen(["xdg-open", target_path], close_fds=True)
             return ActionResponse(
                 success=True,
                 action=action.value,
@@ -496,12 +496,12 @@ def execute_safe_action(payload: ActionRequest) -> ActionResponse:
         try:
             if sys.platform == "win32":
                 if os.path.isfile(target_path):
-                    subprocess.Popen(["explorer.exe", f"/select,{target_path}"])
+                    subprocess.Popen(["explorer.exe", f'/select,"{target_path}"'])
                 else:
                     os.startfile(target_path)
             else:
                 parent_dir = target_path if os.path.isdir(target_path) else os.path.dirname(target_path)
-                subprocess.Popen(["xdg-open", parent_dir])
+                subprocess.Popen(["xdg-open", parent_dir], close_fds=True)
             return ActionResponse(
                 success=True,
                 action=action.value,
@@ -531,7 +531,7 @@ def execute_safe_action(payload: ActionRequest) -> ActionResponse:
 
 @app.post("/fs/enumerate", response_model=EnumerateResponse, tags=["Filesystem"])
 def enumerate_folder(payload: EnumerateRequest) -> EnumerateResponse:
-    """Safe recursive directory scan (Phase 0 legacy endpoint)."""
+    """Safe recursive directory scan (Phase 0 legacy endpoint) with bounded enumeration limit."""
     try:
         folder_path = normalize_path(payload.folder_path)
     except Exception as exc:
@@ -543,12 +543,17 @@ def enumerate_folder(payload: EnumerateRequest) -> EnumerateResponse:
     if not os.path.isdir(folder_path):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Specified path is not a directory: {folder_path}")
 
+    MAX_ENUMERATE_LIMIT = 10000
     start_time = time.perf_counter()
     file_items: List[FileItem] = []
 
     try:
         for root, _, files in os.walk(folder_path):
+            if len(file_items) >= MAX_ENUMERATE_LIMIT:
+                break
             for file_name in files:
+                if len(file_items) >= MAX_ENUMERATE_LIMIT:
+                    break
                 abs_path = os.path.normpath(os.path.join(root, file_name))
                 try:
                     rel_path = os.path.relpath(abs_path, folder_path)
