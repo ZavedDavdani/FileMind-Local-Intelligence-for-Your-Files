@@ -1,0 +1,330 @@
+﻿"""File repository domain operations."""
+
+import os
+import sqlite3
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from app.core.security import normalize_path
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def escape_like_wildcards(pattern: str, escape_char: str = "\\") -> str:
+    """Escapes SQL LIKE wildcards (%, _, and escape_char itself)."""
+    return (
+        pattern.replace(escape_char, escape_char + escape_char)
+        .replace("%", escape_char + "%")
+        .replace("_", escape_char + "_")
+    )
+
+
+class FileRepository:
+    """Provides strongly typed CRUD queries for tracked files."""
+
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def upsert_file(
+        self,
+        folder_id: str,
+        path: str,
+        relative_path: str,
+        filename: str,
+        extension: str,
+        size_bytes: int,
+        modified_at: str,
+        created_at: Optional[str] = None,
+        sha256: Optional[str] = None,
+        mime_type: Optional[str] = None,
+        index_status: str = "DISCOVERED",
+        indexing_error: Optional[str] = None,
+        file_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        fid = file_id or str(uuid.uuid4())
+        now = _utcnow_iso()
+
+        query = """
+        INSERT INTO files (
+            file_id, folder_id, path, relative_path, filename, extension,
+            mime_type, size_bytes, modified_at, created_at, last_seen_at,
+            sha256, index_status, indexing_error, indexed_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(path) DO UPDATE SET
+            folder_id = excluded.folder_id,
+            relative_path = excluded.relative_path,
+            filename = excluded.filename,
+            extension = excluded.extension,
+            mime_type = COALESCE(excluded.mime_type, files.mime_type),
+            size_bytes = excluded.size_bytes,
+            modified_at = excluded.modified_at,
+            last_seen_at = excluded.last_seen_at,
+            sha256 = COALESCE(excluded.sha256, files.sha256),
+            index_status = excluded.index_status,
+            indexing_error = excluded.indexing_error,
+            indexed_at = CASE WHEN excluded.index_status = 'INDEXED' THEN excluded.last_seen_at ELSE files.indexed_at END
+        RETURNING *;
+        """
+        indexed_at = now if index_status == "INDEXED" else None
+        cursor = self.conn.execute(
+            query,
+            (
+                fid,
+                folder_id,
+                path,
+                relative_path,
+                filename,
+                extension,
+                mime_type,
+                size_bytes,
+                modified_at,
+                created_at,
+                now,
+                sha256,
+                index_status,
+                indexing_error,
+                indexed_at,
+            ),
+        )
+        row = cursor.fetchone()
+        return dict(row)
+
+    def get_file_by_path(self, path: str) -> Optional[Dict[str, Any]]:
+        cursor = self.conn.execute("SELECT * FROM files WHERE path = ?;", (path,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def get_file_by_id(self, file_id: str) -> Optional[Dict[str, Any]]:
+        cursor = self.conn.execute("SELECT * FROM files WHERE file_id = ?;", (file_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def list_files(
+        self,
+        folder_id: Optional[str] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        conditions = []
+        params = []
+        if folder_id:
+            conditions.append("folder_id = ?")
+            params.append(folder_id)
+        if status:
+            conditions.append("index_status = ?")
+            params.append(status.upper())
+        if search and search.strip():
+            escaped = escape_like_wildcards(search.strip())
+            pattern = f"%{escaped}%"
+            conditions.append(
+                "(filename LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\' OR sha256 LIKE ? ESCAPE '\\')"
+            )
+            params.extend([pattern, pattern, pattern])
+
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        query = f"SELECT * FROM files {where_clause} ORDER BY modified_at DESC LIMIT ? OFFSET ?;"
+        params.extend([limit, offset])
+
+        cursor = self.conn.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+    def count_files(
+        self,
+        folder_id: Optional[str] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+    ) -> int:
+        conditions = []
+        params = []
+        if folder_id:
+            conditions.append("folder_id = ?")
+            params.append(folder_id)
+        if status:
+            conditions.append("index_status = ?")
+            params.append(status.upper())
+        if search and search.strip():
+            escaped = escape_like_wildcards(search.strip())
+            pattern = f"%{escaped}%"
+            conditions.append(
+                "(filename LIKE ? ESCAPE '\\' OR relative_path LIKE ? ESCAPE '\\' OR sha256 LIKE ? ESCAPE '\\')"
+            )
+            params.extend([pattern, pattern, pattern])
+
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        query = f"SELECT COUNT(*) as cnt FROM files {where_clause};"
+        cursor = self.conn.execute(query, params)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
+
+    def list_indexed_paths_for_folder(self, folder_id: str) -> List[Dict[str, Any]]:
+        """Returns all non-MISSING files in a folder as a list of {file_id, path} dicts."""
+        cursor = self.conn.execute(
+            "SELECT file_id, path FROM files WHERE folder_id = ? AND index_status != 'MISSING';",
+            (folder_id,),
+        )
+        return [{"file_id": row["file_id"], "path": row["path"]} for row in cursor.fetchall()]
+
+    def mark_file_missing(self, path: str) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE files SET index_status = 'MISSING', last_seen_at = ? WHERE path = ?;",
+            (_utcnow_iso(), path),
+        )
+        return cursor.rowcount > 0
+
+    def mark_directory_missing(self, folder_id: str, dir_path: str) -> int:
+        """
+        Marks all files under a deleted directory subtree as MISSING in a single atomic query,
+        and cancels all active/pending indexing jobs for those files.
+        """
+        dir_clean = normalize_path(dir_path)
+        dir_prefix = dir_clean + os.sep
+        now = _utcnow_iso()
+        like_pattern = escape_like_wildcards(dir_prefix) + "%"
+
+        cursor = self.conn.execute(
+            """
+            UPDATE files
+            SET index_status = 'MISSING', last_seen_at = ?
+            WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path = ?) AND index_status != 'MISSING';
+            """,
+            (now, folder_id, like_pattern, dir_clean),
+        )
+        affected = cursor.rowcount
+
+        self.conn.execute(
+            """
+            UPDATE indexing_jobs
+            SET status = 'CANCELLED'
+            WHERE folder_id = ? AND status IN ('PENDING', 'PROCESSING')
+              AND file_id IN (
+                  SELECT file_id FROM files
+                  WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path = ?)
+              );
+            """,
+            (folder_id, folder_id, like_pattern, dir_clean),
+        )
+        return affected
+
+    def rename_file_path(self, old_path: str, new_path: str, new_rel_path: str, new_filename: str, new_ext: str) -> bool:
+        cursor = self.conn.execute(
+            """
+            UPDATE files
+            SET path = ?, relative_path = ?, filename = ?, extension = ?, last_seen_at = ?
+            WHERE path = ?;
+            """,
+            (new_path, new_rel_path, new_filename, new_ext, _utcnow_iso(), old_path),
+        )
+        return cursor.rowcount > 0
+
+    def rename_directory_path(self, folder_id: str, old_dir_path: str, new_dir_path: str, root_folder_path: str) -> int:
+        """
+        Renames all files belonging to folder_id in an old directory subtree to the new directory path.
+        Updates path, relative_path, and enqueues HASH_VERIFICATION jobs.
+        """
+        old_clean = normalize_path(old_dir_path)
+        new_clean = normalize_path(new_dir_path)
+        old_prefix = old_clean + os.sep
+        new_prefix = new_clean + os.sep
+        like_pattern = escape_like_wildcards(old_prefix) + "%"
+
+        cursor = self.conn.execute(
+            "SELECT file_id, path FROM files WHERE folder_id = ? AND (path LIKE ? ESCAPE '\\' OR path = ?);",
+            (folder_id, like_pattern, old_clean),
+        )
+        rows = cursor.fetchall()
+        now = _utcnow_iso()
+
+        for row in rows:
+            old_p = row["path"]
+            if old_p.startswith(old_prefix):
+                rel_tail = old_p[len(old_prefix):]
+                new_p = new_prefix + rel_tail
+            elif old_p == old_clean:
+                new_p = new_clean
+            else:
+                continue
+
+            new_rel = os.path.relpath(new_p, root_folder_path).replace("\\", "/")
+            new_filename = os.path.basename(new_p)
+            _, new_ext = os.path.splitext(new_filename)
+
+            self.conn.execute(
+                """
+                UPDATE files
+                SET path = ?, relative_path = ?, filename = ?, extension = ?, last_seen_at = ?
+                WHERE file_id = ?;
+                """,
+                (new_p, new_rel, new_filename, new_ext.lower(), now, row["file_id"]),
+            )
+            if hasattr(self, "enqueue_job"):
+                self.enqueue_job(
+                    file_id=row["file_id"],
+                    folder_id=folder_id,
+                    job_type="HASH_VERIFICATION",
+                    priority=2,
+                )
+            else:
+                jid = str(uuid.uuid4())
+                self.conn.execute(
+                    """
+                    INSERT INTO indexing_jobs (job_id, file_id, folder_id, job_type, status, priority, attempts, created_at)
+                    VALUES (?, ?, ?, 'HASH_VERIFICATION', 'PENDING', 2, 0, ?);
+                    """,
+                    (jid, row["file_id"], folder_id, now),
+                )
+
+        return len(rows)
+
+    def update_file_status(self, file_id: str, status: str, error: Optional[str] = None) -> bool:
+        """Updates the index status and optional error message of a file."""
+        now = _utcnow_iso()
+        cursor = self.conn.execute(
+            """
+            UPDATE files
+            SET index_status = ?, indexing_error = ?, last_seen_at = ?
+            WHERE file_id = ?;
+            """,
+            (status.upper(), error, now, file_id),
+        )
+        return cursor.rowcount > 0
+
+    def delete_file(self, file_id: str) -> bool:
+        # Clean up chunk_vectors virtual table entries before cascading relational delete
+        self.conn.execute(
+            """
+            DELETE FROM chunk_vectors
+            WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ?);
+            """,
+            (file_id,),
+        )
+        cursor = self.conn.execute("DELETE FROM files WHERE file_id = ?;", (file_id,))
+        return cursor.rowcount > 0
+
+    def count_files_by_status(self, folder_id: Optional[str] = None) -> Dict[str, int]:
+        query = "SELECT index_status, COUNT(*) as cnt FROM files"
+        params = []
+        if folder_id:
+            query += " WHERE folder_id = ?"
+            params.append(folder_id)
+        query += " GROUP BY index_status;"
+
+        cursor = self.conn.execute(query, params)
+        counts = {
+            "DISCOVERED": 0,
+            "QUEUED": 0,
+            "PROCESSING": 0,
+            "INDEXED": 0,
+            "FAILED": 0,
+            "SKIPPED": 0,
+            "MISSING": 0,
+        }
+        for row in cursor.fetchall():
+            counts[row["index_status"]] = row["cnt"]
+        counts["TOTAL"] = sum(counts.values())
+        return counts
