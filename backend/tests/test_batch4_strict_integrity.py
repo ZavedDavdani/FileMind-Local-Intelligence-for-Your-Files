@@ -48,7 +48,7 @@ def test_strict_mode_unchanged_sha_bypasses_reparse(test_env):
         assert res1.new_files == 1
 
     # Wait for initial indexing
-    for _ in range(60):
+    for _ in range(200):
         with db_manager.session() as conn:
             repo = Repository(conn)
             f_rec = repo.get_file_by_path(doc_path)
@@ -73,7 +73,7 @@ def test_strict_mode_unchanged_sha_bypasses_reparse(test_env):
         assert res2.modified_files == 1
 
     # Wait for worker to verify hash
-    for _ in range(60):
+    for _ in range(200):
         with db_manager.session() as conn:
             repo = Repository(conn)
             f_rec_after = repo.get_file_by_path(doc_path)

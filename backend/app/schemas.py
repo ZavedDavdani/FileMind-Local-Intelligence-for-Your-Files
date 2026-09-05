@@ -286,7 +286,7 @@ class SearchResultItem(BaseModel):
     char_start: Optional[int] = None
     char_end: Optional[int] = None
     snippet: str
-    content: str
+    content: Optional[str] = ""
     content_hash: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
 

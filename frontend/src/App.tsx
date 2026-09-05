@@ -157,13 +157,15 @@ export function App() {
       timerId = setTimeout(async () => {
         if (!mounted) return;
         if (typeof document !== "undefined" && document.hidden) {
-          scheduleNextPoll(2500);
+          scheduleNextPoll(5000);
           return;
         }
         try {
           await refreshAll();
           consecutiveErrors = 0;
-          scheduleNextPoll(2500);
+          const currentStatus = prevIndexingStatusRef.current;
+          const isBusy = currentStatus && (currentStatus.processing > 0 || currentStatus.queued > 0);
+          scheduleNextPoll(isBusy ? 2500 : 5000);
         } catch {
           consecutiveErrors++;
           // Exponential backoff: 2.5s, 5s, 10s, max 15s

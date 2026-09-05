@@ -121,7 +121,14 @@ class SqliteVecStore(BaseVectorStore):
             raise RuntimeError(f"Failed to initialize sqlite-vec table: {exc}") from exc
 
 
-    def _pack_vector(self, vec: List[float]) -> bytes:
+    def _pack_vector(self, vec: Any) -> bytes:
+        if isinstance(vec, bytes):
+            return vec
+        if isinstance(vec, np.ndarray):
+            return vec.astype(np.float32, copy=False).tobytes()
+        if hasattr(vec, "__len__") and len(vec) == self.dimension:
+            # Fast numpy buffer conversion
+            return np.array(vec, dtype=np.float32).tobytes()
         return struct.pack(f"{len(vec)}f", *vec)
 
     def get_index_metadata(self) -> Optional[Dict[str, Any]]:

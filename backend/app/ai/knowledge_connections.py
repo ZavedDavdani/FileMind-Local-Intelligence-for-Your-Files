@@ -188,9 +188,17 @@ class KnowledgeConnectionService:
             reference_candidates: Dict[str, tuple[int, int, str, Dict[str, Any], str]] = {}
             for chunk in repo.get_chunks_by_file(file_id):
                 content = chunk.get("content") or ""
+                if not content:
+                    continue
+                content_normalized = content.replace("\\", "/").casefold()
                 for relative, unique_filename, target in reference_targets:
                     references = [r for r in (relative, unique_filename) if r]
-                    matched = next((r for r in references if self._contains_exact_reference(content, r)), None)
+                    matched = None
+                    for r in references:
+                        r_norm = r.replace("\\", "/").casefold()
+                        if r_norm in content_normalized and self._contains_exact_reference(content, r):
+                            matched = r
+                            break
                     if not matched:
                         continue
                     rank = 0 if matched == relative else 1
