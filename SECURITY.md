@@ -17,7 +17,7 @@ FileMind is designed from the ground up as a **100% local-first desktop applicat
 If you discover a potential security vulnerability in FileMind, please report it responsibly.
 
 ### How to Report
-Please send an email to **zaved.davdani@gmail.com** or open a private GitHub Security Advisory with:
+Please send an email to **zaveddavdani@gmail.com** or open a private GitHub Security Advisory with:
 - A description of the vulnerability.
 - Steps to reproduce or proof-of-concept.
 - Potential impact.
