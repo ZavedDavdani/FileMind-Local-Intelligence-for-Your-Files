@@ -1,5 +1,5 @@
 """
-FileMind Phase 5.2 — Grounded Local LLM Generation Service and Contracts.
+FileMind Grounded Local LLM Generation Service and Contracts.
 
 Coordinates bounded context, deterministic grounded prompt construction, local Ollama generation,
 and citation validation into an authoritative, local-only grounded question-answering pipeline.

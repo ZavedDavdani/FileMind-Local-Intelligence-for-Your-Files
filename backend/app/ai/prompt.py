@@ -1,5 +1,5 @@
 """
-FileMind Phase 5.2 — Grounded Prompt Builder and Citation Mapping.
+FileMind Grounded Prompt Builder and Citation Mapping.
 
 Builds structured, grounded prompts from BoundedContextPackage and user queries.
 Enforces strict grounding boundaries, prompt injection defenses, deterministic citation identifiers ([E1], [E2]),

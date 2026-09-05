@@ -1,272 +1,225 @@
+<div align="center">
+
 # FileMind
 
-> Local Intelligence for Your Files. Windows-first, privacy-first desktop search & local RAG.
+**Local Intelligence for Your Files**  
+*A privacy-first, local-only Windows desktop application for intelligent file search, grounded AI chat, and cross-file knowledge extraction.*
 
-FileMind is a local-first, privacy-first Windows desktop application that indexes user-selected folders and provides multi-stage hybrid evidence retrieval combined with grounded local AI question-answering and Second Brain document understanding: SQLite FTS5 BM25 lexical matching, local dense vector embeddings, Reciprocal Rank Fusion (RRF), optional neural cross-encoder reranking, and local-only LLM synthesis via Ollama.
+[![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20x64-blue.svg)](https://github.com)
+[![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local-emerald.svg)](docs/architecture.md)
+[![Build](https://img.shields.io/badge/Build-Tauri%202%20%2B%20FastAPI-purple.svg)](docs/architecture.md)
 
-**Core Principle**: *"FileMind is a local knowledge layer over the user's existing files — not a new note-taking app."* The user's files on disk remain the authoritative single source of truth.
-
----
-
-## Current Status & Phase Roadmap
-
-| Phase | Scope | Status |
-|---|---|---|
-| **Phase 0** | Distribution Feasibility (Tauri 2 + PyInstaller `--onedir` sidecar packaging) | ✅ Complete / PASS |
-| **Phase 1** | Filesystem Engine (Watcher, change detection, exclusions, SQLite WAL, crash recovery) | ✅ Complete / IMPLEMENTED |
-| **Phase 2** | Document Intelligence (Multi-format parsers, hierarchical chunking, provenance tracking) | ✅ Complete / IMPLEMENTED |
-| **Phase 3** | Hybrid Retrieval (SQLite FTS5 BM25 + dense vectors with Reciprocal Rank Fusion) | ✅ Complete / IMPLEMENTED |
-| **Batches 1–4** | Pre-Phase-5 Hardening (Security, crash isolation, index metadata, logging, size guards) | ✅ Complete / PASS |
-| **Phase 4** | Reranking / Search Quality (Fast vs Quality modes, benchmark exit gate closed) | ✅ Complete / CLOSED |
-| **Phase 5.1** | Context & Token Budgeting (`ContextBudgetConfig`, `TokenEstimator`, `ContextBuilder`) | ✅ Complete / IMPLEMENTED |
-| **Phase 5.2** | Grounded Generation Contract (`PromptBuilder`, `CitationValidator`, `OllamaProvider`) | ✅ Complete / IMPLEMENTED |
-| **Phase 5.3** | Ask FileMind Local RAG Pipeline & UI (`POST /ai/ask`, `AskService`, `AskModal`) | ✅ Complete / IMPLEMENTED |
-| **Phase 5.4 Batch 1** | Ask Readiness & Concurrency Hardening (`GET /ai/status`, tag probe, request sequencing) | ✅ Complete / PUSHED (`a55030f`) |
-| **Phase 5.4 Batch 2** | Ask UX Polish (Staged progress, Copy Answer, Citation navigation, In-session history) | ✅ Complete / PUSHED (`ba45128`) |
-| **Phase 5.5 Batch 1** | Document Understanding Core (`document_insights` schema v6, grounded insight generation) | ✅ Complete / PUSHED (`4d12526`) |
-| **Phase 5.5 Batch 2** | Related Content (`RelatedContentService`, hybrid retrieval, Max Chunk Score grouping) | ✅ Complete / PUSHED (`7442402`) |
-| **Phase 5.5 Batch 3.1** | Folder Understanding Core (`FolderUnderstandingService`, structural metrics, folder insights) | ✅ Complete / IMPLEMENTED |
-| **Phase 5.5 Batch 3.2** | Knowledge Connections (`KnowledgeConnectionService`, shared-topic & reference graph) | ✅ Complete / IMPLEMENTED |
-| **Hardening Batches 1–4** | Final Performance, Audit & Phase 5 Freeze (Knowledge connections $O(C \cdot N)$ scale, 115-item reconciliation) | ❄️ **PHASE 5 FROZEN** |
-| **Phase 6** | Backend Architecture & Performance Refactor (Modular APIRouters, domain repos, FTS5 trigram, $O(1)$ vector probe, poll suppression) | ✅ Complete / VERIFIED |
-| **Pre-Phase-7 Batch 1** | AppContext / Dependency Injection (Request-scoped DI, model registry, decoupled routers) | ✅ Complete / VERIFIED (`8ca6830`) |
-| **Pre-Phase-7 Batch 2** | Indexing Integrity & Reliability (Single persistence tx, vector-first deletion, worker event wakeup, retrieval pool) | ✅ Complete / VERIFIED (`0fd44ac`) |
-| **Pre-Phase-7 Freeze** | Final Pre-Phase-7 Architecture Freeze Audit (24-dimension audit, 0 blockers) | ❄️ **ARCHITECTURE READY — FREEZE** |
-| **Chunk 1–5 Remediation** | Fix + Verify Correctness Pass (Bugs 1–120: watchers, vector cascade, citations, RRF, security) | ✅ Complete / VERIFIED (`4a54549`) |
-| **Consolidated Gate 1 Audit** | Bugs 1–120 Fix + Verify Gate 1 Audit (120/120 audited, 0 open defects, 615 backend tests) | ❄️ **GATE 1 — READY** |
-| **Phase 7** | Conversational Intelligence, Streaming RAG, Local OCR & Visual Knowledge Graph | 📋 READY FOR EXECUTION |
-| **Phase 8** | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
-| **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
-| **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
-
-> **Current Boundary & Scope Note**: **Correctness Remediation (Chunks 1–5) and the Consolidated Bugs 1–120 Gate 1 Audit are COMPLETE and VERIFIED**. All 120 bugs in the canonical catalog have been individually audited, reproduced, remediated, and verified against focused unit tests with **615 passed backend tests (1 skipped)**, clean frontend TypeScript build, and clean Tauri Rust compilation. The project is formally classified as **`GATE 1 — READY`**.
+</div>
 
 ---
 
-## Core Architecture
+## Overview
 
+**FileMind** transforms your local files and folders into an intelligent, searchable, and conversational local knowledge base.
+
+Unlike cloud-based tools that require uploading your private documents to external servers, FileMind operates **100% on your local machine**. It indexes your files once, extracts structured hierarchical knowledge, and allows you to search, chat, and compare documents anytime—even completely offline.
+
+> **Core Invariant**: *Your files on disk remain the single authoritative source of truth. FileMind never modifies, relocates, or locks your original files.*
+
+---
+
+## Key Features
+
+- **100% Local-First Privacy**: Zero cloud uploads, zero telemetry, and zero external API dependencies for core indexing, vector search, and reranking.
+- **Multi-Stage Hybrid Search (Ctrl + K)**: Combines SQLite FTS5 BM25 lexical search and `sqlite-vec` dense embeddings via Reciprocal Rank Fusion (RRF), with optional cross-encoder neural reranking.
+- **Grounded Multi-Turn Chat (Ctrl + J)**: Ask natural language questions across your documents. Answers are strictly constrained to retrieved evidence and include interactive provenance citations.
+- **Granular Chat Scopes**:
+  - **All Files**: Query across your entire indexed document library.
+  - **Folder Scope**: Restrict conversations strictly to a specific project or directory.
+  - **File Scope**: Conduct deep single-document question answering and analysis.
+- **Cross-File Intelligence & Synthesis**:
+  - **Document Comparison**: Compare 2 to 5 documents side-by-side across key dimensions.
+  - **Multi-File Synthesis**: Synthesize themes, decisions, and insights across up to 10 files.
+  - **Corpus Overview**: View dominant topics, semantic document clusters, and recent insights.
+- **Interactive Citations & Evidence Inspector**: Every AI answer links directly to the exact file, page number, spreadsheet tab, slide number, or line span.
+- **Real-Time Filesystem Watching**: Automatically detects new, modified, renamed, or deleted files in tracked folders without requiring manual re-indexing.
+- **Evidence & Transcript Export**: Export chat sessions and research findings in formatted Markdown (with footnote citations), structured JSON, or plain text.
+- **Local Model Management**: Compatible with local Ollama models (`llama3.2`, `mistral`, `gemma2`, `phi3`, etc.) with automatic offline degradation.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TD
+    %% Styling Definitions
+    classDef userNode fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px,color:#1e1b4b,font-weight:bold;
+    classDef rectNode fill:#f3e8ff,stroke:#c084fc,stroke-width:1.5px,color:#1e1b4b;
+    classDef dbNode fill:#ede9fe,stroke:#9333ea,stroke-width:2px,color:#1e1b4b,font-weight:bold;
+    classDef decisionNode fill:#faf5ff,stroke:#a855f7,stroke-width:1.5px,color:#1e1b4b,font-weight:bold;
+    classDef offlineNode fill:#fff1f2,stroke:#f43f5e,stroke-width:1.5px,color:#881337;
+    classDef branchTitle fill:#e9d5ff,stroke:#7e22ce,stroke-width:1.5px,color:#3b0764,font-weight:bold;
+
+    %% Ingestion Pipeline
+    User(["User"]):::userNode
+    User -->|Selects folders & files| FS["Local File System<br/><small>Documents • Folders • Files • Media</small>"]:::rectNode
+    FS --> Discovery["File Discovery & Watcher<br/><small>Scan • Create • Modify • Rename • Delete</small>"]:::rectNode
+    Discovery --> FormatDet["Multi-Format Detection<br/><small>Magic Bytes • Extension • MIME Inspection</small>"]:::rectNode
+    FormatDet --> ParserReg["Parser Registry<br/><small>PDF • DOCX • PPTX • XLSX • CSV • Markdown • Code • Images • Audio</small>"]:::rectNode
+    ParserReg --> ContentExt["Content Extraction<br/><small>Text • Tables • Metadata • Visual Content</small>"]:::rectNode
+    ContentExt --> Provenance["Provenance Tracking<br/><small>File • Page • Section • Line • Sheet • Slide • Timestamp</small>"]:::rectNode
+    Provenance --> Normalization["Content Normalization<br/><small>Unified Document Representation</small>"]:::rectNode
+    Normalization --> Chunking["Hierarchical Chunking<br/><small>Structure-Aware • Bounded • Context Preserving</small>"]:::rectNode
+    Chunking --> KnowledgeBase[("Persistent Local Knowledge Base<br/><b>SQLite + FTS5 + sqlite-vec</b><br/><small>Metadata • Chunks • Embeddings • Provenance</small>")]:::dbNode
+
+    %% Retrieval Pipeline
+    UserQuery(["User Query<br/><small>Search / Ask / Chat</small>"]):::userNode
+    UserQuery --> QueryProc["Query Processing<br/><small>Intent • Scope • Filters • Context</small>"]:::rectNode
+    QueryProc --> HybridRet["Hybrid Retrieval<br/><small>BM25 Lexical + Dense Vectors + RRF Fusion</small>"]:::rectNode
+    KnowledgeBase -.->|Index probe & vectors| HybridRet
+    HybridRet --> Reranker["Cross-Encoder Reranking<br/><small>Top Candidate Refinement (Quality Mode)</small>"]:::rectNode
+    Reranker --> Assembly["Evidence Assembly<br/><small>Relevant Chunks + Context Budget Accounting</small>"]:::rectNode
+    Assembly --> EvidenceVal{"Evidence Valid?"}:::decisionNode
+
+    EvidenceVal -->|No / Unsupported| RejectEvidence["Filter / Reject Irrelevant Chunks"]:::rectNode
+    RejectEvidence --> HybridRet
+    EvidenceVal -->|Yes| LocalAI(["Local AI Generation<br/><b>Ollama • Local LLM</b>"]):::dbNode
+
+    %% Offline Fallback
+    LocalAI -.->|Ollama Offline / Missing| OfflineState["Offline / Model Unavailable State<br/><small>Graceful Fallback</small>"]:::offlineNode
+    OfflineState --> UIOutput
+
+    LocalAI --> GroundedAns["Grounded Answer<br/><small>Evidence-Constrained Generation</small>"]:::rectNode
+    GroundedAns --> Citations["Interactive Citations<br/><small>Source File • Page • Sheet • Slide • Section • Line</small>"]:::rectNode
+    Citations --> UIOutput(["User Output<br/><small>Search Result • Grounded Answer • Verified Evidence</small>"]):::userNode
+
+    %% Chat Scope Branch
+    UserQuery --> ChatBranch["Chat Workspace"]:::branchTitle
+    ChatBranch --> ConvHist["Conversation History<br/><small>Persistent Threads</small>"]:::rectNode
+    ConvHist --> ScopeDecision{"Chat Scope?"}:::decisionNode
+    ScopeDecision -->|ALL| ScopeAll["Entire Indexed Corpus"]:::rectNode
+    ScopeDecision -->|FOLDER| ScopeFolder["Selected Folder Only"]:::rectNode
+    ScopeDecision -->|FILE| ScopeFile["Selected File Only"]:::rectNode
+    ScopeAll --> ScopedRet["Scoped Hybrid Retrieval"]:::rectNode
+    ScopeFolder --> ScopedRet
+    ScopeFile --> ScopedRet
+    ScopedRet --> LocalAI
 ```
-User Action (Search Ctrl+K / Ask Ctrl+J / Document Insight / Related Files)
-  │
-  ▼
-[ Query Normalizer / Representative Signal Extractor ]
-  │
-  ├──────────────────────────────────┐
-  ▼                                  ▼
-[ SQLite FTS5 Lexical Search ]     [ FastEmbed Dense Vector Search ]
-  │ (BM25 + Stem Boost)              │ (`sqlite-vec` Cosine Similarity)
-  └─────────────────┬────────────────┘
-                    ▼
-  [ Reciprocal Rank Fusion (RRF k=60) ]
-                    │
-                    ▼
-          Search Quality Selection
-         /                        \
-  [ FAST MODE ]             [ QUALITY MODE ]
-  (Direct RRF Ranking)      (Candidate Pool: min(max(25, top_k), 100))
-  ~19.7 ms p50              (Cross-Encoder: BAAI/bge-reranker-base)
-         \                        /
-          └─────────┬────────────┘
-                    │
-       ┌────────────┼──────────────────────────┐
-       ▼            ▼                          ▼
-[ Spotlight UI ] [ Ask FileMind Pipeline ]  [ Second Brain Layer ]
-(Search Ctrl+K)   │ (Context Budget 4096)     │
-                  ▼                           ├─► [ Document Understanding ]
-                 [ Grounded Prompt Builder ]  │   (Structural summary, executive
-                  │ (System rules + [E1].. )  │    summary, key topics/decisions,
-                  ▼                           │    grounded citations via Ollama)
-                 [ Local Ollama Provider ]    │
-                  │ (Strict 127.0.0.1:11434)  └─► [ Related Content ]
-                  ▼                               (Max Chunk Score grouping,
-                 [ Citation Validator ]            self-exclusion, authentic
-                  │ (Inline provenance map)        provenance, zero migrations)
-                  ▼
-                 [ Ask FileMind UI (Ctrl+J) ]
-```
+
+For detailed architectural specifications, see [docs/architecture.md](docs/architecture.md).
 
 ---
 
-## Key Subsystems
+## Supported File Formats
 
-### 1. Filesystem Engine & Document Intelligence
-- **Watcher**: Cross-platform `watchdog` with sliding event debouncing, recursive folder discovery, exclusion filters (`node_modules`, `.git`, `venv`, user globs), and persistent SQLite WAL metadata storage.
-- **Document Parsers**: Structure-first parsers for PDF (PyMuPDF), DOCX, PPTX, XLSX, CSV, Markdown, Code, and Plaintext generating hierarchical chunks with exact parent headings (`H1 > H2`) and location spans.
-- **Hierarchical Chunking**: Structure-aware chunking preserving table integrity and heading ancestry with deterministic chunk IDs and immutable provenance snapshots.
+FileMind includes built-in structure-aware extractors for:
 
-### 2. Multi-Stage Hybrid Retrieval
-- **Lexical**: SQLite FTS5 full-text index with `unicode61` tokenizer and trigger-based synchronization.
-- **Dense**: `sqlite-vec` vector database populated by `sentence-transformers/all-MiniLM-L6-v2` via FastEmbed ONNX Runtime.
-- **Fusion**: Reciprocal Rank Fusion ($k=60$) with deterministic tie-breaking.
-- **Reranker**: `BAAI/bge-reranker-base` local cross-encoder for deep semantic reordering in Quality mode.
-
-### 3. Grounded Local RAG & Generation (Phase 5.1–5.3)
-- **Token Budget Guard (`ContextBudgetConfig`)**: Enforces explicit context boundaries (default 4096 tokens) with reserved system (500 tokens) and output (1000 tokens) allocations. Prevents silent truncation and tracks candidate omissions.
-- **Grounded Prompt Builder (`PromptBuilder`)**: Constructs structured prompts with strict system grounding rules, numbered evidence blocks (`[E1]`, `[E2]`), and untrusted document boundary containment for prompt-injection defense.
-- **Citation Extraction & Validation (`CitationValidator`)**: Extracts `[E{n}]` markers from model output, validates them against the active citation map, and identifies unresolved citation keys.
-- **No-Evidence Short-Circuiting**: If no evidence chunks match the query, the LLM is never invoked; an immediate `NO_EVIDENCE` response is returned.
-- **Local Ollama Provider (`OllamaProvider`)**: Executes generation via loopback `http://127.0.0.1:11434` with model `qwen3:4b`. Zero cloud fallback.
-
-### 4. Proactive AI Readiness & UX Polish (Phase 5.4 Batches 1 & 2)
-- **Ollama Readiness Probe (`check_ollama_readiness`)**: Probes `GET /api/tags` with a 1.0s timeout to verify daemon availability and model presence without loading weights or triggering generation.
-- **Status API (`GET /ai/status`)**: Exposes non-breaking `local_ai.ollama` readiness metadata (`is_ollama_online`, `has_default_model`, `model_name`, `endpoint`).
-- **AskModal UX Polish**: Monotonically increasing request sequence numbers, 4-stage visual progress tracker (Analyzing, Retrieving, Budgeting, Generating), Markdown answer formatting with citation pill anchors, auto-scroll to citations, copy-to-clipboard, and in-session query history navigation.
-
-### 5. Local Second Brain Foundation (Phase 5.5 Batches 1 & 2)
-- **Document Understanding (`DocumentUnderstandingService`)**:
-  - Computes deterministic structural metrics ($< 1\text{ms}$): size, chunk count, estimated tokens, headings, and sections.
-  - Generates grounded, locally stored document insights: executive summaries, key topics, key decisions, and cited evidence.
-  - Persists atomic cache entries in `document_insights` (SQLite schema v6) with content hash, parser/chunker version, and model identity invalidation checks.
-  - Supports `GET /ai/document-insight/{file_id}` and `POST /ai/document-insight/{file_id}/generate`.
-- **Related Content (`RelatedContentService`)**:
-  - Discovers meaningfully related files using existing BM25 + Dense + RRF retrieval without mandatory LLM calls.
-  - Extracts bounded representative signals from the source file (filename stem, unique headings, introductory snippet).
-  - Enforces strict source-file self-exclusion and aggregates candidates at the file level using **Max Chunk Score**.
-  - Provides authentic provenance with `primary_matched_chunk`, up to 2 `supporting_chunks`, and deterministic explanation strings.
-  - Computes dynamically on demand with zero database migrations and zero auxiliary vector stores.
-  - Supports `GET /retrieval/related/{file_id}` with `limit` and `quality` (`fast` / `quality`) parameters.
-
-### 6. Modular Backend & Performance Architecture (Phase 6)
-- **FastAPI Modular Routers (`app/routers/`)**: 8 domain-specific routers (`folders`, `files`, `indexing`, `events`, `jobs`, `fs_actions`, `search`, `ai`) separating API definitions from application composition and lifecycle management (`main.py`).
-- **Request-Scoped Dependencies (`app/core/deps.py`)**: Centralized `get_repo` and `get_db` providers managing per-request database session lifetimes cleanly and supporting seamless test overrides.
-- **Centralized Service Error Mapping (`app/core/errors.py`)**: `@map_service_errors` decorator providing deterministic mapping of service layer exceptions (`ValueError` -> 404, `RuntimeError` -> 409, `Exception` -> 500) with preserved custom error semantics.
-- **Extracted Filesystem Security Boundary (`app/core/security.py`)**: `resolve_and_authorize` enforcing registered-folder containment, path normalization, directory traversal protection, and symlink/junction reparse-point rejection.
-- **Repository Domain Layer (`app/db/repositories/`)**: Domain-specific query managers (`folders`, `files`, `jobs`, `events`, `chunks`, `insights`) unified under the authoritative `Repository` façade.
-- **Vector Hot-Path Optimization**: $O(1)$ vector store emptiness probing (`SqliteVecStore.is_empty()`) removing redundant table scans on every search.
-- **FTS5 Trigram File Search (`files_fts`, Migration V9)**: High-speed substring matching across `filename`, `relative_path`, and `sha256` with automatic SQLite triggers and index-backed sorting (`idx_files_modified_at`, `idx_files_folder_status`).
-- **Frontend Poll Rerender Suppression**: `React.memo` wrapping and custom equality comparators (`areFoldersEqual`, `areEventsEqual`, `areIndexingStatusesEqual`) preventing unnecessary DOM reconciliations during background polling.
+| Category | Extensions | Features Extracted |
+| :--- | :--- | :--- |
+| **PDF Documents** | `.pdf` | Multi-page text streams, tables, visual headings (`H1 > H2`), page coordinates |
+| **Word Documents** | `.docx` | Headings, styled paragraphs, tables, embedded metadata |
+| **Presentations** | `.pptx` | Slide titles, slide numbers, body text, notes |
+| **Spreadsheets** | `.xlsx`, `.csv` | Sheet names, tabular rows/columns, cell values |
+| **Markdown & Text** | `.md`, `.txt`, `.rtf` | Structured markdown headings, code blocks, lists, lines |
+| **Source Code** | `.py`, `.ts`, `.tsx`, `.js`, `.rs`, `.go`, `.c`, `.cpp`, `.h`, `.json`, `.xml`, `.html` | Indentation-aware blocks, functions, declarations, comments |
+| **Images** | `.png`, `.jpg`, `.jpeg`, `.webp` | EXIF metadata, visual content descriptions, image dimensions |
+| **Audio** | `.mp3`, `.wav`, `.m4a`, `.flac` | Media metadata, duration, audio track attributes |
 
 ---
 
 ## Local AI Setup & Requirements
 
+### 1. Built-in Local AI (No Setup Required)
+FileMind comes out-of-the-box with embedded local AI engines for search and reranking:
+- **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2` via CPU-optimized FastEmbed ONNX Runtime (384 dimensions).
+- **Reranker**: `ms-marco-MiniLM-L-6-v2` cross-encoder for deep candidate reordering in Quality Mode.
 
-FileMind uses **Ollama** for on-device generation:
+### 2. Generative LLM for Chat (Ollama)
+For grounded natural language chat and multi-document synthesis, FileMind connects to a local [Ollama](https://ollama.com) instance:
 
 1. **Install Ollama**: Download from [ollama.com](https://ollama.com).
-2. **Start Daemon**: Ensure Ollama is running locally:
+2. **Pull a Recommended Model**:
    ```powershell
-   ollama serve
+   ollama pull llama3.2
    ```
-3. **Pull Default Model**:
-   ```powershell
-   ollama run qwen3:4b
-   ```
-4. **Local-Only Guarantee**: FileMind communicates exclusively with `http://127.0.0.1:11434`. Non-loopback endpoints are rejected at the provider layer.
+3. **Start Ollama**: Ensure Ollama is running (`http://127.0.0.1:11434`).
+
+> *Note: If Ollama is not running, FileMind continues to provide full hybrid search, chunk inspection, and document understanding with graceful offline indicators.*
 
 ---
 
-## Fast vs Quality Modes
+## Installation & Quick Start
 
-The API and UI separate **Search Mode** (`hybrid`, `bm25`, `dense`) from **Quality Setting** (`fast`, `quality`):
+### Running the Desktop App
 
-| Pipeline | Mode + Quality | Execution Flow | Target Latency |
-|---|---|---|---|
-| **Search** | **Hybrid + Fast** *(Default)* | BM25 + Dense $\rightarrow$ RRF Fusion $\rightarrow$ Results | **~19.7 ms** |
-| **Search** | **Hybrid + Quality** | BM25 + Dense $\rightarrow$ RRF $\rightarrow$ Cross-Encoder $\rightarrow$ Results | **~4.8 s** |
-| **Ask** | **Hybrid + Fast** *(Default)* | Hybrid Search $\rightarrow$ Context Budget $\rightarrow$ Grounded Prompt $\rightarrow$ Ollama $\rightarrow$ Citations | **~1–3 s** |
-| **Ask** | **Hybrid + Quality** | Quality Search (Reranked) $\rightarrow$ Context Budget $\rightarrow$ Grounded Prompt $\rightarrow$ Ollama $\rightarrow$ Citations | **~5–8 s** |
-| **Related** | **Hybrid + Fast** *(Default)* | Source Signals $\rightarrow$ Hybrid Search $\rightarrow$ Self-Exclusion $\rightarrow$ Max Chunk Score $\rightarrow$ Results | **~15–30 ms** |
-| **Related** | **Hybrid + Quality** | Source Signals $\rightarrow$ Quality Search (Reranked) $\rightarrow$ Self-Exclusion $\rightarrow$ Max Chunk Score $\rightarrow$ Results | **~60–140 ms** |
-
-### Graceful Degradation & Diagnostic States
-- **Model Unavailable**: When Ollama is offline or model is missing, returns `MODEL_UNAVAILABLE` with setup instructions.
-- **Timeout**: When generation exceeds timeout threshold, returns `TIMEOUT` without crashing.
-- **Insufficient Evidence**: When no relevant chunks match, returns `NO_EVIDENCE` without hallucinating an answer.
-- **Budget Limited**: When evidence exceeds token limits, returns `BUDGET_LIMITED` with candidate omission counts.
+1. Download the latest installer from the Releases page.
+2. Launch `FileMind.exe`.
+3. In the **Files & Folders** tab, click **+ Add Folder** and select any local folder (e.g., `Documents` or project directory).
+4. FileMind automatically indexes your files.
+5. Use **Ctrl + K** to search, or switch to the **Chat Workspace** to start asking questions!
 
 ---
 
-## Security & Privacy Model
-
-- **100% Local Execution**: All tokenization, embeddings, vector indexing, lexical search, neural reranking, and LLM generation execute strictly on-device. Zero telemetry, zero cloud calls.
-- **Windows Job Object Supervision**: Tauri desktop process bounds the Python sidecar via Win32 Job Objects (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`), guaranteeing zero orphan processes on shutdown.
-- **Registered Folder Containment**: All file read, open, folder open, and path copy actions are strictly validated against registered folder boundaries to prevent path traversal.
-- **Prompt Injection Defense**: Retrieved document text is enclosed within strict untrusted evidence delimiters that cannot override system grounding rules.
-- **Localhost-Only API & Strict CSP**: Loopback REST endpoints (`127.0.0.1`) with origin checking and strict Content Security Policy.
-- **Sanitized Logging**: Rotating persistent log at `%APPDATA%\FileMind\logs\filemind.log` (5 MB max, 5 backups); document contents and sensitive tokens are strictly redacted.
-
----
-
-## Verification & Release Gate Status
-
-Authoritative baseline status:
-
-- **Full Backend Regression Suite**: **615 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
-- **Remediation Test Suites**: **100% PASS**
-  - `test_chunk1_remediation.py`: 21 / 21 PASS
-  - `test_chunk2_remediation.py`: 18 / 18 PASS
-  - `test_chunk3_remediation.py`: 20 / 20 PASS
-  - `test_chunk4_remediation.py`: 18 / 18 PASS
-  - `test_chunk5_remediation.py`: 12 / 12 PASS
-- **Phase 5 / 5.5 AI Test Suites**: **150 / 150 PASS**
-  - `test_document_understanding.py`: 17 / 17 PASS
-  - `test_related_content.py`: 13 / 13 PASS
-  - `test_folder_understanding.py`: 16 / 16 PASS
-  - `test_knowledge_connections.py`: 7 / 7 PASS
-  - `test_ask_pipeline.py`: 12 / 12 PASS
-  - `test_grounded_generation.py`: 19 / 19 PASS
-  - `test_context_budget.py`: 19 / 19 PASS
-  - `test_ollama_provider.py`: 5 / 5 PASS
-  - `test_batch4_ai_status.py`: 9 / 9 PASS
-- **Phase 6 Test Suites**: **46 / 46 PASS**
-  - `test_domain_repositories.py`: 10 / 10 PASS
-  - `test_core_deps_and_errors.py`: 12 / 12 PASS
-  - `test_core_security.py`: 10 / 10 PASS
-  - `test_perf_optimizations.py`: 7 / 7 PASS
-- **Frontend Production Build**: **PASS** (`tsc && vite build`, 0 errors)
-- **Tauri Desktop Verification**: **PASS** (`cargo check`, 0 errors, 0 warnings)
-- **Whitespace / Formatting Check**: **PASS** (`git diff --check`, 0 violations)
-- **Gate 1 Status**: **`GATE 1 — READY`** (120/120 Canonical Bugs Audited, Verified & Closed)
-
----
-
-## Development & Testing
+## Development Setup
 
 ### Prerequisites
-- Windows 10/11 x64
-- Python 3.11+
-- Node.js 18+
-- Rust toolchain & Cargo
-- Ollama with `qwen3:4b` model
+- **Windows 10/11 x64**
+- **Python 3.11+**
+- **Node.js 18+** & **npm**
+- **Rust Toolchain** (`rustc` & `cargo`)
 
-### 1. Backend Setup & Pytest Regression Suite
+### 1. Clone the Repository
+```powershell
+git clone https://github.com/ZavedDavdani/FileMind-Local-Intelligence-for-Your-Files.git
+cd FileMind-Local-Intelligence-for-Your-Files
+```
+
+### 2. Backend Setup
 ```powershell
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-# Run full backend regression suite (615 tests)
-pytest tests/ -v
 ```
 
-### 2. Frontend Setup & Build
+### 3. Frontend Setup
 ```powershell
-cd frontend
+cd ../frontend
 npm install
-npm run build
 ```
 
-### 3. Tauri Desktop Shell & Packaging
+### 4. Running the Development Desktop App
 ```powershell
-cd src-tauri
-cargo check
-
-# Build packaged Windows release installer
-cargo tauri build
+cd ..
+npm run tauri dev
 ```
 
 ---
 
-## Documentation References
+## Testing & Verification
 
-- [FileMind Specification (`FileMind.md`)](file:///c:/dev/FileMind/FileMind.md): Authoritative architectural specification and phase contracts.
-- [Second Brain Architecture (`FileMind_Second_Brain_Architecture.md`)](file:///c:/dev/FileMind/FileMind_Second_Brain_Architecture.md): Long-term architectural direction and grounding principles.
-- [Consolidated Bugs 1–120 Gate 1 Audit (`docs/hardening/consolidated-bugs-1-120-gate-1-audit.md`)](file:///c:/dev/FileMind/docs/hardening/consolidated-bugs-1-120-gate-1-audit.md): Authoritative Gate 1 audit covering all 120 bugs across the canonical catalog.
-- [Chunk 1 Remediation Report (`docs/hardening/batch1-backend-hardening-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch1-backend-hardening-report.md): Verification report for Chunk 1 core indexing and job state.
-- [Chunk 2 Remediation Report (`docs/hardening/chunk2-remediation-report.md`)](file:///c:/dev/FileMind/docs/hardening/chunk2-remediation-report.md): Verification report for Chunk 2 vector cascade and job integrity.
-- [Chunk 3 Remediation Report (`docs/hardening/chunk3-remediation-report.md`)](file:///c:/dev/FileMind/docs/hardening/chunk3-remediation-report.md): Verification report for Chunk 3 generation, FTS5, and retrieval integrity.
-- [Chunk 4 Remediation Report (`docs/hardening/chunk4-remediation-report.md`)](file:///c:/dev/FileMind/docs/hardening/chunk4-remediation-report.md): Verification report for Chunk 4 watcher, path case-insensitivity, and model provider.
-- [Chunk 5 Remediation Report (`docs/hardening/chunk5-remediation-report.md`)](file:///c:/dev/FileMind/docs/hardening/chunk5-remediation-report.md): Verification report for Chunk 5 retrieval security, citations, and knowledge connections.
-- [Pre-Phase-7 Freeze Audit (`docs/phase-7/pre-phase-7-architecture-freeze-audit.md`)](file:///c:/dev/FileMind/docs/phase-7/pre-phase-7-architecture-freeze-audit.md): Pre-Phase-7 architecture freeze report.
+FileMind includes a comprehensive automated test suite across backend AI pipelines, filesystem watchers, database migrations, and desktop wrappers.
+
+```powershell
+# Run the complete backend test suite (660+ tests)
+pytest backend/tests -v
+
+# Run frontend typecheck and production build
+cd frontend
+npm run build
+
+# Verify Tauri Rust shell compilation
+cd ../src-tauri
+cargo check
+```
+
+---
+
+## Privacy & Security
+
+- **Strict Loopback Binding**: The local backend API listens exclusively on `127.0.0.1:24823`. Remote connections are rejected.
+- **Process Isolation**: The Python backend is supervised via Windows Job Objects (`KILL_ON_JOB_CLOSE`), ensuring child processes terminate cleanly when the window is closed.
+- **Path Containment**: File operations and search queries are strictly bounded to registered folders, preventing directory traversal.
+- **Prompt Injection Defense**: Retrieved evidence is isolated within untrusted content blocks during LLM prompt assembly.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

@@ -1,4 +1,4 @@
-"""Local Cross-Encoder Reranking Engine for Phase 4 retrieval.
+"""Local Cross-Encoder Reranking Engine for retrieval.
 
 Uses FastEmbed (ONNX Runtime) TextCrossEncoder for lightweight local inference
 without heavy PyTorch payload.

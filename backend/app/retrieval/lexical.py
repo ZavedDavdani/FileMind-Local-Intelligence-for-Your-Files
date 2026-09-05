@@ -1,4 +1,4 @@
-"""Deterministic SQLite FTS5 / BM25 lexical retrieval engine for Phase 3."""
+"""Deterministic SQLite FTS5 / BM25 lexical retrieval engine for ."""
 
 import json
 import logging

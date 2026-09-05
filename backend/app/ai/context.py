@@ -1,5 +1,5 @@
 """
-FileMind Phase 5.1 — Context Assembly and Token Budget Foundation.
+FileMind Context Assembly and Token Budget Foundation.
 
 Sits between retrieval (SearchResultItem / ChunkItem) and future local LLM generation.
 Guarantees deterministic token budgeting, non-negative accounting, exact provenance preservation,

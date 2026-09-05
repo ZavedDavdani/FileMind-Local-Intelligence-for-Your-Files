@@ -1,4 +1,4 @@
-﻿"""Regression tests for Batch 2 atomic indexing transactions, stale-job safety, and purge invariant."""
+"""Regression tests for Batch 2 atomic indexing transactions, stale-job safety, and purge invariant."""
 
 import os
 import sqlite3

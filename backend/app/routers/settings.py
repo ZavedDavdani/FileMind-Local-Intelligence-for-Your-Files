@@ -1,5 +1,5 @@
 """
-Settings, Storage Stats & Diagnostics Router for FileMind Phase 11.
+Settings, Storage Stats & Diagnostics Router for FileMind .
 """
 
 import os

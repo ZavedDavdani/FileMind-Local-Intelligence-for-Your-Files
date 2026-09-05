@@ -1,13 +1,12 @@
-"""Canonical Benchmark Corpus Generator for Phase 3 Retrieval Evaluation.
+"""Canonical Benchmark Corpus Generator for Retrieval Evaluation.
 
-Corpus Version: phase3-benchmark-corpus-v1
-Combines the realistic structural fixtures (phase2-structural-corpus-v1) and
-adversarial structural fixtures (phase2-adversarial-corpus-v2) into a unified,
-deterministic local corpus for retrieval benchmarking.
+Combines realistic structural fixtures and adversarial structural fixtures
+into a unified, deterministic local corpus for retrieval benchmarking.
 """
 
 import os
 import sys
+import hashlib
 from typing import Dict, Any, List
 
 # Ensure backend root is in sys.path
@@ -20,9 +19,37 @@ from app.intelligence.detector import detect_file_format
 from app.intelligence.parsers.registry import default_parser_registry
 from app.intelligence.chunker.hierarchical import HierarchicalChunker
 from tests.fixtures.realistic_corpus import generate_realistic_structural_corpus
-from tests.freeze_pass.measure_real_document_structure import generate_adversarial_corpus
 
-CORPUS_VERSION = "phase3-benchmark-corpus-v1"
+CORPUS_VERSION = "benchmark-corpus-v1"
+
+
+def generate_adversarial_corpus(target_dir: str):
+    """Generates structural adversarial text, markdown, and code test documents."""
+    os.makedirs(target_dir, exist_ok=True)
+
+    # 1. Deeply nested headings
+    nested_md = target_dir + "/nested_headings.md"
+    with open(nested_md, "w", encoding="utf-8") as f:
+        f.write("# Architecture Overview\n\nHigh level architecture document.\n\n")
+        f.write("## Subsystem A\n\nDetails of subsystem A.\n\n")
+        f.write("### Component A.1\n\nDeep component details.\n\n")
+        f.write("#### Micro-service A.1.1\n\nSpecific microservice constraints and configs.\n\n")
+
+    # 2. Mixed content with code snippets and tables
+    mixed_md = target_dir + "/mixed_content.md"
+    with open(mixed_md, "w", encoding="utf-8") as f:
+        f.write("# Database Tuning Guide\n\n")
+        f.write("SQLite Write-Ahead Logging settings for high concurrency workloads.\n\n")
+        f.write("```sql\nPRAGMA journal_mode = WAL;\nPRAGMA synchronous = NORMAL;\n```\n\n")
+        f.write("| Parameter | Default | Recommended |\n| --- | --- | --- |\n| Cache Size | 2000 | 64000 |\n| Busy Timeout | 5000 | 30000 |\n\n")
+
+    # 3. Dense technical document
+    dense_txt = target_dir + "/dense_spec.txt"
+    with open(dense_txt, "w", encoding="utf-8") as f:
+        f.write("FileMind Core Invariants Specification:\n")
+        f.write("1. All files are indexed locally with exact provenance coordinates.\n")
+        f.write("2. No cloud dependencies or outbound network calls for core search.\n")
+        f.write("3. SQLite FTS5 BM25 combined with sqlite-vec embeddings via Reciprocal Rank Fusion.\n")
 
 
 def setup_benchmark_corpus(target_dir: str, db_path: str) -> Dict[str, Any]:
@@ -49,8 +76,6 @@ def setup_benchmark_corpus(target_dir: str, db_path: str) -> Dict[str, Any]:
     files_indexed = []
     chunks_indexed = []
     total_bytes = 0
-
-    import hashlib
 
     for root, _, filenames in sorted(os.walk(target_dir)):
         for fname in sorted(filenames):

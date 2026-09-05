@@ -1,5 +1,5 @@
 """
-FileMind Phase 5.5 — Folder Understanding Service.
+FileMind Folder Understanding Service.
 
 Provides grounded folder-level understanding, deterministic structural metrics,
 representative file selection, cross-document insight aggregation, grounded executive

@@ -310,7 +310,7 @@ export async function fetchFiles(
 }
 
 /**
- * Phase 2: Document Intelligence API
+ * Document Intelligence API
  */
 export async function fetchFileChunks(fileId: string): Promise<ChunkListResponse> {
   const data = await requestJson<unknown>(
@@ -505,7 +505,7 @@ export async function executeSafeAction(
 }
 
 /**
- * Phase 3: Local Retrieval Search API
+ * Local Retrieval Search API
  */
 export async function searchEvidence(
   request: SearchRequest,
@@ -581,7 +581,7 @@ export async function searchEvidence(
 }
 
 /**
- * Phase 5: Ask FileMind API
+ * Ask FileMind API
  */
 export async function askFileMind(
   request: AskRequest,
@@ -627,7 +627,7 @@ export async function fetchAIStatus(
 }
 
 /**
- * Phase 5.5: Document Understanding API
+ * Document Understanding API
  */
 export async function fetchDocumentInsight(
   fileId: string,
@@ -742,7 +742,7 @@ export async function fetchKnowledgeConnections(fileId: string, signal?: AbortSi
 
 
 // ---------------------------------------------------------------------------
-// Phase 7+: Persistent Chat & Multi-Turn APIs
+// : Persistent Chat & Multi-Turn APIs
 // ---------------------------------------------------------------------------
 
 export async function fetchConversations(signal?: AbortSignal): Promise<ConversationItem[]> {
@@ -831,7 +831,7 @@ export async function sendChatMessage(
 }
 
 // ---------------------------------------------------------------------------
-// Phase 8+: Cross-File Intelligence & Synthesis APIs
+// : Cross-File Intelligence & Synthesis APIs
 // ---------------------------------------------------------------------------
 
 export async function compareFiles(
@@ -882,7 +882,7 @@ export async function fetchKnowledgeOverview(
 }
 
 // ---------------------------------------------------------------------------
-// Phase 9+: Models & Diagnostics Settings APIs
+// : Models & Diagnostics Settings APIs
 // ---------------------------------------------------------------------------
 
 export async function fetchModelStatus(signal?: AbortSignal): Promise<ModelStatusResponse> {
@@ -930,7 +930,7 @@ export async function fetchDiagnostics(signal?: AbortSignal): Promise<Diagnostic
 }
 
 // ---------------------------------------------------------------------------
-// Phase 10+: Evidence Export APIs
+// : Evidence Export APIs
 // ---------------------------------------------------------------------------
 
 export async function exportConversation(

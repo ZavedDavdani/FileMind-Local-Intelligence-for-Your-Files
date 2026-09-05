@@ -1,5 +1,5 @@
 """
-FileMind Phase 6 — Persistent Multi-Turn Chat & Conversational RAG Service.
+FileMind Persistent Multi-Turn Chat & Conversational RAG Service.
 
 Supports:
 - Persistent conversations and messages in SQLite (Migration V10).

@@ -1,5 +1,5 @@
 """
-Chat Router for FileMind Phase 6 Persistent Conversational Workspaces.
+Chat Router for FileMind Persistent Conversational Workspaces.
 """
 
 from typing import List, Optional

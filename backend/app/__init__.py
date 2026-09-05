@@ -1,3 +1,3 @@
-"""FileMind Backend Application Package - Phase 0 Distribution Feasibility."""
+"""FileMind Backend Application Package."""
 
 __version__ = "0.1.0"

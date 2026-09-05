@@ -1,4 +1,4 @@
-"""Reciprocal Rank Fusion (RRF) Hybrid Retrieval Engine for Phase 3.
+"""Reciprocal Rank Fusion (RRF) Hybrid Retrieval Engine for .
 
 Combines:
 - Lexical BM25 (SQLite FTS5)

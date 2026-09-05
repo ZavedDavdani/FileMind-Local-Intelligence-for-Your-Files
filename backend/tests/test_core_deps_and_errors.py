@@ -1,4 +1,4 @@
-﻿"""Tests for app.core.deps and app.core.errors."""
+"""Tests for app.core.deps and app.core.errors."""
 
 import logging
 import pytest

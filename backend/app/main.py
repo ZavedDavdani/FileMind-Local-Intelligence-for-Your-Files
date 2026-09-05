@@ -1,4 +1,4 @@
-"""FileMind Local Backend Service - Phase 1 Filesystem Engine."""
+"""FileMind Local Backend Service - Filesystem Engine."""
 
 from contextlib import asynccontextmanager
 
@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="FileMind Backend",
-    description="FileMind Local-First Desktop Service - Phase 1 Filesystem Engine",
+    description="FileMind Local-First Desktop Service",
     version=__version__,
     lifespan=lifespan,
 )

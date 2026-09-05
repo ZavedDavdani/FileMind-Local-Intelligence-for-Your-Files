@@ -1,5 +1,5 @@
 """
-FileMind Phase 5.2 — Citation Extraction and Grounding Validation.
+FileMind Citation Extraction and Grounding Validation.
 
 Extracts referenced evidence identifiers ([E1], [E2], ...) from model responses,
 validates them against the active citation map, and detects unresolved or fabricated citations.

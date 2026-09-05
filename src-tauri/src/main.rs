@@ -551,7 +551,7 @@ fn main() {
                 spawn_backend(&handle, bg_state);
             });
 
-            // Backend crash/restart supervision loop (Bug #22)
+            // Backend crash/restart supervision loop ()
             // Polls every 5 seconds; if the backend exits unexpectedly (not during an
             // intentional_shutdown), attempts up to MAX_RESTART_ATTEMPTS restarts with
             // exponential backoff (2s, 4s, 8s).

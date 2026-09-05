@@ -25,11 +25,11 @@ def test_bm25_exact_phrase(corpus_env):
     db, meta = corpus_env
     with db.session() as conn:
         retriever = LexicalRetriever(conn)
-        results = retriever.search('"Cryptographic hashing with streaming SHA-256 validation"', top_k=5)
+        results = retriever.search('"System Architecture Specification"', top_k=5)
         assert len(results) > 0
         top_res = results[0]
-        assert top_res["source_file"] == "doc1_enterprise_spec.pdf"
-        assert "Cryptographic hashing" in top_res["content"]
+        assert top_res["source_file"] in ["sample_system_spec.pdf", "sample_system_spec.docx"]
+        assert "System Architecture Specification" in top_res["content"]
         assert top_res["chunk_id"].startswith("chk_")
         assert top_res["retrieval_method"] == "bm25"
         assert top_res["rank"] == 1

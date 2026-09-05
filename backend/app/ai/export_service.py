@@ -1,5 +1,5 @@
 """
-FileMind Phase 15 — Evidence, Search, and Conversation Export Service.
+FileMind Evidence, Search, and Conversation Export Service.
 
 Supports:
 - Formatted Markdown export with citation footnotes and document provenance.

@@ -1,4 +1,4 @@
-"""Local dense embedding engine for Phase 3 retrieval.
+"""Local dense embedding engine for retrieval.
 
 Uses FastEmbed (ONNX Runtime) for lightweight local inference without heavy PyTorch payload.
 Supports:

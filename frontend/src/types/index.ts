@@ -241,7 +241,7 @@ export interface SearchRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 5: Ask FileMind Types
+// Ask FileMind Types
 // ---------------------------------------------------------------------------
 
 export interface CitationItem {
@@ -364,7 +364,7 @@ export interface AIStatusResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 5.5: Document Understanding Types
+// Document Understanding Types
 // ---------------------------------------------------------------------------
 
 export interface StructuralSummary {
@@ -514,7 +514,7 @@ export interface KnowledgeConnectionsResponse {
 
 
 // ---------------------------------------------------------------------------
-// Phase 7+: Persistent Chat & Multi-Turn Types
+// : Persistent Chat & Multi-Turn Types
 // ---------------------------------------------------------------------------
 
 export type ChatScope = "ALL" | "FOLDER" | "FILE";
@@ -566,7 +566,7 @@ export interface SendChatMessageRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 8+: Cross-File Intelligence & Synthesis Types
+// : Cross-File Intelligence & Synthesis Types
 // ---------------------------------------------------------------------------
 
 export interface ComparisonPoint {
@@ -616,7 +616,7 @@ export interface KnowledgeOverviewResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 9+: Models & Diagnostics Settings Types
+// : Models & Diagnostics Settings Types
 // ---------------------------------------------------------------------------
 
 export interface ModelStatusResponse {
@@ -654,7 +654,7 @@ export interface DiagnosticsResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 10+: Export Types
+// : Export Types
 // ---------------------------------------------------------------------------
 
 export interface ExportResponse {

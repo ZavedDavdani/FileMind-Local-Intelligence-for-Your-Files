@@ -1,5 +1,5 @@
 """
-FileMind Phase 6 — Cross-File Intelligence & Synthesis Engine.
+FileMind Cross-File Intelligence & Synthesis Engine.
 
 Provides:
 - Multi-file evidence-backed comparison.

@@ -27,7 +27,7 @@ class ActionType(str, Enum):
 
 
 class HealthResponse(BaseModel):
-    """Deterministic health check contract for Phase 0, Phase 1, and Tauri supervisor."""
+    """Deterministic health check contract for , , and Tauri supervisor."""
     status: str = "healthy"
     service: str = "FileMind Backend"
     version: str = "0.1.0"
@@ -97,7 +97,7 @@ class FileListResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 2: Document Chunks & Provenance
+# Document Chunks & Provenance
 # ---------------------------------------------------------------------------
 
 class ChunkItem(BaseModel):
@@ -257,7 +257,7 @@ class EnumerateResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: Retrieval API Schemas
+# Retrieval API Schemas
 # ---------------------------------------------------------------------------
 
 class SearchRequest(BaseModel):
@@ -357,7 +357,7 @@ class AIStatusResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 5: Ask FileMind / Grounded Question-Answering Schemas
+# Ask FileMind / Grounded Question-Answering Schemas
 # ---------------------------------------------------------------------------
 
 class AskRequest(BaseModel):
@@ -427,7 +427,7 @@ class AskResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 5.5: Document Understanding Schemas
+# Document Understanding Schemas
 # ---------------------------------------------------------------------------
 
 class StructuralSummarySchema(BaseModel):
@@ -464,7 +464,7 @@ class DocumentInsightResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 5.5 Batch 2: Related Content Schemas
+# Related Content Schemas
 # ---------------------------------------------------------------------------
 
 class RelatedFileChunkSummary(BaseModel):
@@ -502,7 +502,7 @@ class RelatedFilesResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 5.5 Batch 3: Folder Understanding Schemas
+# Folder Understanding Schemas
 # ---------------------------------------------------------------------------
 
 class FolderStructuralSummarySchema(BaseModel):
@@ -543,7 +543,7 @@ class FolderInsightResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 5.5 Batch 3.2: Dynamic Knowledge Connections
+# Dynamic Knowledge Connections
 # ---------------------------------------------------------------------------
 
 class ConnectionFileSchema(BaseModel):
@@ -582,7 +582,7 @@ class KnowledgeConnectionsResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 6: Persistent Chat & Conversation Schemas
+# Persistent Chat & Conversation Schemas
 # ---------------------------------------------------------------------------
 
 class ConversationScopeType(str, Enum):
@@ -637,7 +637,7 @@ class SendChatMessageRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 10: Model Management Schemas
+# Model Management Schemas
 # ---------------------------------------------------------------------------
 
 class InstalledModelItem(BaseModel):
@@ -663,7 +663,7 @@ class ModelSelectionRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 11 & 12: Settings, Storage, and Diagnostics Schemas
+# & 12: Settings, Storage, and Diagnostics Schemas
 # ---------------------------------------------------------------------------
 
 class StorageStatsResponse(BaseModel):
@@ -689,7 +689,7 @@ class DiagnosticsResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 15: Export & Synthesis Schemas
+# Export & Synthesis Schemas
 # ---------------------------------------------------------------------------
 
 class ExportFormat(str, Enum):
@@ -718,7 +718,7 @@ class ExportResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Phase 6: Cross-File Intelligence Schemas
+# Cross-File Intelligence Schemas
 # ---------------------------------------------------------------------------
 
 class CompareFilesRequest(BaseModel):

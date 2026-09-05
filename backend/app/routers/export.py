@@ -1,5 +1,5 @@
 """
-Export Router for FileMind Phase 15 Evidence & Knowledge Export.
+Export Router for FileMind Evidence & Knowledge Export.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status

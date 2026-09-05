@@ -1,4 +1,4 @@
-"""Vector store abstractions and implementations for Phase 3 dense retrieval.
+"""Vector store abstractions and implementations for dense retrieval.
 
 Provides:
 - SqliteVecStore (native SQLite vector extension via sqlite-vec vec0)

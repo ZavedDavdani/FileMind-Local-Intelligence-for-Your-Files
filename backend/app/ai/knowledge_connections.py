@@ -1,4 +1,4 @@
-"""Dynamic, source-backed knowledge connections for Phase 5.5 Batch 3.2 & Phase 6 optimization.
+"""Dynamic, source-backed knowledge connections for Batch 3.2 & optimization.
 
 Connections are intentionally not persisted: every response is reconstructed
 from the current file records, chunks, and valid Document Insight cache.

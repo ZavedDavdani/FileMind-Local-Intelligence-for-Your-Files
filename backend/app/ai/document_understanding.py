@@ -1,5 +1,5 @@
 """
-FileMind Phase 5.5 — Document Understanding Service.
+FileMind Document Understanding Service.
 
 Provides grounded document-level understanding, structural statistics, executive summaries,
 key topics, decisions, citation validation, and cache/invalidation lifecycle.
@@ -131,7 +131,7 @@ class DocumentUnderstandingService:
         """The single authoritative validity rule for cached document insights."""
         if cached.get("status") != "READY" or cached.get("content_hash") != (file_rec.get("sha256") or ""):
             return False
-        # If chunks were removed/purged for a document that originally had chunks, cache is invalid (Bug 21)
+        # If chunks were removed/purged for a document that originally had chunks, cache is invalid 
         if not chunks and (cached.get("citations") or (cached.get("parser_version") and cached.get("parser_version") != "unknown")):
             return False
         current_parser = chunks[0].get("parser_version") if chunks else "unknown"

@@ -117,7 +117,7 @@ class ModelRegistry:
             return [m for m in self._models.values() if m.model_type == model_type]
 
 
-# Global authoritative model registry initialized with default Phase 3 & 4 models.
+# Global authoritative model registry initialized with default & 4 models.
 #
 # NOTE: readiness is intentionally registered as UNAVAILABLE, not READY. Both
 # EmbeddingEngine and Reranker use deferred lazy loading (see embeddings.py /

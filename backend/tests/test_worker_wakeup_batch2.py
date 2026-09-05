@@ -1,4 +1,4 @@
-﻿"""Tests for worker pool wake-up, pause/resume, burst jobs, and shutdown."""
+"""Tests for worker pool wake-up, pause/resume, burst jobs, and shutdown."""
 
 import os
 import tempfile

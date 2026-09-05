@@ -1,4 +1,4 @@
-"""Deterministic query normalization and token hygiene for Phase 3 retrieval.
+"""Deterministic query normalization and token hygiene for retrieval.
 
 Preserves:
 - Case normalization (NFKC lowercase)

@@ -1,4 +1,4 @@
-"""Local Ollama LLM provider for FileMind Phase 5."""
+"""Local Ollama LLM provider for FileMind ."""
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional

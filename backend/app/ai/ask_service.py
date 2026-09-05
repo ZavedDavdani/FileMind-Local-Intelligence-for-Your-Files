@@ -1,5 +1,5 @@
 """
-FileMind Phase 5.3 — Ask FileMind End-to-End Orchestration Service.
+FileMind Ask FileMind End-to-End Orchestration Service.
 
 Wires together Hybrid Retrieval, Quality Reranking, Context Budgeting,
 Grounded Prompt Construction, Local Ollama Generation, and Citation Validation

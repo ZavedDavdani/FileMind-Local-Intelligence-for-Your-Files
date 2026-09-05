@@ -1,4 +1,4 @@
-﻿"""Tests for citation normalization, case insensitivity, leading zeros, and deduplication."""
+"""Tests for citation normalization, case insensitivity, leading zeros, and deduplication."""
 
 from app.ai.citation import CitationValidator
 from app.ai.prompt import CitationSource

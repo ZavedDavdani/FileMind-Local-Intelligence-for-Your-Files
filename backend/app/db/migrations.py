@@ -87,7 +87,7 @@ CREATE INDEX IF NOT EXISTS idx_events_folder_time ON file_events(folder_id, obse
 """
 
 MIGRATION_V2_SQL = """
--- Phase 2: Document Chunks and Provenance Table
+-- Document Chunks and Provenance Table
 CREATE TABLE IF NOT EXISTS chunks (
     chunk_id TEXT PRIMARY KEY,
     file_id TEXT NOT NULL,
@@ -124,7 +124,7 @@ CREATE INDEX IF NOT EXISTS idx_chunks_file_index ON chunks(file_id, chunk_index)
 """
 
 MIGRATION_V3_SQL = """
--- Phase 3: Lexical Retrieval (SQLite FTS5) Table & Triggers
+-- Lexical Retrieval (SQLite FTS5) Table & Triggers
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
     content,
     h1_parent,
@@ -159,7 +159,7 @@ SELECT rowid, content, COALESCE(h1_parent, ''), COALESCE(h2_parent, ''), COALESC
 """
 
 MIGRATION_V4_SQL = """
--- Phase 3 trigger hardening: Ensure FTS5 delete/update triggers use standard DELETE syntax
+-- trigger hardening: Ensure FTS5 delete/update triggers use standard DELETE syntax
 DROP TRIGGER IF EXISTS trg_chunks_ad;
 DROP TRIGGER IF EXISTS trg_chunks_au;
 
@@ -175,7 +175,7 @@ END;
 """
 
 MIGRATION_V5_SQL = """
--- Phase 3 Hardening: Embedding Index Metadata & Provenance tracking
+-- Hardening: Embedding Index Metadata & Provenance tracking
 CREATE TABLE IF NOT EXISTS embedding_index_metadata (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     provider TEXT NOT NULL,
@@ -188,7 +188,7 @@ CREATE TABLE IF NOT EXISTS embedding_index_metadata (
 """
 
 MIGRATION_V6_SQL = """
--- Phase 5.5: Document Insights & Grounded Second Brain Understanding
+-- Document Insights & Grounded Second Brain Understanding
 CREATE TABLE IF NOT EXISTS document_insights (
     insight_id TEXT PRIMARY KEY,
     file_id TEXT NOT NULL,
@@ -217,7 +217,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_doc_insights_file_model ON document_insight
 """
 
 MIGRATION_V7_SQL = """
--- Phase 5.5: Folder Insights & Grounded Folder-Level Understanding
+-- Folder Insights & Grounded Folder-Level Understanding
 CREATE TABLE IF NOT EXISTS folder_insights (
     insight_id TEXT PRIMARY KEY,
     folder_id TEXT NOT NULL,
@@ -245,7 +245,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_folder_insights_folder_model ON folder_insi
 """
 
 MIGRATION_V8_SQL = """
--- Phase 6: Expand file_events event_type to include SCAN_ERROR
+-- Expand file_events event_type to include SCAN_ERROR
 CREATE TABLE IF NOT EXISTS file_events_new (
     event_id TEXT PRIMARY KEY,
     folder_id TEXT NOT NULL,
@@ -266,7 +266,7 @@ CREATE INDEX IF NOT EXISTS idx_events_folder_time ON file_events(folder_id, obse
 """
 
 MIGRATION_V9_SQL = """
--- Phase 6 Performance: Files FTS5 index and query performance indexes
+-- Performance: Files FTS5 index and query performance indexes
 CREATE INDEX IF NOT EXISTS idx_files_modified_at ON files(modified_at DESC);
 CREATE INDEX IF NOT EXISTS idx_files_folder_status ON files(folder_id, index_status);
 

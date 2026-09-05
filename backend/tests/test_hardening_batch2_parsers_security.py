@@ -1,4 +1,4 @@
-﻿"""Regression tests for Batch 2: Filesystem, Parsers & Security Hardening."""
+"""Regression tests for Batch 2: Filesystem, Parsers & Security Hardening."""
 
 import os
 import tempfile

@@ -1,5 +1,5 @@
 """
-Related Content Service for Phase 5.5 Batch 2.
+Related Content Service for Batch 2.
 
 Discovers and ranks indexed files that are meaningfully related to a source file
 by reusing FileMind's hybrid retrieval infrastructure (BM25 + Dense + RRF + Cross-Encoder)
