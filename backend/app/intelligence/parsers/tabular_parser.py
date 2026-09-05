@@ -4,7 +4,8 @@ import csv
 import io
 import json
 import os
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
+from defusedxml.common import DefusedXmlException
 from typing import List, Optional
 import openpyxl
 
@@ -250,7 +251,10 @@ class TabularParser(BaseParser):
 
     def _parse_xml(self, file_path: str, doc: Document, file_id: str):
         content = read_text_file_strictly(str(file_path), filename=doc.filename)
-        root = ET.fromstring(content)
+        try:
+            root = ET.fromstring(content)
+        except Exception as exc:
+            raise CorruptedDocumentError(f"Malformed or unsafe XML in {doc.filename}: {exc}") from exc
 
         element_idx = 1
         root_tag = root.tag.split("}")[-1] if "}" in root.tag else root.tag

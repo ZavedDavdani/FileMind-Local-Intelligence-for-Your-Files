@@ -218,6 +218,14 @@ class ChatService:
                 quality=quality_lower,
             )
 
+            # Gather prior conversation history before current user message
+            existing_messages = repo.list_chat_messages(conversation_id, limit=20)
+            prior_history = [
+                {"role": m["role"], "content": m["content"]}
+                for m in existing_messages
+                if m.get("message_id") != user_msg["message_id"]
+            ]
+
         candidate_results = search_res.get("results") or []
         candidates = []
         for item in candidate_results:
@@ -231,10 +239,11 @@ class ChatService:
         # Build bounded evidence context
         context_pkg: BoundedContextPackage = self.context_builder.build_context(candidates)
 
-        # Grounded Generation (Ollama local inference)
+        # Grounded Generation (Ollama local inference) with multi-turn history
         gen_resp: GroundedGenerationResponse = self.generation_service.generate_answer(
             query=query_str,
             context_package=context_pkg,
+            history=prior_history,
         )
 
         # Format citations

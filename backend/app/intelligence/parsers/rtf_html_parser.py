@@ -107,16 +107,64 @@ class CleanHTMLParser(html.parser.HTMLParser):
 
 def extract_rtf_text(rtf_content: str) -> List[str]:
     """Extracts plain text paragraphs from Rich Text Format streams."""
-    # Strip RTF control words and groups
+    if not rtf_content or not isinstance(rtf_content, str):
+        return []
+
     text = rtf_content
-    # Replace escaped hex chars 'xx
-    text = re.sub(r"\'([0-9a-fA-F]{2})", lambda m: chr(int(m.group(1), 16)), text)
-    # Remove control words e.g. \par, , onttbl
-    text = re.sub(r"\\w+(?:-?\d+)?\s?", " ", text)
-    # Remove braces
+
+    # 1. Strip destination / metadata groups (e.g. {\fonttbl...}, {\colortbl...}, {\stylesheet...}, {\info...}, {\*\generator...})
+    dest_pattern = re.compile(
+        r"\{\\\*(?:[^{}]|\{[^{}]*\})*\}|\{\\(?:fonttbl|colortbl|stylesheet|info|pict|header|footer)[^{}]*(?:\{[^{}]*\}[^{}]*)*\}",
+        re.DOTALL,
+    )
+    text = dest_pattern.sub("", text)
+
+    # 2. Convert paragraph and line breaks into standard newlines before stripping control words
+    text = re.sub(r"\\(?:par|line|page|column)\b[ \t]?", "\n", text)
+
+    # 3. Unicode escapes: \u1234? or \u-1234?
+    def _replace_unicode(m: re.Match) -> str:
+        try:
+            code = int(m.group(1))
+            if code < 0:
+                code += 65536
+            return chr(code)
+        except Exception:
+            return ""
+
+    text = re.sub(r"\\u(-?\d+)\??", _replace_unicode, text)
+
+    # 4. Hex character escapes: \'xx
+    def _replace_hex(m: re.Match) -> str:
+        try:
+            return chr(int(m.group(1), 16))
+        except Exception:
+            return ""
+
+    text = re.sub(r"\\'([0-9a-fA-F]{2})", _replace_hex, text)
+
+    # 5. Non-breaking spaces and hyphens
+    text = text.replace("\\~", " ").replace("\\_", "-").replace("\\-", "")
+
+    # 6. Protect escaped backslashes and braces with private unicode sentinels
+    text = text.replace("\\\\", "\ue000").replace("\\{", "\ue001").replace("\\}", "\ue002")
+
+    # 7. Strip all remaining RTF control words: \word or \word123 followed by optional space
+    text = re.sub(r"\\[a-zA-Z]+(?:-?\d+)?[ \t]?", " ", text)
+
+    # 8. Strip structural grouping braces
     text = re.sub(r"[{}]", "", text)
-    # Split into clean paragraphs
-    paragraphs = [p.strip() for p in text.splitlines() if p.strip()]
+
+    # 9. Restore protected escaped characters
+    text = text.replace("\ue000", "\\").replace("\ue001", "{").replace("\ue002", "}")
+
+    # 10. Split into clean paragraphs
+    paragraphs = []
+    for raw_p in text.splitlines():
+        cleaned = re.sub(r"[ \t]+", " ", raw_p).strip()
+        if cleaned:
+            paragraphs.append(cleaned)
+
     return paragraphs
 
 

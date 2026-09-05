@@ -78,7 +78,14 @@ class KnowledgeSynthesisService:
                 })
 
                 # Select top representative chunks for comparative prompt
-                for c in chunks[:4]:
+                # Prioritize diverse structured sections over naive first-N chunks
+                selected_chunks = chunks[:4]
+                if len(chunks) > 4:
+                    # Pick beginning, middle, and summary sections
+                    step = len(chunks) // 4
+                    selected_chunks = [chunks[i * step] for i in range(4)]
+
+                for c in selected_chunks:
                     all_candidates.append({
                         "chunk_id": c["chunk_id"],
                         "file_id": fid,
@@ -89,7 +96,7 @@ class KnowledgeSynthesisService:
                         "page": c.get("page"),
                         "line_start": c.get("line_start"),
                         "line_end": c.get("line_end"),
-                        "score": 1.0,
+                        "score": None,
                     })
 
         if not file_summaries:
@@ -115,7 +122,7 @@ class KnowledgeSynthesisService:
                 "source_path": c.source_path,
                 "page": c.page,
                 "section": c.section,
-                "score": getattr(c, "score", 1.0),
+                "score": getattr(c, "score", None),
             }
             for c in gen_resp.citations
         ]
@@ -159,7 +166,12 @@ class KnowledgeSynthesisService:
                     "filename": frec["filename"],
                     "path": frec["path"],
                 })
-                for c in chunks[:3]:
+                selected_chunks = chunks[:3]
+                if len(chunks) > 3:
+                    step = len(chunks) // 3
+                    selected_chunks = [chunks[i * step] for i in range(3)]
+
+                for c in selected_chunks:
                     all_candidates.append({
                         "chunk_id": c["chunk_id"],
                         "file_id": fid,
@@ -170,7 +182,7 @@ class KnowledgeSynthesisService:
                         "page": c.get("page"),
                         "line_start": c.get("line_start"),
                         "line_end": c.get("line_end"),
-                        "score": 1.0,
+                        "score": None,
                     })
 
         context_pkg = self.context_builder.build_context(all_candidates)
@@ -190,7 +202,7 @@ class KnowledgeSynthesisService:
                 "source_path": c.source_path,
                 "page": c.page,
                 "section": c.section,
-                "score": getattr(c, "score", 1.0),
+                "score": getattr(c, "score", None),
             }
             for c in gen_resp.citations
         ]

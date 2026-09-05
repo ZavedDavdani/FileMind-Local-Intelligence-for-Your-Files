@@ -131,10 +131,11 @@ class PromptBuilder:
         self,
         query: str,
         context_package: BoundedContextPackage,
+        history: Optional[List[Dict[str, str]]] = None,
     ) -> GroundedPrompt:
         """
-        Builds a deterministic GroundedPrompt combining system rules, numbered evidence blocks,
-        and the bounded user query.
+        Builds a deterministic GroundedPrompt combining system rules, optional conversation history,
+        numbered evidence blocks, and the bounded user query.
         """
         cleaned_query = self._clean_query(query)
         citation_map: Dict[str, CitationSource] = {}
@@ -208,14 +209,35 @@ class PromptBuilder:
 
         evidence_section = "\n\n".join(evidence_blocks) if evidence_blocks else "[No evidence provided]"
 
-        full_prompt = (
-            f"{SYSTEM_GROUNDING_INSTRUCTIONS}\n\n"
-            f"--- EVIDENCE ---\n"
-            f"{evidence_section}\n\n"
-            f"--- USER QUESTION ---\n"
-            f"{cleaned_query}\n\n"
-            f"--- ANSWER ---\n"
-        )
+        history_section = ""
+        if history:
+            history_lines = []
+            total_hist_chars = 0
+            MAX_HIST_CHARS = 3000
+            for msg in reversed(history[-6:]):
+                role = "User" if msg.get("role") == "user" else "Assistant"
+                content = (msg.get("content") or "").strip()
+                if not content:
+                    continue
+                line = f"{role}: {content}"
+                if total_hist_chars + len(line) > MAX_HIST_CHARS:
+                    break
+                history_lines.insert(0, line)
+                total_hist_chars += len(line)
+            if history_lines:
+                history_section = "--- CONVERSATION HISTORY ---\n" + "\n".join(history_lines)
+
+        prompt_parts = [SYSTEM_GROUNDING_INSTRUCTIONS]
+        if history_section:
+            prompt_parts.append(history_section)
+        prompt_parts.extend([
+            "--- EVIDENCE ---",
+            evidence_section,
+            "--- USER QUESTION ---",
+            cleaned_query,
+            "--- ANSWER ---",
+        ])
+        full_prompt = "\n\n".join(prompt_parts) + "\n"
 
         estimated_tokens = self.estimator.estimate(full_prompt)
 

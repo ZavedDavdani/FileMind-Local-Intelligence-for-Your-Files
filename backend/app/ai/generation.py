@@ -96,6 +96,7 @@ class GroundedGenerationRequest:
     query: str
     context_package: BoundedContextPackage
     config: Optional[GenerationConfig] = None
+    history: Optional[List[Dict[str, str]]] = None
 
 
 @dataclass
@@ -147,6 +148,7 @@ class GroundedGenerationService:
         query: str,
         context_package: BoundedContextPackage,
         config: Optional[GenerationConfig] = None,
+        history: Optional[List[Dict[str, str]]] = None,
     ) -> GroundedGenerationResponse:
         """
         Executes grounded generation from query and bounded evidence.
@@ -178,7 +180,7 @@ class GroundedGenerationService:
 
         # 2. Build Grounded Prompt
         try:
-            prompt: GroundedPrompt = self.prompt_builder.build_prompt(query, context_package)
+            prompt: GroundedPrompt = self.prompt_builder.build_prompt(query, context_package, history=history)
         except Exception as exc:
             logger.error("Failed to construct grounded prompt: %s", exc)
             return GroundedGenerationResponse(

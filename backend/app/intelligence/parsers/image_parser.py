@@ -8,7 +8,8 @@ import base64
 import io
 import logging
 import os
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
+from defusedxml.common import DefusedXmlException
 from typing import Any, Dict, List, Optional
 
 from PIL import ExifTags, Image
