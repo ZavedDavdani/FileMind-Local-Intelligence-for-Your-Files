@@ -130,6 +130,7 @@ def build():
         "--collect-all", "openpyxl",
         "--collect-all", "fastembed",
         "--collect-all", "sqlite_vec",
+        "--collect-all", "PIL",
         "--distpath", DIST_DIR,
         "--workpath", BUILD_DIR,
         "--specpath", ROOT_DIR,
