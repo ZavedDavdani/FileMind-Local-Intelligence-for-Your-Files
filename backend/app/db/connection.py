@@ -21,6 +21,8 @@ class DatabaseManager:
             self._pooled = pooled
         else:
             self._pooled = (not self._is_memory and isinstance(self.db_path, Path) and self.db_path == DEFAULT_DB_PATH)
+        self._open_connections: set[sqlite3.Connection] = set()
+        self._conns_lock = threading.Lock()
 
     def _create_new_connection(self) -> sqlite3.Connection:
         """Creates and configures a fresh SQLite connection with WAL mode and foreign keys enabled."""
@@ -50,6 +52,10 @@ class DatabaseManager:
             except Exception:
                 pass
             raise RuntimeError(f"Failed to load sqlite-vec extension: {exc}") from exc
+
+        if self._pooled:
+            with self._conns_lock:
+                self._open_connections.add(conn)
 
         return conn
 
@@ -109,16 +115,27 @@ class DatabaseManager:
             key = str(self.db_path)
             conn = connections.pop(key, None)
             if conn is not None:
+                with self._conns_lock:
+                    self._open_connections.discard(conn)
                 try:
                     conn.close()
                 except Exception:
                     pass
 
     def close_all(self) -> None:
-        """Closes thread connection."""
+        """Closes all pooled connections across all threads."""
         self.close_thread_connection()
+        with self._conns_lock:
+            conns = list(self._open_connections)
+            self._open_connections.clear()
+        for conn in conns:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 # Global default database manager
 db_manager = DatabaseManager()
+
 

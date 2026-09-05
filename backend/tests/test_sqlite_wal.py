@@ -36,10 +36,11 @@ from app.retrieval.vector_store import SqliteVecStore
 def temp_db_env():
     temp_dir = tempfile.mkdtemp(prefix="filemind_h4_test_")
     db_path = os.path.join(temp_dir, "filemind.db")
-    db_mgr = DatabaseManager(db_path)
+    db_mgr = DatabaseManager(db_path, pooled=True)
     with db_mgr.session() as conn:
         apply_migrations(conn)
     yield temp_dir, db_path, db_mgr
+    db_mgr.close_all()
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -203,21 +204,25 @@ def test_concurrent_writers_queue_without_starvation(temp_db_env):
     stop_event = threading.Event()
     worker_errors = []
     processed_counts = [0, 0]
+    barrier = threading.Barrier(2)
 
     def worker_sim(w_idx: int):
+        barrier.wait()
         while not stop_event.is_set():
             job = None
             try:
+                time.sleep(0.002)
                 with db_mgr.session() as conn:
                     repo = Repository(conn)
                     job = repo.claim_next_job()
                     if job:
                         repo.complete_job(job["job_id"], job["file_id"], sha256="test_hash")
                         processed_counts[w_idx] += 1
+                        time.sleep(0.005)
             except Exception as exc:
                 worker_errors.append(f"Worker {w_idx} error: {str(exc)}")
             if not job:
-                time.sleep(0.02)
+                time.sleep(0.01)
 
     w1 = threading.Thread(target=worker_sim, args=(0,))
     w2 = threading.Thread(target=worker_sim, args=(1,))

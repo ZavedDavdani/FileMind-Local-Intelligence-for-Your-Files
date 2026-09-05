@@ -431,8 +431,9 @@ class FileRepository:
                 )
         return True
 
-    def delete_file(self, file_id: str) -> bool:
-        # Clean up chunk_vectors virtual table entries before cascading relational delete
+    def purge_file(self, file_id: str) -> bool:
+        """Authoritatively and atomically purges a file, its vectors, chunks, FTS entries, insights, and jobs."""
+        # 1. Clean up chunk_vectors virtual table entries before cascading relational delete
         cursor = self.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chunk_vectors';")
         if cursor.fetchone() is not None:
             self.conn.execute(
@@ -442,8 +443,17 @@ class FileRepository:
                 """,
                 (file_id,),
             )
+        # 2. Explicitly clean child relational tables
+        self.conn.execute("DELETE FROM document_insights WHERE file_id = ?;", (file_id,))
+        self.conn.execute("DELETE FROM indexing_jobs WHERE file_id = ?;", (file_id,))
+        self.conn.execute("DELETE FROM chunks WHERE file_id = ?;", (file_id,))
+        # 3. Delete file record (triggers files_fts cleanup)
         cursor = self.conn.execute("DELETE FROM files WHERE file_id = ?;", (file_id,))
         return cursor.rowcount > 0
+
+    def delete_file(self, file_id: str) -> bool:
+        """Deletes a file record and all its associated data atomically."""
+        return self.purge_file(file_id)
 
     def count_files_by_status(self, folder_id: Optional[str] = None) -> Dict[str, int]:
         query = "SELECT index_status, COUNT(*) as cnt FROM files"

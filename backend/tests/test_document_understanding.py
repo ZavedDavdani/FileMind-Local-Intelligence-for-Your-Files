@@ -398,7 +398,7 @@ def test_ollama_provider_temperature_forwarding():
     """Verify OllamaProvider forwards configured temperature in options payload."""
     provider = OllamaProvider(base_url="http://127.0.0.1:11434", model="qwen3:4b")
 
-    with patch("httpx.post") as mock_post:
+    with patch("app.ai.ollama_provider.httpx.Client.post") as mock_post:
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {

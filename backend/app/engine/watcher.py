@@ -31,11 +31,10 @@ logger = logging.getLogger("FileMind.Watcher")
 
 def is_subpath(child_path: str, parent_path: str) -> bool:
     """Returns True if child_path is equal to or strictly inside parent_path (case-insensitive)."""
-    norm_child = normalize_path(child_path).replace("\\", "/").rstrip("/").lower()
-    norm_parent = normalize_path(parent_path).replace("\\", "/").rstrip("/").lower()
-    if norm_child == norm_parent:
-        return True
-    return norm_child.startswith(norm_parent + "/")
+    try:
+        return is_path_within_root(child_path, parent_path)
+    except Exception:
+        return False
 
 
 class DebouncedEventManager:
@@ -165,6 +164,9 @@ class DebouncedEventManager:
                 self._timer = None
             events_to_process = list(self._pending_events.values())
             self._pending_events.clear()
+
+        if not events_to_process:
+            return
 
         if self.on_flush_batch:
             try:

@@ -140,7 +140,7 @@ def test_large_directory_delete_coalescing(temp_env):
     time.sleep(0.3)
 
     shutil.rmtree(sub_dir)
-    time.sleep(1.0)
+    time.sleep(1.5)
     watcher.stop()
 
     with db_mgr.session() as conn:

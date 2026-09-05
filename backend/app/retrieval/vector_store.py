@@ -269,8 +269,40 @@ class SqliteVecStore(BaseVectorStore):
             return []
 
         # When no filters are active, query top_k directly without calculating total vectors
-        has_filters = any(filters.get(k) for k in ("folder_id", "extension", "file_id", "source_path"))
-        fetch_k = top_k if not has_filters else max(top_k * 2, 20)
+        has_filters = any(filters.get(k) for k in ("folder_id", "extension", "file_id", "file_ids", "source_path"))
+
+        total_filter_chunks = None
+        if has_filters:
+            count_where = ["f.index_status != 'MISSING'"]
+            count_params = []
+            if filters.get("folder_id"):
+                count_where.append("f.folder_id = ?")
+                count_params.append(filters["folder_id"])
+            if filters.get("extension"):
+                ext = filters["extension"].lower()
+                if not ext.startswith("."):
+                    ext = f".{ext}"
+                count_where.append("LOWER(f.extension) = ?")
+                count_params.append(ext)
+            if filters.get("file_ids"):
+                placeholders_fids = ",".join(["?"] * len(filters["file_ids"]))
+                count_where.append(f"c.file_id IN ({placeholders_fids})")
+                count_params.extend(filters["file_ids"])
+            elif filters.get("file_id"):
+                count_where.append("c.file_id = ?")
+                count_params.append(filters["file_id"])
+            if filters.get("source_path"):
+                count_where.append("c.source_path = ?")
+                count_params.append(filters["source_path"])
+
+            c_sql = f"SELECT COUNT(*) FROM chunks c JOIN files f ON f.file_id = c.file_id WHERE {' AND '.join(count_where)};"
+            c_row = self.conn.execute(c_sql, count_params).fetchone()
+            total_filter_chunks = c_row[0] if c_row else 0
+            if total_filter_chunks == 0:
+                return []
+
+        effective_target = min(top_k, total_filter_chunks) if total_filter_chunks is not None else top_k
+        fetch_k = top_k if not has_filters else max(min(top_k * 2, total_filter_chunks if total_filter_chunks else 20), 10)
 
         # 1. Retrieve candidates from vec0 (adaptively if filtered)
         vec_sql = """
@@ -369,7 +401,12 @@ class SqliteVecStore(BaseVectorStore):
             _iteration += 1
 
             # If enough valid filtered candidates gathered, or all vectors exhausted, or cap reached, stop
-            if len(all_matched_chunks) >= top_k or len(vec_rows) < fetch_k or _iteration >= MAX_ADAPTIVE_ITERATIONS:
+            if (
+                len(all_matched_chunks) >= effective_target
+                or (total_filter_chunks is not None and len(all_matched_chunks) >= total_filter_chunks)
+                or len(vec_rows) < fetch_k
+                or _iteration >= MAX_ADAPTIVE_ITERATIONS
+            ):
                 break
 
             # Adaptively expand fetch_k geometrically

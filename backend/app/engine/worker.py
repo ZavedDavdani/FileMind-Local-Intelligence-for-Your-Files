@@ -162,6 +162,14 @@ class WorkerPool:
                 with self.db.session() as conn:
                     repo = Repository(conn)
                     file_rec = repo.get_file_by_id(file_id)
+                    if file_rec is None or file_rec.get("index_status") == "MISSING":
+                        logger.info("File %s is missing/deleted — skipping job %s", file_id, job_id)
+                        repo.fail_job(job_id=job_id, file_id=file_id, error_message="File missing or deleted")
+                        return
+                    if not repo.is_current_processing_job(job_id, file_id):
+                        logger.info("Job %s for file %s superseded by newer job — skipping", job_id, file_id)
+                        repo.complete_job(job_id, file_id)
+                        return
                     chunk_vers = repo.get_file_chunk_versions(file_id)
 
                 pipeline_result = self.pipeline.execute(

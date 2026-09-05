@@ -44,8 +44,25 @@ function isObject(val: unknown): val is Record<string, any> {
 }
 
 /**
+ * Authoritative check for cancelled / aborted requests.
+ */
+export function isAbortError(err: unknown): boolean {
+  if (!err) return false;
+  if (typeof err === "object") {
+    const e = err as Record<string, any>;
+    return (
+      e.name === "AbortError" ||
+      e.code === 20 ||
+      e.message === "Request aborted" ||
+      (typeof e.message === "string" && e.message.toLowerCase().includes("aborted"))
+    );
+  }
+  return false;
+}
+
+/**
  * Extracts an array of items from direct arrays or verified envelope formats.
- * Throws a descriptive contract error if the response shape is unexpected.
+ * Tolerant to standard REST envelopes (e.g. { data: [...] }, { items: [...] }, etc.)
  */
 function extractArrayFromEnvelope<T>(
   data: unknown,
@@ -59,11 +76,11 @@ function extractArrayFromEnvelope<T>(
     if (Array.isArray(data[arrayKey])) {
       return data[arrayKey] as T[];
     }
-    if (Array.isArray(data.value)) {
-      return data.value as T[];
-    }
-    if (Array.isArray(data.items)) {
-      return data.items as T[];
+    const candidateKeys = ["data", "value", "items", "results", "list", "payload", "files", "folders", "conversations", "messages", "events", "jobs"];
+    for (const k of candidateKeys) {
+      if (Array.isArray(data[k])) {
+        return data[k] as T[];
+      }
     }
   }
   console.error(`[API Contract Error] Invalid ${endpointLabel} response shape:`, data);
@@ -83,7 +100,9 @@ async function requestJson<T>(
     resp = await fetch(url, options);
   } catch (netErr: unknown) {
     const isAbort =
-      netErr instanceof DOMException && netErr.name === "AbortError";
+      (netErr instanceof DOMException && netErr.name === "AbortError") ||
+      (netErr instanceof Error && netErr.name === "AbortError") ||
+      isAbortError(netErr);
     if (isAbort) {
       // Deliberate cancellation (e.g. a superseded debounced search request
       // via AbortController): rethrow as a distinguishable AbortError rather

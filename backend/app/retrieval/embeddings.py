@@ -113,6 +113,13 @@ class EmbeddingEngine:
             "dimension": self.dimension,
         }
 
+    @property
+    def is_in_cooldown(self) -> bool:
+        """Returns True if the engine is currently in failure cooldown period."""
+        if self._init_error is None or self._last_failure_time <= 0.0:
+            return False
+        return (time.time() - self._last_failure_time) < self.retry_cooldown
+
     def reset_init_state(self) -> None:
         """Resets failure state to force a clean re-initialization on next call."""
         with self._lock:
@@ -120,6 +127,7 @@ class EmbeddingEngine:
             self._last_failure_time = 0.0
             if self._init_thread is None or not self._init_thread.is_alive():
                 self._init_done.clear()
+                self._init_thread = None
 
     def _run_init(self) -> None:
         """Daemon thread: loads the FastEmbed TextEmbedding model and signals _init_done.

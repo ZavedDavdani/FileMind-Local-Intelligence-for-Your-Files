@@ -126,21 +126,11 @@ class OllamaProvider:
             payload["options"] = opts
 
         try:
-            if self._custom_client is not None:
-                response = self._custom_client.post(
-                    f"{self.base_url}/api/generate",
-                    json=payload,
-                )
-            else:
-                timeout = httpx.Timeout(
-                    self.read_timeout,
-                    connect=self.connect_timeout,
-                )
-                response = httpx.post(
-                    f"{self.base_url}/api/generate",
-                    json=payload,
-                    timeout=timeout,
-                )
+            client = self._custom_client if self._custom_client is not None else self._get_client()
+            response = client.post(
+                f"{self.base_url}/api/generate",
+                json=payload,
+            )
         except httpx.ConnectError as exc:
             raise OllamaConnectionError(
                 f"Unable to connect to local Ollama at {self.base_url}."

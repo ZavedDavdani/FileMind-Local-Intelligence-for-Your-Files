@@ -21,7 +21,7 @@ class SecurityNotFoundError(SecurityError):
 
 
 def normalize_path(path_str: str) -> str:
-    """Normalizes and canonicalizes a path string."""
+    """Normalizes and canonicalizes a path string with drive letter and case consistency."""
     if not path_str or not isinstance(path_str, str):
         raise SecurityError("Path parameter cannot be empty")
 
@@ -32,7 +32,22 @@ def normalize_path(path_str: str) -> str:
     expanded = os.path.expanduser(os.path.expandvars(path_str.strip()))
     # Absolute and normalized path
     norm = os.path.normpath(os.path.abspath(expanded))
+
+    # Standardize Windows drive letter to uppercase (e.g. C:\...)
+    if len(norm) >= 2 and norm[1] == ":" and norm[0].isalpha():
+        norm = norm[0].upper() + norm[1:]
+
     return norm
+
+
+def normalize_windows_path(path_str: str) -> str:
+    """Canonical alias for normalize_path with explicit Windows semantics."""
+    return normalize_path(path_str)
+
+
+def canonical_path_key(path_str: str) -> str:
+    """Returns a case-folded canonical path string suitable for dictionary keys and set lookups."""
+    return os.path.normcase(normalize_path(path_str))
 
 
 def is_symlink_or_junction(path_str: str) -> bool:
