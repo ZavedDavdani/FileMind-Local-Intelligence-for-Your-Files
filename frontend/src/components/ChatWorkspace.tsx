@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   MessageSquare,
   Plus,
@@ -310,37 +310,44 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     }
   };
 
-  const filteredConversations = conversations.filter((c) =>
-    c.title.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredConversations = useMemo(
+    () =>
+      conversations.filter((c) =>
+        c.title.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [conversations, searchQuery]
   );
 
-  const getScopeBadge = (scopeType: ChatScope, scopeId?: string | null) => {
-    if (scopeType === "FOLDER") {
-      const folder = folders.find((f) => f.folder_id === scopeId);
-      const folderName = folder ? folder.path.split(/[/\\]/).filter(Boolean).pop() : scopeId;
+  const getScopeBadge = useCallback(
+    (scopeType: ChatScope, scopeId?: string | null) => {
+      if (scopeType === "FOLDER") {
+        const folder = folders.find((f) => f.folder_id === scopeId);
+        const folderName = folder ? folder.path.split(/[/\\]/).filter(Boolean).pop() : scopeId;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <FolderIcon className="w-3 h-3" />
+            Folder: {folderName || "Selected"}
+          </span>
+        );
+      }
+      if (scopeType === "FILE") {
+        const file = files.find((f) => f.file_id === scopeId);
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+            <FileText className="w-3 h-3" />
+            File: {file?.filename || "Selected"}
+          </span>
+        );
+      }
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
-          <FolderIcon className="w-3 h-3" />
-          Folder: {folderName || "Selected"}
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30">
+          <Layers className="w-3 h-3" />
+          All Files
         </span>
       );
-    }
-    if (scopeType === "FILE") {
-      const file = files.find((f) => f.file_id === scopeId);
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-          <FileText className="w-3 h-3" />
-          File: {file?.filename || "Selected"}
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30">
-        <Layers className="w-3 h-3" />
-        All Files
-      </span>
-    );
-  };
+    },
+    [folders, files]
+  );
 
   return (
     <div className="flex-1 flex h-full min-h-0 bg-dark-900 text-slate-100 rounded-xl border border-slate-800 overflow-hidden">

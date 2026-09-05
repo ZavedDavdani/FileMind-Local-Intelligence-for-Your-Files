@@ -125,7 +125,7 @@ class ChunkRepository:
         if not file_ids:
             return {}
         unique_file_ids = list(dict.fromkeys(file_ids))
-        out: Dict[str, List[Dict[str, Any]]] = {}
+        out: Dict[str, List[Dict[str, Any]]] = {fid: [] for fid in unique_file_ids}
         for i in range(0, len(unique_file_ids), chunk_size):
             batch = unique_file_ids[i:i + chunk_size]
             placeholders = ",".join("?" * len(batch))

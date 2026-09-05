@@ -59,11 +59,12 @@ class KnowledgeSynthesisService:
 
         with self.db_manager.session() as conn:
             repo = Repository(conn)
+            chunks_by_file = repo.get_chunks_by_files(file_ids)
             for fid in file_ids:
                 frec = repo.get_file_by_id(fid)
                 if not frec:
                     continue
-                chunks = repo.get_chunks_by_file(fid)
+                chunks = chunks_by_file.get(fid, [])
                 insight = repo.get_document_insight(fid)
 
                 file_summaries.append({
@@ -153,14 +154,16 @@ class KnowledgeSynthesisService:
 
         file_list = []
         all_candidates = []
+        target_fids = file_ids[:10]
 
         with self.db_manager.session() as conn:
             repo = Repository(conn)
-            for fid in file_ids[:10]:
+            chunks_by_file = repo.get_chunks_by_files(target_fids)
+            for fid in target_fids:
                 frec = repo.get_file_by_id(fid)
                 if not frec:
                     continue
-                chunks = repo.get_chunks_by_file(fid)
+                chunks = chunks_by_file.get(fid, [])
                 file_list.append({
                     "file_id": fid,
                     "filename": frec["filename"],

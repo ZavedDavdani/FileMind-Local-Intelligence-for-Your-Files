@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Layers,
   GitCompare,
@@ -78,19 +78,22 @@ export const KnowledgeWorkspace: React.FC<KnowledgeWorkspaceProps> = ({
   }, [loadData]);
 
   // Comparison handlers
-  const toggleCompareFile = (id: string) => {
-    if (selectedCompareIds.includes(id)) {
-      setSelectedCompareIds(selectedCompareIds.filter((x) => x !== id));
-    } else {
-      if (selectedCompareIds.length >= 5) {
-        onNotify("Maximum 5 files can be compared simultaneously");
-        return;
+  const toggleCompareFile = useCallback(
+    (id: string) => {
+      if (selectedCompareIds.includes(id)) {
+        setSelectedCompareIds((prev) => prev.filter((x) => x !== id));
+      } else {
+        if (selectedCompareIds.length >= 5) {
+          onNotify("Maximum 5 files can be compared simultaneously");
+          return;
+        }
+        setSelectedCompareIds((prev) => [...prev, id]);
       }
-      setSelectedCompareIds([...selectedCompareIds, id]);
-    }
-  };
+    },
+    [selectedCompareIds, onNotify]
+  );
 
-  const handleRunComparison = async () => {
+  const handleRunComparison = useCallback(async () => {
     if (selectedCompareIds.length < 2) {
       onNotify("Please select at least 2 files to compare");
       return;
@@ -109,22 +112,25 @@ export const KnowledgeWorkspace: React.FC<KnowledgeWorkspaceProps> = ({
     } finally {
       setIsComparing(false);
     }
-  };
+  }, [selectedCompareIds, focusAreasText, onNotify]);
 
   // Synthesis handlers
-  const toggleSynthFile = (id: string) => {
-    if (selectedSynthIds.includes(id)) {
-      setSelectedSynthIds(selectedSynthIds.filter((x) => x !== id));
-    } else {
-      if (selectedSynthIds.length >= 10) {
-        onNotify("Maximum 10 files can be synthesized simultaneously");
-        return;
+  const toggleSynthFile = useCallback(
+    (id: string) => {
+      if (selectedSynthIds.includes(id)) {
+        setSelectedSynthIds((prev) => prev.filter((x) => x !== id));
+      } else {
+        if (selectedSynthIds.length >= 10) {
+          onNotify("Maximum 10 files can be synthesized simultaneously");
+          return;
+        }
+        setSelectedSynthIds((prev) => [...prev, id]);
       }
-      setSelectedSynthIds([...selectedSynthIds, id]);
-    }
-  };
+    },
+    [selectedSynthIds, onNotify]
+  );
 
-  const handleRunSynthesis = async () => {
+  const handleRunSynthesis = useCallback(async () => {
     if (selectedSynthIds.length < 1) {
       onNotify("Please select at least 1 file to synthesize");
       return;
@@ -139,14 +145,22 @@ export const KnowledgeWorkspace: React.FC<KnowledgeWorkspaceProps> = ({
     } finally {
       setIsSynthesizing(false);
     }
-  };
+  }, [selectedSynthIds, synthTopic, onNotify]);
 
-  const filteredCompareFiles = allFiles.filter((f) =>
-    f.filename.toLowerCase().includes(fileFilterCompare.toLowerCase())
+  const filteredCompareFiles = useMemo(
+    () =>
+      allFiles.filter((f) =>
+        f.filename.toLowerCase().includes(fileFilterCompare.toLowerCase())
+      ),
+    [allFiles, fileFilterCompare]
   );
 
-  const filteredSynthFiles = allFiles.filter((f) =>
-    f.filename.toLowerCase().includes(fileFilterSynth.toLowerCase())
+  const filteredSynthFiles = useMemo(
+    () =>
+      allFiles.filter((f) =>
+        f.filename.toLowerCase().includes(fileFilterSynth.toLowerCase())
+      ),
+    [allFiles, fileFilterSynth]
   );
 
   return (

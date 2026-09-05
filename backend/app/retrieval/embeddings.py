@@ -238,7 +238,7 @@ class EmbeddingEngine:
 
 
     def embed_texts(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
-        """Generates normalized dense embedding vectors for a list of texts."""
+        """Generates normalized dense embedding vectors for a list of texts using vectorized NumPy L2 normalization."""
         if not texts:
             return []
         self._ensure_loaded()
@@ -250,15 +250,15 @@ class EmbeddingEngine:
         else:
             prefixed_texts = texts
         embeddings_iter = self._model.embed(prefixed_texts, batch_size=batch_size)
-        vectors = []
-        for emb in embeddings_iter:
-            vec = np.array(emb, dtype=np.float32)
-            # L2 normalize vector for cosine similarity
-            norm = np.linalg.norm(vec)
-            if norm > 0:
-                vec = vec / norm
-            vectors.append(vec.tolist())
-        return vectors
+        raw_list = list(embeddings_iter)
+        if not raw_list:
+            return []
+        arr = np.asarray(raw_list, dtype=np.float32)
+        # Vectorized L2 normalization across axis 1
+        norms = np.linalg.norm(arr, axis=1, keepdims=True)
+        norms = np.maximum(norms, 1e-12)
+        normalized = arr / norms
+        return normalized.tolist()
 
     def embed_query(self, query_text: str) -> List[float]:
         """Generates normalized dense embedding vector for a single query."""
@@ -271,9 +271,9 @@ class EmbeddingEngine:
         embeddings = list(self._model.embed([text]))
         if not embeddings:
             return [0.0] * self.dimension
-        vec = np.array(embeddings[0], dtype=np.float32)
-        norm = np.linalg.norm(vec)
-        if norm > 0:
+        vec = np.asarray(embeddings[0], dtype=np.float32)
+        norm = float(np.linalg.norm(vec))
+        if norm > 1e-12:
             vec = vec / norm
         return vec.tolist()
 

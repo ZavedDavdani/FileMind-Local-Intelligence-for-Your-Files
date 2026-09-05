@@ -113,18 +113,17 @@ def generate_real_snippet(content: str, query_tokens: List[str], max_chars: int 
 
     best_pos = -1
 
-    # Pass 1: Look for earliest token/word boundary match
-    # Delimiters: start/end of string, whitespace, punctuation, hyphens, underscores, dots, etc.
-    for tok in valid_tokens:
-        pattern = re.compile(r'(?<![a-zA-Z0-9])' + re.escape(tok) + r'(?![a-zA-Z0-9])', re.IGNORECASE)
+    # Pass 1: Single compiled alternation pattern for word/token boundaries
+    escaped_tokens = "|".join(re.escape(tok) for tok in sorted(valid_tokens, key=len, reverse=True))
+    try:
+        pattern = re.compile(rf"(?<![a-zA-Z0-9])(?:{escaped_tokens})(?![a-zA-Z0-9])", re.IGNORECASE)
         m = pattern.search(cleaned_content)
         if m:
-            pos = m.start()
-            if best_pos == -1 or pos < best_pos:
-                best_pos = pos
+            best_pos = m.start()
+    except Exception:
+        pass
 
-    # Pass 2: If no boundary match found (e.g. query token is part of a compound term),
-    # fall back to standard substring search
+    # Pass 2: If no boundary match found, fall back to standard substring search
     if best_pos == -1:
         content_lower = cleaned_content.lower()
         for tok in valid_tokens:
