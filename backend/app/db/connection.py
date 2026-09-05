@@ -103,7 +103,8 @@ class DatabaseManager:
                 try:
                     conn.rollback()
                 except Exception:
-                    pass
+                    # Connection is poisoned or failed rollback. Discard immediately.
+                    self.close_thread_connection()
             raise
         finally:
             self._local.tx_depth = max(0, getattr(self._local, "tx_depth", 1) - 1)

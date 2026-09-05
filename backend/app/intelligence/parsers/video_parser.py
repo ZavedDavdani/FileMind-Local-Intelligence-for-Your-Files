@@ -83,8 +83,13 @@ def read_video_metadata(file_path: str, ext: str) -> Dict[str, Any]:
 class VideoParser(BaseParser):
     """Parser for video media files (.mp4, .mkv, .mov, .avi, .webm, .wmv)."""
 
-    def __init__(self, max_keyframes: int = MAX_VIDEO_KEYFRAMES):
+    def __init__(
+        self,
+        max_keyframes: int = MAX_VIDEO_KEYFRAMES,
+        transcription_engine: Optional[Any] = None,
+    ):
         self.max_keyframes = max_keyframes
+        self.transcription_engine = transcription_engine
 
     @property
     def parser_name(self) -> str:
@@ -155,6 +160,32 @@ class VideoParser(BaseParser):
                     metadata=meta,
                 )
             )
+
+            elem_idx = 1
+            if self.transcription_engine:
+                try:
+                    segments = self.transcription_engine.transcribe(file_path)
+                    if segments:
+                        for seg in segments:
+                            elem_idx += 1
+                            t_start = seg.get("start", 0.0)
+                            t_end = seg.get("end", t_start + 10.0)
+                            stamp_str = f"[{_format_timestamp(t_start)} - {_format_timestamp(t_end)}]"
+                            seg_text = f"{stamp_str} {seg.get('text', '')}"
+                            doc_obj.elements.append(
+                                DocumentElement(
+                                    element_id=f"{file_id}_elem_{elem_idx}",
+                                    element_type=ElementType.TRANSCRIPT_SEGMENT,
+                                    text=seg_text,
+                                    time_start=t_start,
+                                    time_end=t_end,
+                                    media_type="video",
+                                    extraction_method="transcription",
+                                    metadata={"start_sec": t_start, "end_sec": t_end},
+                                )
+                            )
+                except Exception as exc:
+                    logger.debug("Video audio transcription skipped/failed: %s", exc)
 
         except Exception as exc:
             raise CorruptedDocumentError(f"Failed to process video file {filename}: {str(exc)}") from exc

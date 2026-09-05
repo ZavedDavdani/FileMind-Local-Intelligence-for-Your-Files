@@ -44,7 +44,7 @@ class ChatRepository:
             """
             SELECT c.*,
                    (SELECT COUNT(*) FROM chat_messages m WHERE m.conversation_id = c.conversation_id) as message_count,
-                   (SELECT m.content FROM chat_messages m WHERE m.conversation_id = c.conversation_id ORDER BY m.created_at DESC LIMIT 1) as last_message
+                   (SELECT m.content FROM chat_messages m WHERE m.conversation_id = c.conversation_id ORDER BY m.created_at DESC, m.message_id DESC LIMIT 1) as last_message
             FROM conversations c
             WHERE c.conversation_id = ?;
             """,
@@ -61,9 +61,9 @@ class ChatRepository:
             """
             SELECT c.*,
                    (SELECT COUNT(*) FROM chat_messages m WHERE m.conversation_id = c.conversation_id) as message_count,
-                   (SELECT m.content FROM chat_messages m WHERE m.conversation_id = c.conversation_id ORDER BY m.created_at DESC LIMIT 1) as last_message
+                   (SELECT m.content FROM chat_messages m WHERE m.conversation_id = c.conversation_id ORDER BY m.created_at DESC, m.message_id DESC LIMIT 1) as last_message
             FROM conversations c
-            ORDER BY c.updated_at DESC
+            ORDER BY c.updated_at DESC, c.conversation_id DESC
             LIMIT ? OFFSET ?;
             """,
             (limit, offset),
@@ -159,12 +159,12 @@ class ChatRepository:
     def list_chat_messages(
         self, conversation_id: str, limit: int = 200, offset: int = 0
     ) -> List[Dict[str, Any]]:
-        """Lists chat messages in chronological order for a conversation."""
+        """Lists chat messages in deterministic chronological order for a conversation."""
         cursor = self.conn.execute(
             """
             SELECT * FROM chat_messages
             WHERE conversation_id = ?
-            ORDER BY created_at ASC
+            ORDER BY created_at ASC, message_id ASC
             LIMIT ? OFFSET ?;
             """,
             (conversation_id, limit, offset),

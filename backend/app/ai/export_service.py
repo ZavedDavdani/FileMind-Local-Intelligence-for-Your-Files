@@ -112,11 +112,12 @@ class ExportService:
         ]
 
         for i, r in enumerate(results, 1):
-            src = r.get("source_file", "Unknown File")
-            score = r.get("score", 0.0)
+            src = r.get("source_file") or r.get("filename") or "Unknown File"
+            score = r.get("score")
+            score_part = f"Score: {score:.3f}" if isinstance(score, (int, float)) else "Unranked"
             sec = f" | Section: *{r.get('section')}*" if r.get("section") else ""
             pg = f" | Page {r.get('page')}" if r.get("page") else ""
-            lines.append(f"### {i}. `{src}` (Score: {score:.3f}{sec}{pg})")
+            lines.append(f"### {i}. `{src}` ({score_part}{sec}{pg})")
             lines.append("")
             lines.append(f"> {r.get('snippet') or r.get('content', '')}")
             lines.append("")

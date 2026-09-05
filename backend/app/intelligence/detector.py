@@ -84,70 +84,80 @@ SUPPORTED_DOCUMENT_EXTENSIONS = set(EXTENSION_MIME_MAP.keys())
 def detect_file_format(file_path: str) -> Tuple[str, str]:
     """
     Detects the MIME type and normalized format name of a file.
-    Uses extension matching backed by header magic-byte verification.
+    Inspects magic-byte headers first for binary/container formats,
+    falling back to extension matching and system mimetypes.
     
     Returns: (mime_type, format_name)
     """
     ext = os.path.splitext(file_path)[1].lower()
-    mime = EXTENSION_MIME_MAP.get(ext)
+    mime: Optional[str] = None
 
-    if not mime:
-        mime, _ = mimetypes.guess_type(file_path)
-        if not mime:
-            mime = "application/octet-stream"
-
-    # Sniff magic bytes where appropriate
-    if os.path.exists(file_path) and os.path.getsize(file_path) >= 4:
+    # 1. Inspect magic-byte header if file exists on disk
+    if os.path.exists(file_path) and os.path.isfile(file_path) and os.path.getsize(file_path) >= 4:
         try:
             with open(file_path, "rb") as f:
                 header = f.read(16)
                 if header.startswith(b"%PDF-"):
                     mime = "application/pdf"
+                elif header.startswith(b"\x89PNG\r\n\x1a\n"):
+                    mime = "image/png"
+                elif header.startswith(b"\xff\xd8\xff"):
+                    mime = "image/jpeg"
+                elif header.startswith(b"{\\rtf"):
+                    mime = "application/rtf"
                 elif header.startswith(b"PK\x03\x04"):
-                    # ZIP container (could be docx, pptx, xlsx)
+                    # ZIP container: check extension or default to docx/zip
                     if ext in (".docx", ".pptx", ".xlsx"):
                         mime = EXTENSION_MIME_MAP[ext]
+                    else:
+                        mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" if ext == ".docx" else "application/zip"
                 elif header.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
-                    # OLE2 container (legacy doc, ppt, xls)
+                    # OLE2 legacy container (doc, ppt, xls)
                     if ext in (".doc", ".ppt", ".xls"):
                         mime = EXTENSION_MIME_MAP[ext]
+                    else:
+                        mime = "application/msword"
                 elif header.startswith(b"RIFF") and len(header) >= 12 and header[8:12] == b"WAVE":
                     mime = "audio/wav"
+                elif header.startswith(b"RIFF") and len(header) >= 12 and header[8:12] == b"WEBP":
+                    mime = "image/webp"
                 elif header.startswith(b"ID3") or (len(header) >= 2 and header[0] == 0xFF and (header[1] & 0xE0) == 0xE0):
                     mime = "audio/mpeg"
                 elif header.startswith(b"fLaC"):
                     mime = "audio/flac"
                 elif header.startswith(b"OggS"):
-                    if ext in (".ogg", ".oga"):
-                        mime = "audio/ogg"
-                    elif ext == ".ogv":
+                    if ext == ".ogv":
                         mime = "video/ogg"
+                    else:
+                        mime = "audio/ogg"
                 elif len(header) >= 8 and header[4:8] == b"ftyp":
-                    # MP4/M4A container
                     if ext in (".m4a", ".aac"):
                         mime = "audio/mp4"
                     else:
                         mime = "video/mp4"
                 elif header.startswith(b"\x1a\x45\xdf\xa3"):
-                    # Matroska / WebM
                     if ext == ".webm":
                         mime = "video/webm"
                     else:
                         mime = "video/x-matroska"
-                elif header.startswith(b"\x89PNG\r\n\x1a\n"):
-                    mime = "image/png"
-                elif header.startswith(b"\xff\xd8\xff"):
-                    mime = "image/jpeg"
-                elif header.startswith(b"RIFF") and len(header) >= 12 and header[8:12] == b"WEBP":
-                    mime = "image/webp"
                 elif header.startswith(b"BM"):
                     mime = "image/bmp"
                 elif header.startswith(b"II*\x00") or header.startswith(b"MM\x00*"):
                     mime = "image/tiff"
-                elif header.startswith(b"{\\rtf"):
-                    mime = "application/rtf"
+                elif header.startswith(b"SQLite format 3\x00"):
+                    mime = "application/x-sqlite3"
         except Exception:
             pass
+
+    # 2. Fallback to extension map if header did not match a binary signature
+    if not mime:
+        mime = EXTENSION_MIME_MAP.get(ext)
+
+    # 3. Fallback to system mimetypes
+    if not mime:
+        mime, _ = mimetypes.guess_type(file_path)
+        if not mime:
+            mime = "application/octet-stream"
 
     # Normalize format label
     if mime == "application/pdf":
@@ -193,6 +203,14 @@ def detect_file_format(file_path: str) -> Tuple[str, str]:
 
 
 def is_supported_document(file_path: str) -> bool:
-    """Checks whether the file has a supported document parser."""
+    """Checks whether the file has a supported document parser by extension or header inspection."""
     ext = os.path.splitext(file_path)[1].lower()
-    return ext in SUPPORTED_DOCUMENT_EXTENSIONS
+    if ext in SUPPORTED_DOCUMENT_EXTENSIONS:
+        return True
+    
+    if os.path.exists(file_path) and os.path.isfile(file_path) and os.path.getsize(file_path) >= 4:
+        mime, fmt = detect_file_format(file_path)
+        if mime in EXTENSION_MIME_MAP.values() and fmt != "UNKNOWN":
+            return True
+
+    return False
