@@ -139,4 +139,3 @@ class DatabaseManager:
 # Global default database manager
 db_manager = DatabaseManager()
 
-

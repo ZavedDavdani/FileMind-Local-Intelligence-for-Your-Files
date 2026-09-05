@@ -152,7 +152,7 @@ def test_rtf_control_word_stripping_and_unescaping():
 {\fonttbl{\f0\fnil\fcharset0 Calibri;}{\f1\fnil\fcharset2 Symbol;}}
 {\colortbl ;\red0\green77\blue187;\red255\green0\blue0;}
 {\*\generator FileMind RTF Test;}
-\viewkind4\uc1 
+\viewkind4\uc1
 \pard\cf1\b\f0\fs28 Executive Summary\b0\par
 \pard\cf0\fs22 This is a critical document with \{escaped braces\} and a backslash: \\.\par
 Special characters: \u8212? emdash, and \'e9 clair pastry.\par

@@ -207,7 +207,7 @@ def is_supported_document(file_path: str) -> bool:
     ext = os.path.splitext(file_path)[1].lower()
     if ext in SUPPORTED_DOCUMENT_EXTENSIONS:
         return True
-    
+
     if os.path.exists(file_path) and os.path.isfile(file_path) and os.path.getsize(file_path) >= 4:
         mime, fmt = detect_file_format(file_path)
         if mime in EXTENSION_MIME_MAP.values() and fmt != "UNKNOWN":
