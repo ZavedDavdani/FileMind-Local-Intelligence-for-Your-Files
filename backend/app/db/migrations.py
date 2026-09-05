@@ -83,6 +83,8 @@ CREATE INDEX IF NOT EXISTS idx_files_path ON files(path);
 CREATE INDEX IF NOT EXISTS idx_files_status ON files(index_status);
 CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files(sha256);
 CREATE INDEX IF NOT EXISTS idx_jobs_status_retry ON indexing_jobs(status, retry_at, priority DESC);
+CREATE INDEX IF NOT EXISTS idx_jobs_claim ON indexing_jobs(status, priority DESC, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_jobs_file_status ON indexing_jobs(file_id, status);
 CREATE INDEX IF NOT EXISTS idx_events_folder_time ON file_events(folder_id, observed_at DESC);
 """
 

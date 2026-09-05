@@ -131,6 +131,13 @@ FileMind uses specialized local extractors based on detected file types:
 - **Tauri v2 Desktop Shell**: High-performance Rust desktop frontend hosting the React + TypeScript UI.
 - **Win32 Job Object Supervisor**: Windows Job Object management guarantees that when the Tauri application is closed or terminates unexpectedly, the Python backend process is terminated immediately.
 
+### 3.7 Scalability & Hardened Retrieval Subsystems
+- **LRU Query Cache with Authoritative Invalidation**: Fast and quality search results are cached in a thread-safe, database-scoped LRU cache (`QueryCache`, default 128 keys). File indexing and deletions automatically clear the cache to ensure instant consistency.
+- **Bounded Candidate Overfetch**: BM25 candidate overfetch is bounded within `[50, 200]` candidates, and Cross-Encoder reranking documents are windowed to `2000` characters to prevent CPU memory pressure.
+- **Composite Index Claiming**: Database migrations provide composite indexes (`idx_jobs_claim` on `status, priority DESC, created_at ASC` and `idx_jobs_file_status`) for zero-overhead background job claiming.
+- **Vectorized Embedding Normalization**: L2 normalization uses NumPy vectorized matrix operations for fast vector search and consistent cosine distance ranking.
+- **Resilient Connection Pool Discard**: SQLite pooled connections discard poisoned connections upon rollback failures to protect transactional integrity.
+
 ---
 
 ## 4. Technology Stack
@@ -145,3 +152,4 @@ FileMind uses specialized local extractors based on detected file types:
 | **Reranking** | Neural Cross-Encoder | `ms-marco-MiniLM-L-6-v2` |
 | **Generative LLM** | Local Language Model | Ollama (`llama3.2`, `mistral`, `gemma2`, `phi3`) |
 | **Filesystem Watcher**| Change Detection | Python `watchdog` |
+| **Caching & Invalidation** | Search Query LRU | In-memory thread-safe `QueryCache` |

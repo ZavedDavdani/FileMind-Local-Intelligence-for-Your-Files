@@ -112,3 +112,6 @@ class Document:
     def tables(self) -> List[DocumentElement]:
         """Returns all table elements."""
         return [e for e in self.elements if e.element_type == ElementType.TABLE]
+
+
+__all__ = ["ElementType", "TableData", "DocumentElement", "Document"]

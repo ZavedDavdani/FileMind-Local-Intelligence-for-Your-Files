@@ -8,10 +8,13 @@ Combines:
 - Immutable Provenance Preservation
 """
 
+import collections
+import copy
 import json
 import logging
 import re
 import sqlite3
+import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -26,6 +29,61 @@ logger = logging.getLogger("FileMind.Retrieval.Hybrid")
 
 DEFAULT_RRF_K = 60
 DEFAULT_CANDIDATE_POOL = 50
+
+
+class QueryCache:
+    """Thread-safe LRU cache for search results with authoritative mutation invalidation."""
+
+    def __init__(self, maxsize: int = 128):
+        self.maxsize = maxsize
+        self._cache: collections.OrderedDict[str, Dict[str, Any]] = collections.OrderedDict()
+        self._lock = threading.Lock()
+
+    def get(self, key: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                return copy.deepcopy(self._cache[key])
+            return None
+
+    def put(self, key: str, value: Dict[str, Any]) -> None:
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+            self._cache[key] = copy.deepcopy(value)
+            if len(self._cache) > self.maxsize:
+                self._cache.popitem(last=False)
+
+    def invalidate(self) -> None:
+        with self._lock:
+            self._cache.clear()
+
+    @property
+    def size(self) -> int:
+        with self._lock:
+            return len(self._cache)
+
+
+global_query_cache = QueryCache()
+
+
+def invalidate_query_cache() -> None:
+    """Authoritatively clears the global search query cache upon data mutations."""
+    global_query_cache.invalidate()
+
+
+def _get_db_identifier(conn: sqlite3.Connection) -> str:
+    """Returns a unique identifier for the database connection (path or in-memory id)."""
+    try:
+        cur = conn.execute("PRAGMA database_list;")
+        rows = cur.fetchall()
+        for row in rows:
+            f = row[2] if (isinstance(row, (tuple, list)) and len(row) > 2) else (row["file"] if isinstance(row, sqlite3.Row) else "")
+            if f:
+                return str(f)
+        return f"mem_{id(conn)}"
+    except Exception:
+        return f"conn_{id(conn)}"
 
 COMMON_FILE_EXTENSIONS = {
     "pdf", "docx", "pptx", "xlsx", "csv", "md", "py", "json", "txt",
@@ -178,6 +236,67 @@ class HybridRetriever:
         self.candidate_pool_size = candidate_pool_size
         self.rerank_candidate_pool_size = rerank_candidate_pool_size
 
+    @classmethod
+    def invalidate_cache(cls) -> None:
+        """Invalidates global query search cache."""
+        global_query_cache.invalidate()
+
+    @staticmethod
+    def _build_result_dict(
+        item: Dict[str, Any],
+        rank: int,
+        query_tokens: List[str],
+        retrieval_method: str,
+        score: Optional[float] = None,
+        reranker_score: Optional[float] = None,
+        rrf_score: Optional[float] = None,
+        lexical_score: Optional[float] = None,
+        dense_score: Optional[float] = None,
+        lexical_rank: Optional[int] = None,
+        dense_rank: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Constructs a unified candidate result dictionary ensuring complete metadata coverage."""
+        content = item.get("content", "")
+        snippet = generate_real_snippet(content, query_tokens)
+        meta = item.get("metadata") or {}
+        if not isinstance(meta, dict):
+            meta = {}
+
+        return {
+            "rank": rank,
+            "chunk_id": item.get("chunk_id", ""),
+            "file_id": item.get("file_id", ""),
+            "score": score if score is not None else item.get("score"),
+            "reranker_score": reranker_score,
+            "rrf_score": rrf_score,
+            "lexical_score": lexical_score,
+            "dense_score": dense_score,
+            "lexical_rank": lexical_rank,
+            "dense_rank": dense_rank,
+            "retrieval_method": retrieval_method,
+            "source_file": item.get("source_file", ""),
+            "source_path": item.get("source_path", ""),
+            "page": item.get("page"),
+            "section": item.get("section"),
+            "h1_parent": item.get("h1_parent"),
+            "h2_parent": item.get("h2_parent"),
+            "line_start": item.get("line_start"),
+            "line_end": item.get("line_end"),
+            "char_start": item.get("char_start"),
+            "char_end": item.get("char_end"),
+            "sheet_name": item.get("sheet_name") or meta.get("sheet_name"),
+            "slide_number": item.get("slide_number") or meta.get("slide_number"),
+            "time_start": item.get("time_start") or meta.get("time_start"),
+            "time_end": item.get("time_end") or meta.get("time_end"),
+            "frame_index": item.get("frame_index") or meta.get("frame_index"),
+            "media_type": item.get("media_type") or meta.get("media_type") or "document",
+            "extraction_method": item.get("extraction_method") or meta.get("extraction_method"),
+            "snippet": snippet,
+            "content": content,
+            "content_hash": item.get("content_hash", ""),
+            "metadata": meta,
+        }
+
     def search(
         self,
         query: Union[str, NormalizedQuery],
@@ -210,6 +329,26 @@ class HybridRetriever:
             raise ValueError(f"Invalid quality mode: '{quality}'. Valid options are 'fast', 'quality'.")
         if quality == "quality" and mode != "hybrid":
             raise ValueError(f"Quality mode is only supported with hybrid retrieval (received mode='{mode}', quality='{quality}').")
+
+        # Cache check
+        cache_key = None
+        try:
+            db_id = _get_db_identifier(self.conn)
+            vs_id = id(self.vector_store)
+            rr_id = id(self.reranker)
+            filter_str = json.dumps(filters, sort_keys=True) if filters else ""
+            raw_q = query if isinstance(query, str) else (query.raw_query if hasattr(query, "raw_query") else str(query))
+            cache_key = f"{db_id}||{vs_id}||{rr_id}||{raw_q.strip()}||{top_k}||{mode}||{quality}||{filter_str}"
+        except Exception:
+            cache_key = None
+
+        if cache_key:
+            cached_res = global_query_cache.get(cache_key)
+            if cached_res is not None:
+                cached_res["latency_breakdown_ms"]["total_request"] = round(
+                    (time.perf_counter() - t_request_start) * 1000.0, 3
+                )
+                return cached_res
 
         # Stage A: Query Normalization
         t0 = time.perf_counter()
@@ -410,109 +549,61 @@ class HybridRetriever:
 
         if mode == "bm25":
             for rank, r in enumerate(lexical_candidates[:top_k], start=1):
-                r_copy = dict(r)
-                r_copy["rank"] = rank
-                r_copy["reranker_score"] = None
-                r_copy["rrf_score"] = None
-                r_copy["dense_score"] = None
-                r_copy["dense_rank"] = None
-                r_copy["lexical_score"] = r.get("score")
-                r_copy["lexical_rank"] = rank
-                r_copy["retrieval_method"] = "bm25"
-                r_copy["snippet"] = generate_real_snippet(r_copy["content"], norm_q.tokens)
-                final_results.append(r_copy)
+                final_results.append(
+                    self._build_result_dict(
+                        item=r,
+                        rank=rank,
+                        query_tokens=norm_q.tokens,
+                        retrieval_method="bm25",
+                        score=r.get("score"),
+                        lexical_score=r.get("score"),
+                        lexical_rank=rank,
+                    )
+                )
 
         elif mode == "dense":
             for rank, r in enumerate(dense_candidates[:top_k], start=1):
-                r_copy = dict(r)
-                r_copy["rank"] = rank
-                r_copy["reranker_score"] = None
-                r_copy["rrf_score"] = None
-                r_copy["lexical_score"] = None
-                r_copy["lexical_rank"] = None
-                r_copy["dense_score"] = r.get("score")
-                r_copy["dense_rank"] = rank
-                r_copy["retrieval_method"] = "dense"
-                r_copy["snippet"] = generate_real_snippet(r_copy["content"], norm_q.tokens)
-                final_results.append(r_copy)
+                final_results.append(
+                    self._build_result_dict(
+                        item=r,
+                        rank=rank,
+                        query_tokens=norm_q.tokens,
+                        retrieval_method="dense",
+                        score=r.get("score"),
+                        dense_score=r.get("score"),
+                        dense_rank=rank,
+                    )
+                )
 
         elif degraded:
             if "lexical_retrieval_unavailable" in (degraded_reason or ""):
                 # Degraded Hybrid: Direct Dense Fallback without fabricating lexical scores
                 for rank, r in enumerate(dense_candidates[:top_k], start=1):
-                    snippet = generate_real_snippet(r["content"], norm_q.tokens)
-                    final_results.append({
-                        "rank": rank,
-                        "chunk_id": r["chunk_id"],
-                        "file_id": r["file_id"],
-                        "score": r["score"],
-                        "reranker_score": None,
-                        "rrf_score": None,
-                        "lexical_score": None,
-                        "dense_score": r["score"],
-                        "lexical_rank": None,
-                        "dense_rank": rank,
-                        "retrieval_method": "dense_fallback",
-                        "source_file": r["source_file"],
-                        "source_path": r["source_path"],
-                        "page": r.get("page"),
-                        "section": r.get("section"),
-                        "h1_parent": r.get("h1_parent"),
-                        "h2_parent": r.get("h2_parent"),
-                        "line_start": r.get("line_start"),
-                        "line_end": r.get("line_end"),
-                        "char_start": r.get("char_start"),
-                        "char_end": r.get("char_end"),
-                        "sheet_name": r.get("sheet_name") or r.get("metadata", {}).get("sheet_name"),
-                        "slide_number": r.get("slide_number") or r.get("metadata", {}).get("slide_number"),
-                        "time_start": r.get("time_start") or r.get("metadata", {}).get("time_start"),
-                        "time_end": r.get("time_end") or r.get("metadata", {}).get("time_end"),
-                        "frame_index": r.get("frame_index") or r.get("metadata", {}).get("frame_index"),
-                        "media_type": r.get("media_type") or r.get("metadata", {}).get("media_type") or "document",
-                        "extraction_method": r.get("extraction_method") or r.get("metadata", {}).get("extraction_method"),
-                        "snippet": snippet,
-                        "content": r["content"],
-                        "content_hash": r["content_hash"],
-                        "metadata": r.get("metadata", {}),
-                    })
+                    final_results.append(
+                        self._build_result_dict(
+                            item=r,
+                            rank=rank,
+                            query_tokens=norm_q.tokens,
+                            retrieval_method="dense_fallback",
+                            score=r.get("score"),
+                            dense_score=r.get("score"),
+                            dense_rank=rank,
+                        )
+                    )
             else:
                 # Degraded Hybrid: Direct BM25 Fallback without fabricating dense scores
                 for rank, r in enumerate(lexical_candidates[:top_k], start=1):
-                    snippet = generate_real_snippet(r["content"], norm_q.tokens)
-                    final_results.append({
-                        "rank": rank,
-                        "chunk_id": r["chunk_id"],
-                        "file_id": r["file_id"],
-                        "score": r["score"],
-                        "reranker_score": None,
-                        "rrf_score": None,
-                        "lexical_score": r["score"],
-                        "dense_score": None,
-                        "lexical_rank": rank,
-                        "dense_rank": None,
-                        "retrieval_method": "bm25_fallback",
-                        "source_file": r["source_file"],
-                        "source_path": r["source_path"],
-                        "page": r.get("page"),
-                        "section": r.get("section"),
-                        "h1_parent": r.get("h1_parent"),
-                        "h2_parent": r.get("h2_parent"),
-                        "line_start": r.get("line_start"),
-                        "line_end": r.get("line_end"),
-                        "char_start": r.get("char_start"),
-                        "char_end": r.get("char_end"),
-                        "sheet_name": r.get("sheet_name") or r.get("metadata", {}).get("sheet_name"),
-                        "slide_number": r.get("slide_number") or r.get("metadata", {}).get("slide_number"),
-                        "time_start": r.get("time_start") or r.get("metadata", {}).get("time_start"),
-                        "time_end": r.get("time_end") or r.get("metadata", {}).get("time_end"),
-                        "frame_index": r.get("frame_index") or r.get("metadata", {}).get("frame_index"),
-                        "media_type": r.get("media_type") or r.get("metadata", {}).get("media_type") or "document",
-                        "extraction_method": r.get("extraction_method") or r.get("metadata", {}).get("extraction_method"),
-                        "snippet": snippet,
-                        "content": r["content"],
-                        "content_hash": r["content_hash"],
-                        "metadata": r.get("metadata", {}),
-                    })
+                    final_results.append(
+                        self._build_result_dict(
+                            item=r,
+                            rank=rank,
+                            query_tokens=norm_q.tokens,
+                            retrieval_method="bm25_fallback",
+                            score=r.get("score"),
+                            lexical_score=r.get("score"),
+                            lexical_rank=rank,
+                        )
+                    )
 
         else:  # Hybrid Mode (BM25 + Dense both succeeded)
             # Map candidate chunk_ids to their ranks and scores
@@ -575,43 +666,20 @@ class HybridRetriever:
             if quality == "fast":
                 # Fast mode: Return RRF results directly without Cross-Encoder reranking
                 for rank, cand in enumerate(scored_candidates[:top_k], start=1):
-                    item = cand["item"]
-                    item_content = item.get("content", "")
-                    snippet = generate_real_snippet(item_content, norm_q.tokens)
-                    final_results.append({
-                        "rank": rank,
-                        "chunk_id": item.get("chunk_id", cand["chunk_id"]),
-                        "file_id": item.get("file_id", ""),
-                        "score": cand["rrf_score"],
-                        "reranker_score": None,
-                        "rrf_score": cand["rrf_score"],
-                        "lexical_score": cand["lexical_score"],
-                        "dense_score": cand["dense_score"],
-                        "lexical_rank": cand["lexical_rank"],
-                        "dense_rank": cand["dense_rank"],
-                        "retrieval_method": "hybrid",
-                        "source_file": item.get("source_file", ""),
-                        "source_path": item.get("source_path", ""),
-                        "page": item.get("page"),
-                        "section": item.get("section"),
-                        "h1_parent": item.get("h1_parent"),
-                        "h2_parent": item.get("h2_parent"),
-                        "line_start": item.get("line_start"),
-                        "line_end": item.get("line_end"),
-                        "char_start": item.get("char_start"),
-                        "char_end": item.get("char_end"),
-                        "sheet_name": item.get("sheet_name") or item.get("metadata", {}).get("sheet_name"),
-                        "slide_number": item.get("slide_number") or item.get("metadata", {}).get("slide_number"),
-                        "time_start": item.get("time_start") or item.get("metadata", {}).get("time_start"),
-                        "time_end": item.get("time_end") or item.get("metadata", {}).get("time_end"),
-                        "frame_index": item.get("frame_index") or item.get("metadata", {}).get("frame_index"),
-                        "media_type": item.get("media_type") or item.get("metadata", {}).get("media_type") or "document",
-                        "extraction_method": item.get("extraction_method") or item.get("metadata", {}).get("extraction_method"),
-                        "snippet": snippet,
-                        "content": item_content,
-                        "content_hash": item.get("content_hash", ""),
-                        "metadata": item.get("metadata", {}),
-                    })
+                    final_results.append(
+                        self._build_result_dict(
+                            item=cand["item"],
+                            rank=rank,
+                            query_tokens=norm_q.tokens,
+                            retrieval_method="hybrid",
+                            score=cand["rrf_score"],
+                            rrf_score=cand["rrf_score"],
+                            lexical_score=cand["lexical_score"],
+                            dense_score=cand["dense_score"],
+                            lexical_rank=cand["lexical_rank"],
+                            dense_rank=cand["dense_rank"],
+                        )
+                    )
                 latencies["reranker_inference"] = 0.0
 
             else:
@@ -622,43 +690,20 @@ class HybridRetriever:
                 pre_rerank_items: List[Dict[str, Any]] = []
 
                 for rank, cand in enumerate(candidates_to_rerank, start=1):
-                    item = cand["item"]
-                    item_content = item.get("content", "")
-                    snippet = generate_real_snippet(item_content, norm_q.tokens)
-                    pre_rerank_items.append({
-                        "rank": rank,
-                        "chunk_id": item.get("chunk_id", cand["chunk_id"]),
-                        "file_id": item.get("file_id", ""),
-                        "score": cand["rrf_score"],
-                        "reranker_score": None,
-                        "rrf_score": cand["rrf_score"],
-                        "lexical_score": cand["lexical_score"],
-                        "dense_score": cand["dense_score"],
-                        "lexical_rank": cand["lexical_rank"],
-                        "dense_rank": cand["dense_rank"],
-                        "retrieval_method": "hybrid",
-                        "source_file": item.get("source_file", ""),
-                        "source_path": item.get("source_path", ""),
-                        "page": item.get("page"),
-                        "section": item.get("section"),
-                        "h1_parent": item.get("h1_parent"),
-                        "h2_parent": item.get("h2_parent"),
-                        "line_start": item.get("line_start"),
-                        "line_end": item.get("line_end"),
-                        "char_start": item.get("char_start"),
-                        "char_end": item.get("char_end"),
-                        "sheet_name": item.get("sheet_name") or item.get("metadata", {}).get("sheet_name"),
-                        "slide_number": item.get("slide_number") or item.get("metadata", {}).get("slide_number"),
-                        "time_start": item.get("time_start") or item.get("metadata", {}).get("time_start"),
-                        "time_end": item.get("time_end") or item.get("metadata", {}).get("time_end"),
-                        "frame_index": item.get("frame_index") or item.get("metadata", {}).get("frame_index"),
-                        "media_type": item.get("media_type") or item.get("metadata", {}).get("media_type") or "document",
-                        "extraction_method": item.get("extraction_method") or item.get("metadata", {}).get("extraction_method"),
-                        "snippet": snippet,
-                        "content": item_content,
-                        "content_hash": item.get("content_hash", ""),
-                        "metadata": item.get("metadata", {}),
-                    })
+                    pre_rerank_items.append(
+                        self._build_result_dict(
+                            item=cand["item"],
+                            rank=rank,
+                            query_tokens=norm_q.tokens,
+                            retrieval_method="hybrid",
+                            score=cand["rrf_score"],
+                            rrf_score=cand["rrf_score"],
+                            lexical_score=cand["lexical_score"],
+                            dense_score=cand["dense_score"],
+                            lexical_rank=cand["lexical_rank"],
+                            dense_rank=cand["dense_rank"],
+                        )
+                    )
 
                 if pre_rerank_items and self.reranker is not None:
                     t_rerank = time.perf_counter()
@@ -683,7 +728,6 @@ class HybridRetriever:
                     degraded_reason = "reranker_unavailable: reranker not configured"
                     final_results = pre_rerank_items[:top_k]
 
-
         latencies["total_request"] = round((time.perf_counter() - t_request_start) * 1000.0, 3)
 
         if degraded:
@@ -696,7 +740,7 @@ class HybridRetriever:
         else:
             retrieval_method = mode
 
-        return {
+        res_dict = {
             "query": norm_q.raw_query,
             "mode": mode,
             "quality": quality,
@@ -708,4 +752,9 @@ class HybridRetriever:
             "retrieval_method": retrieval_method,
             "explicit_filename_intent": filename_intent,
         }
+
+        if cache_key and not degraded:
+            global_query_cache.put(cache_key, res_dict)
+
+        return res_dict
 

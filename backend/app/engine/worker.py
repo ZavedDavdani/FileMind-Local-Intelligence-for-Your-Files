@@ -14,6 +14,7 @@ from app.db.repository import Repository
 from app.engine.pipeline import IndexingPipeline, IndexingPipelineResult
 from app.engine.queue import JobQueue
 from app.intelligence.chunker.hierarchical import HierarchicalChunker
+from app.retrieval.hybrid import invalidate_query_cache
 from app.retrieval.vector_store import SqliteVecStore
 
 logger = logging.getLogger("FileMind.Worker")
@@ -141,6 +142,7 @@ class WorkerPool:
                     repo = Repository(conn)
                     repo.purge_file_index(file_id)
                     repo.complete_job(job_id, file_id, final_status="MISSING")
+                invalidate_query_cache()
                 return
 
             if not file_path or not os.path.exists(file_path):
@@ -291,3 +293,5 @@ class WorkerPool:
                 final_status=final_status,
                 indexing_error=final_error,
             )
+
+        invalidate_query_cache()

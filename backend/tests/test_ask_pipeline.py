@@ -265,7 +265,7 @@ def test_ask_pipeline_context_budget_and_prompt_assembly(test_db):
     sent_prompt = fake_provider.recorded_prompts[0]
     assert "GROUNDING & CITATION RULES:" in sent_prompt
     assert "--- EVIDENCE ---" in sent_prompt
-    assert "--- USER QUESTION ---\nhybrid BM25" in sent_prompt
+    assert "--- USER QUESTION ---\n\nhybrid BM25" in sent_prompt
 
 
 # ---------------------------------------------------------------------------

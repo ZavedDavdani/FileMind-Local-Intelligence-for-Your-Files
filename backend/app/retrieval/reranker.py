@@ -45,6 +45,9 @@ class RerankerLoadTimeoutError(RuntimeError):
     pass
 
 
+MAX_RERANKER_DOC_CHARS = 2000
+
+
 class Reranker:
     """Manages local cross-encoder reranking inference with deferred lazy loading."""
 
@@ -198,8 +201,8 @@ class Reranker:
 
         self._ensure_loaded()
 
-        # Extract authentic document text from candidate chunks
-        documents = [c.get("content", "") for c in candidates]
+        # Extract authentic document text from candidate chunks bounded to MAX_RERANKER_DOC_CHARS
+        documents = [str(c.get("content") or "")[:MAX_RERANKER_DOC_CHARS] for c in candidates]
 
         # Run cross-encoder scoring
         scores_iter = self._model.rerank(query, documents, batch_size=32)

@@ -149,7 +149,7 @@ def test_prompt_contains_exact_user_query():
     query = "What is the vector storage backend?"
     prompt = builder.build_prompt(query, pkg)
 
-    assert f"--- USER QUESTION ---\n{query}" in prompt.full_prompt
+    assert f"--- USER QUESTION ---\n\n{query}" in prompt.full_prompt
     assert prompt.user_query == query
 
 
@@ -273,7 +273,7 @@ def test_document_prompt_injection_safety():
     # Verify that the malicious text is strictly contained inside the Evidence block
     assert "UNTRUSTED DATA" in prompt.system_prompt
     assert f"[E1] Source: attack.txt\n{malicious_content}" in prompt.evidence_text
-    assert "--- USER QUESTION ---\nWhat does the file say?" in prompt.full_prompt
+    assert "--- USER QUESTION ---\n\nWhat does the file say?" in prompt.full_prompt
 
 
 # ---------------------------------------------------------------------------
