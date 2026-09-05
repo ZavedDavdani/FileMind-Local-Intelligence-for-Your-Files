@@ -19,6 +19,20 @@ def _topic_key(topic: str) -> str:
     return " ".join(str(topic).casefold().split())
 
 
+def _filter_evidence_for_topic(citations: List[Dict[str, Any]], topic: str) -> List[Dict[str, Any]]:
+    if not citations:
+        return []
+    topic_words = {w for w in topic.casefold().split() if len(w) > 2}
+    if not topic_words:
+        return citations
+    matched = []
+    for c in citations:
+        text = f"{c.get('section', '')} {c.get('snippet', '')} {c.get('h1_parent', '')} {c.get('h2_parent', '')}".casefold()
+        if any(w in text for w in topic_words):
+            matched.append(c)
+    return matched if matched else citations
+
+
 class KnowledgeConnectionService:
     """Builds explainable shared-topic and exact file-reference links.
 
@@ -145,17 +159,18 @@ class KnowledgeConnectionService:
                         if dedup in seen:
                             continue
                         seen.add(dedup)
+                        topic_label = source_topics[key]
                         connections.append({
                             "connection_type": "shared_topic",
-                            "label": source_topics[key],
-                            "explanation": f"Both files have the current grounded topic ‘{source_topics[key]}’.",
+                            "label": topic_label,
+                            "explanation": f"Both files have the current grounded topic ‘{topic_label}’.",
                             "target_file": self._file_view(target),
-                            "source_evidence": source_insight["citations"],
-                            "target_evidence": target_insight["citations"],
+                            "source_evidence": _filter_evidence_for_topic(source_insight["citations"], topic_label),
+                            "target_evidence": _filter_evidence_for_topic(target_insight["citations"], topic_label),
                         })
 
-            # --- file-reference connections: single pass against bounded indexed file candidates ---
-            indexed_candidates = [f for f in repo.list_files(status="INDEXED", limit=5000) if f["file_id"] != file_id]
+            # --- file-reference connections: single pass against indexed file candidates ---
+            indexed_candidates = [f for f in repo.list_files(status="INDEXED", limit=100000) if f["file_id"] != file_id]
             filename_counts: Dict[str, int] = {}
             for f in indexed_candidates + [source]:
                 name = (f.get("filename") or "").casefold()

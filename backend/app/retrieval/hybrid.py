@@ -278,10 +278,15 @@ class HybridRetriever:
                     "retrieval_method": mode,
                     "explicit_filename_intent": filename_intent,
                 }
-            elif not effective_filters.get("file_id") and len(matched_files) == 1:
-                # If explicit filename matches an indexed file, scope retrieval to that file across all modes
-                matched_fid = matched_files[0][0] if isinstance(matched_files[0], (tuple, list)) else matched_files[0]["file_id"]
-                effective_filters["file_id"] = matched_fid
+            elif not effective_filters.get("file_id") and not effective_filters.get("file_ids") and matched_files:
+                # If explicit filename matches indexed files, scope retrieval across all modes
+                matched_fids = [
+                    r[0] if isinstance(r, (tuple, list)) else r["file_id"] for r in matched_files
+                ]
+                if len(matched_fids) == 1:
+                    effective_filters["file_id"] = matched_fids[0]
+                else:
+                    effective_filters["file_ids"] = matched_fids
 
         lexical_candidates: List[Dict[str, Any]] = []
         dense_candidates: List[Dict[str, Any]] = []
@@ -328,35 +333,50 @@ class HybridRetriever:
                 )
                 latencies["dense_search"] = round((time.perf_counter() - t0) * 1000.0, 3)
 
-                dense_candidates = []
+                valid_cands = []
                 for cand in (raw_dense or []):
                     if isinstance(cand, dict) and cand.get("chunk_id") is not None and "score" in cand:
-                        cand_dict = dict(cand)
-                        if "content" not in cand_dict or "source_file" not in cand_dict or not cand_dict.get("source_file"):
-                            cur = self.conn.execute(
-                                """
-                                SELECT source_file, source_path, page, section, h1_parent, h2_parent,
-                                       line_start, line_end, char_start, char_end, content, content_hash, metadata_json
-                                FROM chunks WHERE chunk_id = ?;
-                                """,
-                                (cand_dict["chunk_id"],),
-                            )
-                            row = cur.fetchone()
-                            if row:
-                                col_names = [d[0] for d in cur.description] if cur.description else []
-                                row_dict = dict(row) if isinstance(row, sqlite3.Row) else {col_names[i]: row[i] for i in range(len(col_names))}
-                                for k, v in row_dict.items():
-                                    if k == "metadata_json":
-                                        if "metadata" not in cand_dict:
-                                            try:
-                                                cand_dict["metadata"] = json.loads(v or "{}")
-                                            except Exception:
-                                                cand_dict["metadata"] = {}
-                                    elif k not in cand_dict or cand_dict[k] is None:
-                                        cand_dict[k] = v
-                        dense_candidates.append(cand_dict)
+                        valid_cands.append(dict(cand))
                     else:
                         logger.warning("Dropping malformed dense candidate: %s", cand)
+
+                # Batch hydrate candidate metadata in a single query if needed
+                missing_cids = [
+                    c["chunk_id"] for c in valid_cands
+                    if "content" not in c or "source_file" not in c or not c.get("source_file")
+                ]
+                chunk_details = {}
+                if missing_cids:
+                    placeholders = ",".join("?" for _ in missing_cids)
+                    cur = self.conn.execute(
+                        f"""
+                        SELECT chunk_id, source_file, source_path, page, section, h1_parent, h2_parent,
+                               line_start, line_end, char_start, char_end, content, content_hash, metadata_json
+                        FROM chunks WHERE chunk_id IN ({placeholders});
+                        """,
+                        missing_cids,
+                    )
+                    rows = cur.fetchall()
+                    col_names = [d[0] for d in cur.description] if cur.description else []
+                    for row in rows:
+                        row_dict = dict(row) if isinstance(row, sqlite3.Row) else {col_names[i]: row[i] for i in range(len(col_names))}
+                        chunk_details[row_dict["chunk_id"]] = row_dict
+
+                dense_candidates = []
+                for cand_dict in valid_cands:
+                    cid = cand_dict["chunk_id"]
+                    if cid in chunk_details:
+                        row_dict = chunk_details[cid]
+                        for k, v in row_dict.items():
+                            if k == "metadata_json":
+                                if "metadata" not in cand_dict:
+                                    try:
+                                        cand_dict["metadata"] = json.loads(v or "{}")
+                                    except Exception:
+                                        cand_dict["metadata"] = {}
+                            elif k not in cand_dict or cand_dict[k] is None:
+                                cand_dict[k] = v
+                    dense_candidates.append(cand_dict)
             except Exception as dense_exc:
                 if mode == "dense":
                     raise

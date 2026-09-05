@@ -420,8 +420,10 @@ class FolderUnderstandingService:
             # Check Ollama daemon readiness before proceeding
             if isinstance(self.provider, OllamaProvider):
                 readiness = check_ollama_readiness(self.provider.base_url, self.model_name)
-                if not readiness.is_ollama_online or not readiness.has_default_model:
-                    err_msg = readiness.error or "Local Ollama model unavailable"
+                is_online = readiness.get("is_ollama_online", False) if isinstance(readiness, dict) else getattr(readiness, "is_ollama_online", False)
+                has_model = readiness.get("has_default_model", False) if isinstance(readiness, dict) else getattr(readiness, "has_default_model", False)
+                if not is_online or not has_model:
+                    err_msg = (readiness.get("error") if isinstance(readiness, dict) else getattr(readiness, "error", None)) or "Local Ollama model unavailable"
                     with self.db.session() as conn:
                         repo = Repository(conn)
                         repo.upsert_folder_insight(

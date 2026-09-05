@@ -42,6 +42,7 @@ class CitationValidator:
         cls,
         answer_text: str,
         citation_map: Dict[str, CitationSource],
+        require_citations: bool = False,
     ) -> CitationValidationResult:
         """
         Extracts all `[E{n}]` markers from answer text, resolves valid citations in order of appearance,
@@ -55,13 +56,23 @@ class CitationValidator:
                 is_valid=False,
             )
 
+        # Build normalized lookup map from citation_map for collision-free case- and padding-insensitive lookup
+        norm_map: Dict[str, CitationSource] = {}
+        for k, v in (citation_map or {}).items():
+            norm_map[k] = v
+            norm_map[k.upper()] = v
+            norm_map[k.lower()] = v
+            m = re.match(r"^[Ee]\s*(\d+)$", str(k).strip())
+            if m:
+                norm_map[f"E{int(m.group(1))}"] = v
+                norm_map[f"e{int(m.group(1))}"] = v
+
         matches = CITATION_PATTERN.findall(answer_text)
         seen_keys: Set[str] = set()
         valid_citations: List[CitationSource] = []
         unresolved_citation_ids: List[str] = []
 
         for match_num in matches:
-            # Check both normalized integer key (e.g. '01' -> 'E1') and verbatim key
             try:
                 norm_key = f"E{int(match_num)}"
             except ValueError:
@@ -69,26 +80,21 @@ class CitationValidator:
 
             verbatim_key = f"E{match_num}"
 
-            # Determine canonical citation key
-            if norm_key in citation_map:
-                resolved_key = norm_key
-            elif verbatim_key in citation_map:
-                resolved_key = verbatim_key
-            else:
-                resolved_key = None
+            # Determine canonical citation key from normalized map
+            resolved_source = norm_map.get(norm_key) or norm_map.get(verbatim_key) or norm_map.get(verbatim_key.upper())
 
-            dedup_key = resolved_key or verbatim_key
+            dedup_key = norm_key if resolved_source else verbatim_key
             if dedup_key in seen_keys:
                 continue
             seen_keys.add(dedup_key)
 
-            if resolved_key:
-                valid_citations.append(citation_map[resolved_key])
+            if resolved_source:
+                valid_citations.append(resolved_source)
             else:
                 unresolved_citation_ids.append(verbatim_key)
 
         has_citations = len(valid_citations) > 0
-        is_valid = len(unresolved_citation_ids) == 0
+        is_valid = len(unresolved_citation_ids) == 0 and (has_citations or not require_citations)
 
         return CitationValidationResult(
             valid_citations=valid_citations,

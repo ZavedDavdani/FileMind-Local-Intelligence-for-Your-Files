@@ -23,6 +23,7 @@ from watchdog.observers import Observer
 from app.core.exclusions import ExclusionMatcher
 from app.core.security import is_path_within_root, is_symlink_or_junction, normalize_path
 from app.db.connection import DatabaseManager
+from app.db.repositories.files import escape_like_wildcards
 from app.db.repository import Repository
 
 logger = logging.getLogger("FileMind.Watcher")
@@ -499,12 +500,43 @@ class WatcherService:
                 # the external destination, but converge the old tracked state.
                 if event_type in ("MOVE", "RENAME") and origin_inside_root and not destination_inside_root:
                     if is_directory:
+                        cur = conn.execute(
+                            """
+                            SELECT file_id FROM files
+                            WHERE folder_id = ? AND index_status = 'INDEXED' AND (
+                                path = ? OR path = ?
+                                OR path LIKE ? ESCAPE '\\' OR path LIKE ? ESCAPE '\\'
+                            );
+                            """,
+                            (
+                                folder_id,
+                                old_path.replace('\\', '/'),
+                                old_path.replace('/', '\\'),
+                                escape_like_wildcards(old_path.replace('\\', '/').rstrip('/') + '/') + '%',
+                                escape_like_wildcards(old_path.replace('/', '\\').rstrip('\\') + '\\') + '%',
+                            ),
+                        )
+                        affected_fids = [r[0] for r in cur.fetchall()]
                         repo.mark_directory_missing(folder_id=folder_id, dir_path=old_path)
+                        for fid in affected_fids:
+                            repo.enqueue_job(
+                                file_id=fid,
+                                folder_id=folder_id,
+                                job_type="DELETE_CLEANUP",
+                                priority=1,
+                            )
                     else:
                         file_rec = repo.get_file_by_path(old_path)
                         if file_rec:
                             repo.mark_file_missing(old_path)
                             repo.cancel_pending_jobs_for_file(file_rec["file_id"])
+                            if file_rec.get("index_status") == "INDEXED":
+                                repo.enqueue_job(
+                                    file_id=file_rec["file_id"],
+                                    folder_id=folder_id,
+                                    job_type="DELETE_CLEANUP",
+                                    priority=1,
+                                )
                     continue
 
                 if not destination_inside_root:
@@ -516,7 +548,31 @@ class WatcherService:
                         # Atomic subtree deletion: mark all files under directory missing and cancel pending jobs
                         # Handle recreate race: only proceed if directory no longer exists on disk
                         if not os.path.exists(path):
+                            cur = conn.execute(
+                                """
+                                SELECT file_id FROM files
+                                WHERE folder_id = ? AND index_status = 'INDEXED' AND (
+                                    path = ? OR path = ?
+                                    OR path LIKE ? ESCAPE '\\' OR path LIKE ? ESCAPE '\\'
+                                );
+                                """,
+                                (
+                                    folder_id,
+                                    path.replace('\\', '/'),
+                                    path.replace('/', '\\'),
+                                    escape_like_wildcards(path.replace('\\', '/').rstrip('/') + '/') + '%',
+                                    escape_like_wildcards(path.replace('/', '\\').rstrip('\\') + '\\') + '%',
+                                ),
+                            )
+                            affected_fids = [r[0] for r in cur.fetchall()]
                             repo.mark_directory_missing(folder_id=folder_id, dir_path=path)
+                            for fid in affected_fids:
+                                repo.enqueue_job(
+                                    file_id=fid,
+                                    folder_id=folder_id,
+                                    job_type="DELETE_CLEANUP",
+                                    priority=1,
+                                )
 
                     elif event_type in ("MOVE", "RENAME"):
                         if old_path and os.path.exists(path):
@@ -566,6 +622,13 @@ class WatcherService:
                     if file_rec:
                         repo.mark_file_missing(path)
                         repo.cancel_pending_jobs_for_file(file_rec["file_id"])
+                        if file_rec.get("index_status") == "INDEXED":
+                            repo.enqueue_job(
+                                file_id=file_rec["file_id"],
+                                folder_id=folder_id,
+                                job_type="DELETE_CLEANUP",
+                                priority=1,
+                            )
 
                 elif event_type in ("RENAME", "MOVE"):
                     if old_path and os.path.exists(path):

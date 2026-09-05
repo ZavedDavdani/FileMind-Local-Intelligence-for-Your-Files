@@ -26,12 +26,14 @@ class RelatedContentService:
 
     def __init__(
         self,
-        db_manager: DatabaseManager,
+        db_manager: Optional[DatabaseManager] = None,
         retriever: Optional[HybridRetriever] = None,
         embedding_engine: Optional[Any] = None,
         reranker: Optional[Any] = None,
+        db: Optional[DatabaseManager] = None,
+        **kwargs: Any,
     ):
-        self.db = db_manager
+        self.db = db_manager or db or kwargs.get("db_conn")
         self.retriever = retriever
         self.embedding_engine = embedding_engine
         self.reranker = reranker
@@ -44,7 +46,7 @@ class RelatedContentService:
     ) -> str:
         """
         Constructs a compact, deterministic synthetic retrieval query from the source file
-        using its filename stem, unique section headings, and introductory text snippet.
+        using its filename stem, unique section headings, and introductory/representative text snippets.
         Zero LLM invocations.
         """
         query_parts: List[str] = []
@@ -57,9 +59,18 @@ class RelatedContentService:
             if clean_stem:
                 query_parts.append(clean_stem)
 
-        # 2. Unique headings/sections across top chunks
+        # 2. Unique headings/sections sampled across beginning, middle, and end chunks
         headings: List[str] = []
-        for c in chunks[:15]:
+        # Sample chunks across the entire document
+        total_chunks = len(chunks)
+        if total_chunks <= 15:
+            sampled_chunks = chunks
+        else:
+            # Pick from head, mid, tail
+            mid_idx = total_chunks // 2
+            sampled_chunks = chunks[:5] + chunks[max(0, mid_idx - 3):mid_idx + 3] + chunks[-5:]
+
+        for c in sampled_chunks:
             for field in ("h1_parent", "h2_parent", "section"):
                 val = c.get(field)
                 if val and val != "General" and val not in headings:
@@ -67,14 +78,16 @@ class RelatedContentService:
         if headings:
             query_parts.append(" ".join(headings[:6]))
 
-        # 3. Leading text from earliest content chunks
+        # 3. Leading and representative text snippets from early and middle content chunks
         intro_texts: List[str] = []
-        for c in chunks[:2]:
+        text_samples = chunks[:2]
+        if total_chunks > 4:
+            text_samples.append(chunks[total_chunks // 2])
+        for c in text_samples:
             content = (c.get("content") or "").strip()
             if content:
-                # Clean newlines and take leading text
                 cleaned = " ".join(content.split())
-                intro_texts.append(cleaned[:180])
+                intro_texts.append(cleaned[:140])
         if intro_texts:
             query_parts.append(" ".join(intro_texts))
 
@@ -298,7 +311,7 @@ class RelatedContentService:
             return {
                 "source_file_id": file_id,
                 "source_filename": source_filename,
-                "total_found": len(final_results),
+                "total_found": len(ranked_files),
                 "retrieval_method": retrieval_method,
                 "quality": quality,
                 "query_used": synthetic_query,

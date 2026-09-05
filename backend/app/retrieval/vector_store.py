@@ -312,7 +312,11 @@ class SqliteVecStore(BaseVectorStore):
                     where_clauses.append("LOWER(f.extension) = ?")
                     params.append(ext)
 
-                if filters.get("file_id"):
+                if filters.get("file_ids"):
+                    placeholders_fids = ",".join(["?"] * len(filters["file_ids"]))
+                    where_clauses.append(f"c.file_id IN ({placeholders_fids})")
+                    params.extend(filters["file_ids"])
+                elif filters.get("file_id"):
                     where_clauses.append("c.file_id = ?")
                     params.append(filters["file_id"])
 

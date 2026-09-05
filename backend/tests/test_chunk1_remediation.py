@@ -16,6 +16,7 @@ Covers:
 
 import os
 import tempfile
+from datetime import datetime, timezone
 import pytest
 
 from app.core.config import MAX_BACKOFF_SECONDS
@@ -168,12 +169,13 @@ def test_recover_stale_processing_jobs_with_threshold(repo_env):
         )
 
         # Job 2 just started now
+        now_iso = datetime.now(timezone.utc).isoformat()
         conn.execute(
             """
             INSERT INTO indexing_jobs (job_id, file_id, folder_id, job_type, status, priority, attempts, created_at, started_at)
-            VALUES ('job_new', ?, ?, 'DOCUMENT_PARSE', 'PROCESSING', 1, 1, '2026-09-04T22:00:00Z', '2026-09-04T22:00:00Z');
+            VALUES ('job_new', ?, ?, 'DOCUMENT_PARSE', 'PROCESSING', 1, 1, ?, ?);
             """,
-            (f2["file_id"], fid),
+            (f2["file_id"], fid, now_iso, now_iso),
         )
 
         # Recover with 300s threshold

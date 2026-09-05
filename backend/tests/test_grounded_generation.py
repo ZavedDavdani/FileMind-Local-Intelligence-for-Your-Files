@@ -472,7 +472,7 @@ def test_user_query_size_bounded():
     prompt = builder.build_prompt(huge_query, pkg)
 
     assert len(prompt.user_query) <= PromptBuilder.MAX_QUERY_CHARS
-    assert len(prompt.user_query) == 1000
+    assert len(prompt.user_query) == PromptBuilder.MAX_QUERY_CHARS
 
 
 # ---------------------------------------------------------------------------

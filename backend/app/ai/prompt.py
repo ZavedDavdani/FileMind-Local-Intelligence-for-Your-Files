@@ -94,7 +94,7 @@ class PromptBuilder:
     Constructs deterministic grounded prompts from bounded context packages and validated queries.
     """
 
-    MAX_QUERY_CHARS = 1000
+    MAX_QUERY_CHARS = 4000
 
     def __init__(self, estimator: Optional[TokenEstimator] = None):
         self.estimator = estimator or TokenEstimator()
@@ -105,6 +105,11 @@ class PromptBuilder:
             raise ValueError("Query must be a non-empty string.")
         cleaned = query.strip()
         if len(cleaned) > self.MAX_QUERY_CHARS:
+            import logging
+            logging.getLogger("FileMind.AI.Prompt").warning(
+                "Query length (%d chars) exceeds MAX_QUERY_CHARS (%d); truncating safely.",
+                len(cleaned), self.MAX_QUERY_CHARS,
+            )
             cleaned = cleaned[: self.MAX_QUERY_CHARS].rstrip()
         return cleaned
 

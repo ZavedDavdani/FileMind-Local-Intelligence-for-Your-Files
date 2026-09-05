@@ -11,8 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.deps import get_repo
 from app.core.security import (
+    is_symlink_or_junction,
     normalize_path,
     resolve_and_authorize,
+    validate_subpath_safety,
+    SecurityError,
     SecurityForbiddenError,
     SecurityNotFoundError,
 )
@@ -86,7 +89,7 @@ def execute_safe_action(payload: ActionRequest, repo: Repository = Depends(get_r
         try:
             if sys.platform == "win32":
                 if os.path.isfile(target_path):
-                    subprocess.Popen(["explorer.exe", f'/select,"{target_path}"'])
+                    subprocess.Popen(["explorer.exe", f"/select,{os.path.normpath(target_path)}"])
                 else:
                     os.startfile(target_path)
             else:
@@ -157,14 +160,19 @@ def enumerate_folder(payload: EnumerateRequest, repo: Repository = Depends(get_r
     file_items: List[FileItem] = []
 
     try:
-        for root, _, files in os.walk(folder_path):
+        for root, dirs, files in os.walk(folder_path):
+            # Prune symlink or junction subdirectories in-place so os.walk won't traverse into them
+            dirs[:] = [d for d in dirs if not is_symlink_or_junction(os.path.join(root, d))]
             if len(file_items) >= MAX_ENUMERATE_LIMIT:
                 break
             for file_name in files:
                 if len(file_items) >= MAX_ENUMERATE_LIMIT:
                     break
                 abs_path = os.path.normpath(os.path.join(root, file_name))
+                if is_symlink_or_junction(abs_path):
+                    continue
                 try:
+                    validate_subpath_safety(abs_path, folder_path)
                     rel_path = os.path.relpath(abs_path, folder_path)
                     st = os.stat(abs_path)
                     mod_iso = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat()
@@ -179,7 +187,7 @@ def enumerate_folder(payload: EnumerateRequest, repo: Repository = Depends(get_r
                             extension=ext.lower(),
                         )
                     )
-                except (OSError, PermissionError):
+                except (OSError, PermissionError, SecurityError):
                     continue
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
