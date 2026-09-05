@@ -1,0 +1,39 @@
+{
+  "hardening_task": "H1_WINDOWS_JOB_OBJECT_LIFECYCLE",
+  "status": "PASS",
+  "timestamp": "2026-09-05T11:51:17Z",
+  "platform": "win32",
+  "job_object_configured": true,
+  "limit_flags": "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE (0x00002000)",
+  "exact_pid_assignment": true,
+  "scenarios": {
+    "scenario_a_graceful_close": {
+      "status": "PASS",
+      "parent_pid": 7376,
+      "child_pid": 21384,
+      "in_job_object": true,
+      "child_termination_latency_ms": 9.84,
+      "child_terminated": true
+    },
+    "scenario_b_forced_parent_kill": {
+      "status": "PASS",
+      "parent_pid": 23016,
+      "child_pid": 17140,
+      "in_job_object": true,
+      "forced_kill_parent": true,
+      "job_object_child_kill_verified": true,
+      "child_termination_latency_ms": 20.83,
+      "child_terminated": true
+    },
+    "scenario_c_relaunch_health": {
+      "status": "NOT_AUTOMATED",
+      "reason": "Requires interactive Tauri GUI supervisor harness; verified via manual smoke testing",
+      "automated": false
+    }
+  },
+  "safety_audit": {
+    "no_name_based_kills": true,
+    "exact_pid_isolation": true,
+    "zero_orphan_processes": true
+  }
+}
