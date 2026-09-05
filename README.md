@@ -32,12 +32,14 @@ FileMind is a local-first, privacy-first Windows desktop application that indexe
 | **Pre-Phase-7 Batch 1** | AppContext / Dependency Injection (Request-scoped DI, model registry, decoupled routers) | ✅ Complete / VERIFIED (`8ca6830`) |
 | **Pre-Phase-7 Batch 2** | Indexing Integrity & Reliability (Single persistence tx, vector-first deletion, worker event wakeup, retrieval pool) | ✅ Complete / VERIFIED (`0fd44ac`) |
 | **Pre-Phase-7 Freeze** | Final Pre-Phase-7 Architecture Freeze Audit (24-dimension audit, 0 blockers) | ❄️ **ARCHITECTURE READY — FREEZE** |
+| **Chunk 1–5 Remediation** | Fix + Verify Correctness Pass (Bugs 1–120: watchers, vector cascade, citations, RRF, security) | ✅ Complete / VERIFIED (`4a54549`) |
+| **Consolidated Gate 1 Audit** | Bugs 1–120 Fix + Verify Gate 1 Audit (120/120 audited, 0 open defects, 615 backend tests) | ❄️ **GATE 1 — READY** |
 | **Phase 7** | Conversational Intelligence, Streaming RAG, Local OCR & Visual Knowledge Graph | 📋 READY FOR EXECUTION |
 | **Phase 8** | Production Hardening (Battery throttling, hardware-aware models, auto-update) | ⏳ PENDING |
 | **Phase 9** | Optional Cloud / Enterprise (Multi-user workspaces, cloud sync) | ⏳ OPTIONAL / PENDING |
 | **Phase 10** | Future Automation / Agentic Intelligence (Smart file organization, automated workflows) | ⏳ FUTURE EXTENSION |
 
-> **Current Boundary & Scope Note**: **Phase 5, Phase 6, and Pre-Phase-7 Architecture are FROZEN and VERIFIED**. Architecture hardening batches (AppContext DI, transactional indexing boundaries, vector-first purge, event-driven worker wakeups, retrieval candidate pools) and the Pre-Phase-7 Architecture Freeze Audit are **fully completed with 540 / 541 tests passing (1 skipped)**. Phase 7 feature execution can proceed directly on this frozen foundation.
+> **Current Boundary & Scope Note**: **Correctness Remediation (Chunks 1–5) and the Consolidated Bugs 1–120 Gate 1 Audit are COMPLETE and VERIFIED**. All 120 bugs in the canonical catalog have been individually audited, reproduced, remediated, and verified against focused unit tests with **615 passed backend tests (1 skipped)**, clean frontend TypeScript build, and clean Tauri Rust compilation. The project is formally classified as **`GATE 1 — READY`**.
 
 ---
 
@@ -190,6 +192,13 @@ The API and UI separate **Search Mode** (`hybrid`, `bm25`, `dense`) from **Quali
 
 Authoritative baseline status:
 
+- **Full Backend Regression Suite**: **615 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
+- **Remediation Test Suites**: **100% PASS**
+  - `test_chunk1_remediation.py`: 21 / 21 PASS
+  - `test_chunk2_remediation.py`: 18 / 18 PASS
+  - `test_chunk3_remediation.py`: 20 / 20 PASS
+  - `test_chunk4_remediation.py`: 18 / 18 PASS
+  - `test_chunk5_remediation.py`: 12 / 12 PASS
 - **Phase 5 / 5.5 AI Test Suites**: **150 / 150 PASS**
   - `test_document_understanding.py`: 17 / 17 PASS
   - `test_related_content.py`: 13 / 13 PASS
@@ -200,17 +209,15 @@ Authoritative baseline status:
   - `test_context_budget.py`: 19 / 19 PASS
   - `test_ollama_provider.py`: 5 / 5 PASS
   - `test_batch4_ai_status.py`: 9 / 9 PASS
-  - Hardening Suites (`test_hardening_batch1..4.py`, `test_hardening_batch2_parsers_security.py`, `test_hardening_batch4_final_freeze.py`, `test_phase5_final_blockers.py`): 33 / 33 PASS
 - **Phase 6 Test Suites**: **46 / 46 PASS**
   - `test_domain_repositories.py`: 10 / 10 PASS
   - `test_core_deps_and_errors.py`: 12 / 12 PASS
   - `test_core_security.py`: 10 / 10 PASS
   - `test_perf_optimizations.py`: 7 / 7 PASS
-  - Model & Error Resilience: 7 / 7 PASS
-- **Full Backend Regression Suite**: **522 passed, 1 skipped, 0 failed** *(1 skipped: Windows symlink privilege test)*
-- **Frontend Production Build**: **PASS** (1,606 modules transformed, 0 errors)
-- **Tauri Desktop Verification**: **PASS** (`cargo check`, 0 errors)
+- **Frontend Production Build**: **PASS** (`tsc && vite build`, 0 errors)
+- **Tauri Desktop Verification**: **PASS** (`cargo check`, 0 errors, 0 warnings)
 - **Whitespace / Formatting Check**: **PASS** (`git diff --check`, 0 violations)
+- **Gate 1 Status**: **`GATE 1 — READY`** (120/120 Canonical Bugs Audited, Verified & Closed)
 
 ---
 
@@ -230,10 +237,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# Run Phase 5 / 5.5 AI test suites
-pytest tests/test_document_understanding.py tests/test_related_content.py tests/test_ask_pipeline.py tests/test_grounded_generation.py tests/test_context_budget.py tests/test_ollama_provider.py tests/test_batch4_ai_status.py -v
-
-# Run full backend regression suite (476 tests)
+# Run full backend regression suite (615 tests)
 pytest tests/ -v
 ```
 
@@ -259,9 +263,10 @@ cargo tauri build
 
 - [FileMind Specification (`FileMind.md`)](file:///c:/dev/FileMind/FileMind.md): Authoritative architectural specification and phase contracts.
 - [Second Brain Architecture (`FileMind_Second_Brain_Architecture.md`)](file:///c:/dev/FileMind/FileMind_Second_Brain_Architecture.md): Long-term architectural direction and grounding principles.
-- [Phase 4 Benchmark Report (`docs/phase-4/reranker-benchmark.md`)](file:///c:/dev/FileMind/docs/phase-4/reranker-benchmark.md): Retrieval quality and latency benchmarks.
-- [Pre-Phase-5 Hardening Report (`docs/hardening/pre-phase-5-hardening-report.md`)](file:///c:/dev/FileMind/docs/hardening/pre-phase-5-hardening-report.md): Verification report for foundational hardening.
-- [Batch 1 Backend Hardening Report (`docs/hardening/batch1-backend-hardening-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch1-backend-hardening-report.md): Verification report for Batch 1 backend & AI hardening.
-- [Batch 2 Filesystem & Security Report (`docs/hardening/batch2-filesystem-parsers-security-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch2-filesystem-parsers-security-report.md): Verification report for Batch 2 parser, filesystem & security hardening.
-- [Batch 3 Frontend & Tauri Report (`docs/hardening/batch3-frontend-tauri-e2e-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch3-frontend-tauri-e2e-report.md): Verification report for Batch 3 frontend, Tauri & E2E reliability.
-- [Phase 5 Final Freeze Audit (`docs/hardening/phase5-final-hardening-audit.md`)](file:///c:/dev/FileMind/docs/hardening/phase5-final-hardening-audit.md): Authoritative Phase 5 freeze report and 115-item reconciliation.
+- [Consolidated Bugs 1–120 Gate 1 Audit (`docs/hardening/consolidated-bugs-1-120-gate-1-audit.md`)](file:///c:/dev/FileMind/docs/hardening/consolidated-bugs-1-120-gate-1-audit.md): Authoritative Gate 1 audit covering all 120 bugs across the canonical catalog.
+- [Chunk 1 Remediation Report (`docs/hardening/batch1-backend-hardening-report.md`)](file:///c:/dev/FileMind/docs/hardening/batch1-backend-hardening-report.md): Verification report for Chunk 1 core indexing and job state.
+- [Chunk 2 Remediation Report (`docs/hardening/chunk2-remediation-report.md`)](file:///c:/dev/FileMind/docs/hardening/chunk2-remediation-report.md): Verification report for Chunk 2 vector cascade and job integrity.
+- [Chunk 3 Remediation Report (`docs/hardening/chunk3-remediation-report.md`)](file:///c:/dev/FileMind/docs/hardening/chunk3-remediation-report.md): Verification report for Chunk 3 generation, FTS5, and retrieval integrity.
+- [Chunk 4 Remediation Report (`docs/hardening/chunk4-remediation-report.md`)](file:///c:/dev/FileMind/docs/hardening/chunk4-remediation-report.md): Verification report for Chunk 4 watcher, path case-insensitivity, and model provider.
+- [Chunk 5 Remediation Report (`docs/hardening/chunk5-remediation-report.md`)](file:///c:/dev/FileMind/docs/hardening/chunk5-remediation-report.md): Verification report for Chunk 5 retrieval security, citations, and knowledge connections.
+- [Pre-Phase-7 Freeze Audit (`docs/phase-7/pre-phase-7-architecture-freeze-audit.md`)](file:///c:/dev/FileMind/docs/phase-7/pre-phase-7-architecture-freeze-audit.md): Pre-Phase-7 architecture freeze report.
