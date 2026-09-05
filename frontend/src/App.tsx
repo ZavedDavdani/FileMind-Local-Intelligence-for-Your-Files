@@ -20,6 +20,7 @@ import {
   createFolder,
   updateFolder,
   deleteFolder,
+  registerFiles,
   fetchIndexingStatus,
   controlIndexing,
   fetchEvents,
@@ -50,6 +51,10 @@ export function App() {
   const [notification, setNotification] = useState<string | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const [activeFolderAction, setActiveFolderAction] = useState<{
+    type: "deleting" | "rescanning" | "adding";
+    targetId?: string;
+  } | null>(null);
 
   // Modals
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -167,11 +172,8 @@ export function App() {
       setEvents((prev) => (areEventsEqual(prev, validEvents) ? prev : validEvents));
 
       setLastSyncTime(new Date().toISOString());
-      setErrorBanner(null);
     } catch (err: unknown) {
-      console.error("[App] refreshAll error:", err);
-      const msg = err instanceof Error ? err.message : "Sync error";
-      setErrorBanner(msg);
+      console.warn("[App] Background polling sync error (non-fatal):", err);
     } finally {
       isRefreshingRef.current = false;
     }
@@ -198,10 +200,10 @@ export function App() {
           const currentStatus = prevIndexingStatusRef.current;
           const isBusy =
             currentStatus && (currentStatus.processing > 0 || currentStatus.queued > 0);
-          scheduleNextPoll(isBusy ? 2500 : 5000);
+          scheduleNextPoll(isBusy ? 1000 : 2500);
         } catch {
           consecutiveErrors++;
-          const backoff = Math.min(2500 * Math.pow(2, consecutiveErrors - 1), 15000);
+          const backoff = Math.min(2500 * Math.pow(1.5, consecutiveErrors), 15000);
           scheduleNextPoll(backoff);
         }
       }, delayMs);
@@ -209,18 +211,9 @@ export function App() {
 
     scheduleNextPoll(0);
 
-    const handleVisibility = () => {
-      if (mounted && typeof document !== "undefined" && !document.hidden) {
-        consecutiveErrors = 0;
-        scheduleNextPoll(0);
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-
     return () => {
       mounted = false;
       if (timerId) clearTimeout(timerId);
-      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [refreshAll]);
 
@@ -239,22 +232,45 @@ export function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Folder Operations
+  // Folder and File Management Handlers
   const handleAddFolder = useCallback(
     async (
       path: string,
       recursive: boolean,
-      mode: IntegrityMode,
-      exclusions: string[]
+      integrityMode: IntegrityMode,
+      excludePatterns: string[]
     ) => {
+      setActiveFolderAction({ type: "adding" });
       try {
-        const created = await createFolder(path, recursive, mode, true, exclusions);
-        notify(`Registered folder: ${created.path}`);
+        await createFolder(path, recursive, integrityMode, true, excludePatterns);
+        notify("Folder registered and queued for discovery");
         setRefreshTick((t) => t + 1);
         refreshAll();
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Failed to register folder";
+        const msg = err instanceof Error ? err.message : "Failed to add folder";
         setErrorBanner(msg);
+      } finally {
+        setActiveFolderAction(null);
+      }
+    },
+    [notify, refreshAll]
+  );
+
+  const handleAddFiles = useCallback(
+    async (paths: string[]) => {
+      if (!paths || paths.length === 0) return;
+      setActiveFolderAction({ type: "adding" });
+      try {
+        const res = await registerFiles(paths);
+        const skippedPart = res.total_skipped > 0 ? ` (${res.total_skipped} skipped)` : "";
+        notify(`Enqueued ${res.total_enqueued} file(s) for indexing${skippedPart}`);
+        setRefreshTick((t) => t + 1);
+        refreshAll();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to register files";
+        setErrorBanner(msg);
+      } finally {
+        setActiveFolderAction(null);
       }
     },
     [notify, refreshAll]
@@ -277,6 +293,7 @@ export function App() {
 
   const handleDeleteFolder = useCallback(
     async (id: string) => {
+      setActiveFolderAction({ type: "deleting", targetId: id });
       try {
         await deleteFolder(id);
         notify("Folder removed from tracking");
@@ -285,6 +302,8 @@ export function App() {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Failed to delete folder";
         setErrorBanner(msg);
+      } finally {
+        setActiveFolderAction(null);
       }
     },
     [notify, refreshAll]
@@ -292,6 +311,7 @@ export function App() {
 
   const handleRescanFolder = useCallback(
     async (id: string) => {
+      setActiveFolderAction({ type: "rescanning", targetId: id });
       try {
         await controlIndexing("RESCAN", id);
         notify("Rescan initiated for folder");
@@ -300,6 +320,8 @@ export function App() {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Rescan failed";
         setErrorBanner(msg);
+      } finally {
+        setActiveFolderAction(null);
       }
     },
     [notify, refreshAll]
@@ -474,10 +496,12 @@ export function App() {
               <FolderManager
                 folders={folders}
                 onAddFolder={handleAddFolder}
+                onAddFiles={handleAddFiles}
                 onUpdateFolder={handleUpdateFolder}
                 onDeleteFolder={handleDeleteFolder}
                 onRescanFolder={handleRescanFolder}
                 disabled={status !== "online"}
+                activeAction={activeFolderAction}
               />
 
               <IndexingControl

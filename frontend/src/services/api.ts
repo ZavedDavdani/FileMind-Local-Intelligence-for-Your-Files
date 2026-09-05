@@ -32,6 +32,7 @@ import {
   StorageStatsResponse,
   DiagnosticsResponse,
   ExportResponse,
+  RegisterFilesResponse,
 } from "../types";
 
 const BACKEND_BASE_URL = "http://127.0.0.1:24823";
@@ -326,6 +327,19 @@ export async function fetchFiles(
 
   console.error("[API Contract Error] Invalid /files response shape:", data);
   throw new Error("Invalid /files response shape");
+}
+
+export async function registerFiles(paths: string[]): Promise<RegisterFilesResponse> {
+  const data = await requestJson<RegisterFilesResponse>(
+    `${BACKEND_BASE_URL}/files/register`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paths }),
+    },
+    "Register individual files"
+  );
+  return data;
 }
 
 /**

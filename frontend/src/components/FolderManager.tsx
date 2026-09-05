@@ -2,6 +2,7 @@ import { useState, memo } from "react";
 import { Folder, IntegrityMode } from "../types";
 import {
   FolderPlus,
+  FilePlus,
   Folder as FolderIcon,
   Trash2,
   Shield,
@@ -10,24 +11,29 @@ import {
   ChevronRight,
   HardDrive,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 
 interface FolderManagerProps {
   folders: Folder[];
   onAddFolder: (path: string, recursive: boolean, mode: IntegrityMode, exclusions: string[]) => void;
+  onAddFiles?: (paths: string[]) => void;
   onUpdateFolder: (id: string, updates: Partial<Folder>) => void;
   onDeleteFolder: (id: string) => void;
   onRescanFolder: (id: string) => void;
   disabled?: boolean;
+  activeAction?: { type: "deleting" | "rescanning" | "adding"; targetId?: string } | null;
 }
 
 export const FolderManager = memo(function FolderManager({
   folders = [],
   onAddFolder,
+  onAddFiles,
   onUpdateFolder,
   onDeleteFolder,
   onRescanFolder,
   disabled,
+  activeAction,
 }: FolderManagerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showFullSystemModal, setShowFullSystemModal] = useState(false);
@@ -41,10 +47,8 @@ export const FolderManager = memo(function FolderManager({
 
   const safeFolders = Array.isArray(folders) ? folders : [];
 
-
-  const handleSelectViaTauri = async () => {
+  const handleSelectFolderViaTauri = async () => {
     try {
-      // Try Tauri native dialog if available
       const dialog = await import("@tauri-apps/plugin-dialog");
       const selected = await dialog.open({
         directory: true,
@@ -56,6 +60,26 @@ export const FolderManager = memo(function FolderManager({
       }
     } catch {
       // Fallback: user types or pastes path
+    }
+  };
+
+  const handleSelectFilesViaTauri = async () => {
+    try {
+      const dialog = await import("@tauri-apps/plugin-dialog");
+      const selected = await dialog.open({
+        directory: false,
+        multiple: true,
+        title: "Select Files to Index with FileMind",
+      });
+      if (selected) {
+        const paths = Array.isArray(selected) ? selected : [selected];
+        const validPaths = paths.filter((p): p is string => typeof p === "string" && Boolean(p.trim()));
+        if (validPaths.length > 0 && onAddFiles) {
+          onAddFiles(validPaths);
+        }
+      }
+    } catch (err) {
+      console.error("Native file picker error:", err);
     }
   };
 
@@ -101,7 +125,7 @@ export const FolderManager = memo(function FolderManager({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2.5">
           <FolderIcon className="w-5 h-5 text-indigo-400" />
-          <h2 className="text-sm font-semibold text-white">Registered Folders</h2>
+          <h2 className="text-sm font-semibold text-white">Registered Folders & Files</h2>
           <span className="text-xs bg-dark-700 px-2 py-0.5 rounded-full text-slate-300 font-mono">
             {safeFolders.length}
           </span>
@@ -117,6 +141,21 @@ export const FolderManager = memo(function FolderManager({
           >
             <HardDrive className="w-4 h-4 text-purple-400" />
             <span>Index Full System</span>
+          </button>
+
+          <button
+            onClick={handleSelectFilesViaTauri}
+            disabled={disabled || activeAction?.type === "adding"}
+            aria-label="Add Files"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-medium transition-colors shadow-sm"
+            title="Select individual files to index without scanning their parent folder"
+          >
+            {activeAction?.type === "adding" ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <FilePlus className="w-4 h-4" />
+            )}
+            <span>Add Files</span>
           </button>
 
           <button
@@ -142,7 +181,7 @@ export const FolderManager = memo(function FolderManager({
           <div className="flex space-x-2">
             <input
               type="text"
-              placeholder="e.g. C:\Users\Documents\Projects"
+              placeholder="e.g. C:\\Users\\Documents\\Projects"
               value={newPath}
               onChange={(e) => setNewPath(e.target.value)}
               className="flex-1 bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono text-xs"
@@ -150,7 +189,7 @@ export const FolderManager = memo(function FolderManager({
             />
             <button
               type="button"
-              onClick={handleSelectViaTauri}
+              onClick={handleSelectFolderViaTauri}
               className="px-3 py-2 bg-dark-700 hover:bg-dark-600 text-slate-200 rounded-lg text-xs"
             >
               Browse...
@@ -158,151 +197,131 @@ export const FolderManager = memo(function FolderManager({
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-1">
-            {/* Integrity Mode Selector */}
-            <div className="space-y-1">
-              <label className="text-[11px] text-slate-400 font-medium">Integrity Verification Mode</label>
-              <div className="flex space-x-1.5">
-                <button
-                  type="button"
-                  onClick={() => setNewMode("NORMAL")}
-                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border flex items-center justify-center space-x-1 ${
-                    newMode === "NORMAL"
-                      ? "bg-indigo-950/70 border-indigo-500/60 text-indigo-300"
-                      : "bg-dark-800 border-dark-600 text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Normal (mtime)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewMode("STRICT")}
-                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border flex items-center justify-center space-x-1 ${
-                    newMode === "STRICT"
-                      ? "bg-amber-950/70 border-amber-500/60 text-amber-300"
-                      : "bg-dark-800 border-dark-600 text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  <span>Strict (SHA-256)</span>
-                </button>
-              </div>
-            </div>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={newRecursive}
+                onChange={(e) => setNewRecursive(e.target.checked)}
+                className="rounded bg-dark-800 border-dark-600 text-indigo-600 focus:ring-0"
+              />
+              <span className="text-slate-300">Recursive Discovery</span>
+            </label>
 
-            {/* Recursive Checkbox */}
-            <div className="space-y-1 flex flex-col justify-end">
-              <label className="flex items-center space-x-2 cursor-pointer pb-2">
-                <input
-                  type="checkbox"
-                  checked={newRecursive}
-                  onChange={(e) => setNewRecursive(e.target.checked)}
-                  className="rounded bg-dark-700 border-dark-600 text-indigo-600 focus:ring-0"
-                />
-                <span className="text-slate-300 text-xs">Recursive Subdirectory Traversal</span>
-              </label>
+            <div className="flex items-center space-x-2">
+              <span className="text-slate-400">Integrity Policy:</span>
+              <select
+                value={newMode}
+                onChange={(e) => setNewMode(e.target.value as IntegrityMode)}
+                className="bg-dark-800 border border-dark-600 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-indigo-500"
+              >
+                <option value="NORMAL">Normal (Fast Path)</option>
+                <option value="STRICT">Strict (Full SHA-256)</option>
+              </select>
             </div>
           </div>
 
-          {/* Exclusions */}
           <div className="space-y-1">
-            <label className="text-[11px] text-slate-400 font-medium">
-              Custom Exclusions <span className="text-slate-500">(comma-separated globs, default noise excluded automatically)</span>
-            </label>
+            <label className="text-[11px] text-slate-400 font-medium">Custom Glob Exclusions</label>
             <input
               type="text"
+              placeholder="*.tmp, *.log, build, target"
               value={newExclusions}
               onChange={(e) => setNewExclusions(e.target.value)}
-              className="w-full bg-dark-800 border border-dark-600 rounded-lg px-3 py-1.5 text-slate-100 font-mono text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full bg-dark-800 border border-dark-600 rounded-lg px-3 py-1.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono text-xs"
             />
           </div>
 
-          <div className="flex justify-end space-x-2 pt-2">
+          <div className="flex justify-end space-x-2 pt-2 border-t border-dark-800">
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="px-3 py-1.5 bg-dark-800 hover:bg-dark-700 text-slate-300 rounded-lg"
+              className="px-3 py-1.5 bg-dark-800 hover:bg-dark-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg shadow-sm"
+              disabled={!newPath.trim()}
+              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors shadow-sm"
             >
-              Register & Scan
+              Start Indexing
             </button>
           </div>
         </form>
       )}
 
       {/* Folders List */}
-      <div className="space-y-2.5">
-        {safeFolders.length === 0 && !showAddForm && (
-          <div className="py-6 text-center border border-dashed border-dark-600/70 rounded-xl text-slate-400 text-xs">
-            No folders registered yet. Click <span className="text-indigo-400 font-medium">Add Folder</span> to begin tracking.
+      <div className="space-y-2">
+        {safeFolders.length === 0 && (
+          <div className="py-8 text-center text-xs text-slate-500 bg-dark-900/40 rounded-xl border border-dashed border-dark-700">
+            No folders or files registered yet. Click <span className="text-indigo-400 font-semibold">+ Add Folder</span> or <span className="text-emerald-400 font-semibold">+ Add Files</span> to get started.
           </div>
         )}
 
         {safeFolders.map((f) => {
           const isExpanded = expandedFolderId === f.folder_id;
+          const isDeleting = activeAction?.type === "deleting" && activeAction?.targetId === f.folder_id;
+          const isRescanning = activeAction?.type === "rescanning" && activeAction?.targetId === f.folder_id;
 
           return (
             <div
               key={f.folder_id}
-              className="bg-dark-900/60 border border-dark-700/60 hover:border-dark-600 rounded-xl p-3.5 transition-all space-y-2"
+              className="bg-dark-900/50 border border-dark-700/50 rounded-xl p-3 space-y-2.5 transition-all hover:border-dark-600"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2.5 min-w-0">
+                <div className="flex items-center space-x-3 overflow-hidden">
                   <button
                     onClick={() => setExpandedFolderId(isExpanded ? null : f.folder_id)}
-                    className="text-slate-400 hover:text-slate-200"
+                    className="text-slate-400 hover:text-white transition-colors"
                   >
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4" />
-                    )}
+                    {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </button>
-                  <span className="font-mono text-xs text-slate-200 truncate" title={f.path}>
-                    {f.path}
-                  </span>
+
+                  <div className="space-y-0.5 min-w-0">
+                    <p className="font-mono text-xs text-slate-200 truncate font-medium">{f.path}</p>
+                    <div className="flex items-center space-x-2 text-[11px] text-slate-500">
+                      <span>{f.recursive ? "Recursive" : "Top-level only"}</span>
+                      <span>•</span>
+                      <span className="flex items-center space-x-1">
+                        {f.integrity_mode === "STRICT" ? (
+                          <>
+                            <ShieldAlert className="w-3 h-3 text-amber-400" />
+                            <span className="text-amber-400">Strict (SHA-256)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="w-3 h-3 text-indigo-400" />
+                            <span>Normal</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center space-x-2 shrink-0">
-                  {/* Integrity Badge */}
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase border ${
-                      f.integrity_mode === "STRICT"
-                        ? "bg-amber-950/60 border-amber-500/40 text-amber-300"
-                        : "bg-indigo-950/60 border-indigo-500/40 text-indigo-300"
-                    }`}
-                  >
-                    {f.integrity_mode}
-                  </span>
-
-                  {/* Recursive Badge */}
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-dark-700 text-slate-300 border border-dark-600">
-                    {f.recursive ? "Recursive" : "Top-Level"}
-                  </span>
-
-                  {/* Toggle Indexing Switch */}
+                <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => onUpdateFolder(f.folder_id, { indexing_enabled: !f.indexing_enabled })}
-                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                    onClick={() =>
+                      onUpdateFolder(f.folder_id, {
+                        indexing_enabled: !f.indexing_enabled,
+                      })
+                    }
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
                       f.indexing_enabled
-                        ? "bg-emerald-950/60 text-emerald-300 border border-emerald-500/40"
-                        : "bg-slate-800 text-slate-400 border border-slate-700"
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                        : "bg-slate-800 border-slate-700 text-slate-500"
                     }`}
                   >
-                    {f.indexing_enabled ? "Enabled" : "Paused"}
+                    {f.indexing_enabled ? "Active" : "Paused"}
                   </button>
 
-                  {/* Delete Button */}
                   <button
                     onClick={() => setFolderToDelete(f)}
-                    className="p-1 text-slate-400 hover:text-rose-400 transition-colors"
+                    disabled={isDeleting || isRescanning}
+                    className="p-1 text-slate-400 hover:text-rose-400 disabled:opacity-50 transition-colors"
                     title="Remove folder from index"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
@@ -334,9 +353,11 @@ export const FolderManager = memo(function FolderManager({
                   <div className="flex justify-end items-center">
                     <button
                       onClick={() => onRescanFolder(f.folder_id)}
-                      className="px-2.5 py-1 bg-dark-700 hover:bg-dark-600 text-slate-200 rounded text-xs font-medium"
+                      disabled={isRescanning || isDeleting}
+                      className="flex items-center space-x-1 px-2.5 py-1 bg-dark-700 hover:bg-dark-600 disabled:opacity-50 text-slate-200 rounded text-xs font-medium transition-colors"
                     >
-                      Force Full Rescan
+                      {isRescanning && <Loader2 className="w-3 h-3 animate-spin mr-1" />}
+                      <span>{isRescanning ? "Rescanning..." : "Force Full Rescan"}</span>
                     </button>
                   </div>
                 </div>
@@ -408,7 +429,7 @@ export const FolderManager = memo(function FolderManager({
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-white">Index Full System (Windows)</h3>
-                <p className="text-xs text-slate-400">Broad filesystem discovery and local intelligence indexing</p>
+                <p className="text-xs text-slate-400">Broad filesystem discovery across your user environment</p>
               </div>
             </div>
 
@@ -418,7 +439,7 @@ export const FolderManager = memo(function FolderManager({
               <div className="space-y-1">
                 <p className="font-semibold text-amber-300">Resource & Time Notice</p>
                 <p className="text-slate-300 leading-relaxed">
-                  Full-system indexing scans your Windows storage environment (e.g. <code className="text-amber-300 font-mono">C:\Users</code>). This operation may consume significant CPU, RAM, disk I/O, and time depending on your drive size.
+                  Full-system indexing scans your selected storage environment (e.g. <code className="text-amber-300 font-mono">C:\\Users</code>). This operation may consume CPU, RAM, and disk I/O depending on your drive size.
                 </p>
               </div>
             </div>
@@ -427,7 +448,8 @@ export const FolderManager = memo(function FolderManager({
             <div className="space-y-2 text-xs text-slate-300 bg-dark-800/60 border border-dark-700/60 rounded-xl p-3">
               <p className="font-medium text-slate-200">Indexing Scope & Security Boundaries:</p>
               <ul className="list-disc list-inside space-y-1 text-slate-400">
-                <li>Only supported document formats (PDF, DOCX, Markdown, Code, Spreadsheets, Text) up to 50 MB are indexed.</li>
+                <li>Supported document and media formats up to the 50 MB default limit (PDF, DOCX/DOC, PPTX/PPT, XLSX/CSV/TSV, Code, Markdown/TXT/HTML/RTF, Images with OCR, Audio/Video with Whisper transcripts) are indexed.</li>
+                <li>Only folders and individual files explicitly selected or registered by you are eligible for indexing.</li>
                 <li>System directories, AppData, Windows, Program Files, <code className="text-indigo-300">node_modules</code>, and caches are automatically excluded.</li>
                 <li>You can Pause, Resume, or Cancel indexing at any time via Indexing Controls.</li>
               </ul>
@@ -467,4 +489,3 @@ export const FolderManager = memo(function FolderManager({
     </div>
   );
 });
-

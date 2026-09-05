@@ -39,6 +39,14 @@ def register_folder(
     if not os.path.isdir(norm_path):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Path is not a directory: {norm_path}")
 
+    from app.core.config import APP_DATA_DIR
+    app_data_str = str(APP_DATA_DIR)
+    if is_path_within_root(norm_path, app_data_str) or is_path_within_root(app_data_str, norm_path) or os.path.normcase(norm_path) == os.path.normcase(app_data_str):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot register FileMind's internal application data directory.",
+        )
+
     existing_folders = repo.list_folders()
     for f in existing_folders:
         existing_path = f["path"]
@@ -75,9 +83,14 @@ def register_folder(
     )
     repo.conn.commit()
 
-    # Trigger discovery scan and sync watcher
+    # Trigger discovery scan and sync watcher asynchronously in background
     if payload.indexing_enabled:
-        ctx.engine_coordinator.scan_single_folder(folder["folder_id"])
+        import threading
+        threading.Thread(
+            target=ctx.engine_coordinator.scan_single_folder,
+            args=(folder["folder_id"],),
+            daemon=True,
+        ).start()
 
     return FolderResponse(**folder)
 

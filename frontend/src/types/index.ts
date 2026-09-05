@@ -38,6 +38,21 @@ export interface FileItem {
   indexed_at?: string | null;
 }
 
+export interface RegisteredFileResult {
+  path: string;
+  status: string;
+  file_id?: string | null;
+  filename?: string | null;
+  error?: string | null;
+}
+
+export interface RegisterFilesResponse {
+  total_requested: number;
+  total_enqueued: number;
+  total_skipped: number;
+  results: RegisteredFileResult[];
+}
+
 export interface ChunkItem {
   chunk_id: string;
   file_id: string;

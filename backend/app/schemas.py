@@ -96,6 +96,25 @@ class FileListResponse(BaseModel):
     files: List[FileItem]
 
 
+class RegisterFilesRequest(BaseModel):
+    paths: List[str] = Field(..., min_length=1, description="List of absolute file paths to register and index")
+
+
+class RegisteredFileResult(BaseModel):
+    path: str
+    status: str
+    file_id: Optional[str] = None
+    filename: Optional[str] = None
+    error: Optional[str] = None
+
+
+class RegisterFilesResponse(BaseModel):
+    total_requested: int
+    total_enqueued: int
+    total_skipped: int
+    results: List[RegisteredFileResult]
+
+
 # ---------------------------------------------------------------------------
 # Document Chunks & Provenance
 # ---------------------------------------------------------------------------

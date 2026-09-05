@@ -193,6 +193,72 @@ class ChatService:
             scope_type = conv.get("scope_type", "ALL")
             scope_id = conv.get("scope_id")
 
+            # Check deterministic chat intent before executing heavy retrieval
+            from app.ai.chat_intent import (
+                ChatIntent,
+                classify_chat_intent,
+                format_conversational_response,
+                format_metadata_inventory_response,
+            )
+
+            intent = classify_chat_intent(query_str)
+            if intent == ChatIntent.CONVERSATIONAL:
+                bot_text = format_conversational_response(query_str)
+                model_id_meta = {
+                    "provider": "filemind_local",
+                    "model_name": "conversational_assistant",
+                    "is_local": True,
+                    "model_tag": "local-rules",
+                }
+                asst_msg = repo.add_chat_message(
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=bot_text,
+                    citations=[],
+                    evidence_status="SUFFICIENT",
+                    generation_status="COMPLETED",
+                    model_identity=model_id_meta,
+                )
+                return ChatMessageResponse(
+                    message_id=asst_msg["message_id"],
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=asst_msg["content"],
+                    citations=[],
+                    evidence_status="SUFFICIENT",
+                    generation_status="COMPLETED",
+                    model_identity=model_id_meta,
+                    created_at=asst_msg["created_at"],
+                )
+            elif intent == ChatIntent.METADATA_INVENTORY:
+                bot_text = format_metadata_inventory_response(repo, scope_type, scope_id, query_str)
+                model_id_meta = {
+                    "provider": "filemind_local",
+                    "model_name": "metadata_inventory",
+                    "is_local": True,
+                    "model_tag": "sqlite-metadata",
+                }
+                asst_msg = repo.add_chat_message(
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=bot_text,
+                    citations=[],
+                    evidence_status="SUFFICIENT",
+                    generation_status="COMPLETED",
+                    model_identity=model_id_meta,
+                )
+                return ChatMessageResponse(
+                    message_id=asst_msg["message_id"],
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=asst_msg["content"],
+                    citations=[],
+                    evidence_status="SUFFICIENT",
+                    generation_status="COMPLETED",
+                    model_identity=model_id_meta,
+                    created_at=asst_msg["created_at"],
+                )
+
             # Scope filters
             filters = {}
             if scope_type == "FOLDER" and scope_id:

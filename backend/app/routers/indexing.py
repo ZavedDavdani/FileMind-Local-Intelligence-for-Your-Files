@@ -30,6 +30,8 @@ def control_indexing(
     action = payload.action
     coordinator = ctx.engine_coordinator
 
+    import threading
+
     if action == IndexingControlAction.PAUSE:
         coordinator.pause_indexing()
         msg = "Indexing paused"
@@ -39,16 +41,18 @@ def control_indexing(
     elif action == IndexingControlAction.START:
         coordinator.resume_indexing()
         if payload.folder_id:
-            coordinator.scan_single_folder(payload.folder_id)
+            threading.Thread(target=coordinator.scan_single_folder, args=(payload.folder_id,), daemon=True).start()
+            msg = f"Indexing started for folder {payload.folder_id}"
         else:
-            coordinator.scan_all_enabled_folders()
-        msg = "Indexing started"
+            threading.Thread(target=coordinator.scan_all_enabled_folders, daemon=True).start()
+            msg = "Indexing started for all folders"
     elif action == IndexingControlAction.RESCAN:
+        coordinator.resume_indexing()
         if payload.folder_id:
-            coordinator.scan_single_folder(payload.folder_id, force_strict=True)
+            threading.Thread(target=coordinator.scan_single_folder, args=(payload.folder_id, True), daemon=True).start()
             msg = f"Rescanning folder {payload.folder_id}"
         else:
-            coordinator.scan_all_enabled_folders()
+            threading.Thread(target=coordinator.scan_all_enabled_folders, daemon=True).start()
             msg = "Rescanning all folders"
     elif action == IndexingControlAction.STOP:
         coordinator.pause_indexing()
