@@ -125,6 +125,31 @@ def _get_tabular_parser():
     return TabularParser()
 
 
+def _get_image_parser():
+    from app.intelligence.parsers.image_parser import ImageParser
+    return ImageParser()
+
+
+def _get_audio_parser():
+    from app.intelligence.parsers.audio_parser import AudioParser
+    return AudioParser()
+
+
+def _get_video_parser():
+    from app.intelligence.parsers.video_parser import VideoParser
+    return VideoParser()
+
+
+def _get_rtf_html_parser():
+    from app.intelligence.parsers.rtf_html_parser import RtfAndHtmlParser
+    return RtfAndHtmlParser()
+
+
+def _get_legacy_doc_ppt_parser():
+    from app.intelligence.parsers.legacy_doc_ppt_parser import LegacyOfficeParser
+    return LegacyOfficeParser()
+
+
 # Global default registry with deferred lazy loading
 default_parser_registry = ParserRegistry()
 default_parser_registry.register_factory(_get_pdf_parser, [".pdf"], ["application/pdf"])
@@ -132,11 +157,36 @@ default_parser_registry.register_factory(_get_docx_parser, [".docx"], ["applicat
 default_parser_registry.register_factory(_get_pptx_parser, [".pptx"], ["application/vnd.openxmlformats-officedocument.presentationml.presentation"])
 default_parser_registry.register_factory(
     _get_text_parser,
-    [".txt", ".md", ".py", ".rs", ".js", ".ts", ".html", ".css", ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml", ".sql", ".sh", ".bat", ".ps1", ".c", ".cpp", ".h", ".hpp", ".go", ".java"],
-    ["text/plain", "text/markdown", "text/x-python", "application/javascript", "text/html", "text/css", "application/json", "application/xml"],
+    [".txt", ".md", ".markdown", ".py", ".rs", ".js", ".ts", ".tsx", ".jsx", ".css", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".sql", ".sh", ".bat", ".ps1", ".c", ".cpp", ".h", ".hpp", ".go", ".java", ".log"],
+    ["text/plain", "text/markdown", "text/x-python", "application/javascript", "application/typescript", "text/css"],
 )
 default_parser_registry.register_factory(
     _get_tabular_parser,
-    [".csv", ".tsv", ".xlsx"],
-    ["text/csv", "text/tab-separated-values", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+    [".csv", ".tsv", ".json", ".xml", ".xlsx", ".xls"],
+    ["text/csv", "text/tab-separated-values", "application/json", "application/xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"],
+)
+default_parser_registry.register_factory(
+    _get_image_parser,
+    [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif", ".ico", ".svg"],
+    ["image/png", "image/jpeg", "image/webp", "image/bmp", "image/tiff", "image/x-icon", "image/svg+xml"],
+)
+default_parser_registry.register_factory(
+    _get_audio_parser,
+    [".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac", ".wma"],
+    ["audio/mpeg", "audio/wav", "audio/mp4", "audio/flac", "audio/ogg", "audio/aac", "audio/x-ms-wma"],
+)
+default_parser_registry.register_factory(
+    _get_video_parser,
+    [".mp4", ".mkv", ".mov", ".avi", ".webm", ".wmv"],
+    ["video/mp4", "video/x-matroska", "video/quicktime", "video/x-msvideo", "video/webm", "video/x-ms-wmv"],
+)
+default_parser_registry.register_factory(
+    _get_rtf_html_parser,
+    [".html", ".htm", ".rtf"],
+    ["text/html", "application/rtf"],
+)
+default_parser_registry.register_factory(
+    _get_legacy_doc_ppt_parser,
+    [".doc", ".ppt"],
+    ["application/msword", "application/vnd.ms-powerpoint"],
 )

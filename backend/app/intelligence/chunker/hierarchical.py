@@ -230,12 +230,38 @@ class HierarchicalChunker:
             min_char = min(chars_start) if chars_start else None
             max_char = max(chars_end) if chars_end else None
 
+            # Multimodal and structured provenance aggregation
+            sheets = [e.sheet_name for e in accum_elements if e.sheet_name]
+            sheet_name = sheets[0] if sheets else None
+
+            slides = [e.slide_number for e in accum_elements if e.slide_number is not None]
+            slide_number = slides[0] if slides else None
+
+            times_start = [e.time_start for e in accum_elements if e.time_start is not None]
+            time_start = min(times_start) if times_start else None
+
+            times_end = [e.time_end for e in accum_elements if e.time_end is not None]
+            time_end = max(times_end) if times_end else None
+
+            frames = [e.frame_index for e in accum_elements if e.frame_index is not None]
+            frame_index = frames[0] if frames else None
+
+            media_types = [e.media_type for e in accum_elements if e.media_type and e.media_type != "document"]
+            media_type = media_types[0] if media_types else "document"
+
+            methods = [e.extraction_method for e in accum_elements if e.extraction_method]
+            extraction_method = methods[0] if methods else "native"
+
             content_types = {e.element_type for e in accum_elements}
             c_type = "text"
             if ElementType.TABLE in content_types:
                 c_type = "table"
             elif ElementType.CODE_BLOCK in content_types:
                 c_type = "code"
+            elif ElementType.TRANSCRIPT_SEGMENT in content_types:
+                c_type = "transcript"
+            elif ElementType.IMAGE_CAPTION in content_types or ElementType.VISUAL_METADATA in content_types:
+                c_type = "visual"
 
             content_hash = compute_chunk_content_hash(chunk_text)
             chunk_id = generate_chunk_id(
@@ -262,6 +288,13 @@ class HierarchicalChunker:
                 line_end=max_line,
                 char_start=min_char,
                 char_end=max_char,
+                sheet_name=sheet_name,
+                slide_number=slide_number,
+                time_start=time_start,
+                time_end=time_end,
+                frame_index=frame_index,
+                media_type=media_type,
+                extraction_method=extraction_method,
                 content_hash=content_hash,
                 chunk_index=chunk_idx,
                 parser_name=doc.parser_name,
@@ -327,6 +360,14 @@ class HierarchicalChunker:
                     accum_elements.append(t_slice)
                     flush_accumulator(retain_overlap=False)
                 continue
+
+            # Flush accumulator on media type transition or multimodal element boundaries
+            if accum_elements and (
+                elem.element_type in (ElementType.TRANSCRIPT_SEGMENT, ElementType.IMAGE_CAPTION)
+                or accum_elements[0].element_type in (ElementType.TRANSCRIPT_SEGMENT, ElementType.IMAGE_CAPTION)
+                or (elem.media_type and accum_elements[0].media_type and elem.media_type != accum_elements[0].media_type)
+            ):
+                flush_accumulator(retain_overlap=False)
 
             # Check if adding this element would exceed max chunk size OR target size
             if accum_elements and (accum_chars + elem_len > self.max_chunk_chars or accum_chars >= self.target_chunk_chars):

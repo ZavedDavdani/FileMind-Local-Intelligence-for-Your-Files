@@ -7,6 +7,9 @@ import {
   FileCode,
   FileSpreadsheet,
   File as FileGeneric,
+  Image as FileImage,
+  Music as FileAudio,
+  Video as FileVideo,
   ExternalLink,
   FolderOpen,
   Copy,
@@ -40,9 +43,16 @@ function getFileIcon(ext: string) {
   switch (ext.toLowerCase()) {
     case ".pdf":
     case ".docx":
+    case ".doc":
     case ".txt":
     case ".md":
+    case ".rtf":
+    case ".html":
+    case ".htm":
       return <FileText className="w-4 h-4 text-indigo-400" />;
+    case ".pptx":
+    case ".ppt":
+      return <FileText className="w-4 h-4 text-orange-400" />;
     case ".py":
     case ".rs":
     case ".ts":
@@ -50,13 +60,41 @@ function getFileIcon(ext: string) {
     case ".js":
     case ".jsx":
     case ".json":
+    case ".xml":
     case ".yaml":
     case ".yml":
     case ".toml":
       return <FileCode className="w-4 h-4 text-emerald-400" />;
     case ".csv":
+    case ".tsv":
     case ".xlsx":
+    case ".xls":
       return <FileSpreadsheet className="w-4 h-4 text-amber-400" />;
+    case ".png":
+    case ".jpg":
+    case ".jpeg":
+    case ".webp":
+    case ".bmp":
+    case ".tiff":
+    case ".tif":
+    case ".svg":
+    case ".ico":
+      return <FileImage className="w-4 h-4 text-cyan-400" />;
+    case ".mp3":
+    case ".wav":
+    case ".m4a":
+    case ".flac":
+    case ".ogg":
+    case ".aac":
+    case ".wma":
+      return <FileAudio className="w-4 h-4 text-rose-400" />;
+    case ".mp4":
+    case ".mkv":
+    case ".mov":
+    case ".avi":
+    case ".webm":
+    case ".wmv":
+      return <FileVideo className="w-4 h-4 text-purple-400" />;
     default:
       return <FileGeneric className="w-4 h-4 text-slate-400" />;
   }

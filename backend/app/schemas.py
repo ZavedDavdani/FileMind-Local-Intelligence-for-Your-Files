@@ -113,6 +113,13 @@ class ChunkItem(BaseModel):
     line_end: Optional[int] = None
     char_start: Optional[int] = None
     char_end: Optional[int] = None
+    sheet_name: Optional[str] = None
+    slide_number: Optional[int] = None
+    time_start: Optional[float] = None
+    time_end: Optional[float] = None
+    frame_index: Optional[int] = None
+    media_type: Optional[str] = "document"
+    extraction_method: Optional[str] = None
     content_hash: str
     chunk_index: int
     parser_name: str
@@ -285,6 +292,13 @@ class SearchResultItem(BaseModel):
     line_end: Optional[int] = None
     char_start: Optional[int] = None
     char_end: Optional[int] = None
+    sheet_name: Optional[str] = None
+    slide_number: Optional[int] = None
+    time_start: Optional[float] = None
+    time_end: Optional[float] = None
+    frame_index: Optional[int] = None
+    media_type: Optional[str] = "document"
+    extraction_method: Optional[str] = None
     snippet: str
     content: Optional[str] = ""
     content_hash: str
@@ -370,6 +384,13 @@ class CitationItem(BaseModel):
     line_end: Optional[int] = None
     char_start: Optional[int] = None
     char_end: Optional[int] = None
+    sheet_name: Optional[str] = None
+    slide_number: Optional[int] = None
+    time_start: Optional[float] = None
+    time_end: Optional[float] = None
+    frame_index: Optional[int] = None
+    media_type: Optional[str] = "document"
+    extraction_method: Optional[str] = None
     content_hash: Optional[str] = None
     score: Optional[float] = None
     reranker_score: Optional[float] = None

@@ -166,6 +166,13 @@ class ContextItem:
     line_end: Optional[int] = None
     char_start: Optional[int] = None
     char_end: Optional[int] = None
+    sheet_name: Optional[str] = None
+    slide_number: Optional[int] = None
+    time_start: Optional[float] = None
+    time_end: Optional[float] = None
+    frame_index: Optional[int] = None
+    media_type: str = "document"
+    extraction_method: Optional[str] = None
     content_hash: Optional[str] = None
     score: Optional[float] = None
     reranker_score: Optional[float] = None
@@ -185,8 +192,28 @@ class ContextItem:
             header_parts.append(f"Section: {self.section}")
         if self.page is not None:
             header_parts.append(f"Page: {self.page}")
+        if self.sheet_name:
+            header_parts.append(f"Sheet: {self.sheet_name}")
+        if self.slide_number is not None:
+            header_parts.append(f"Slide: {self.slide_number}")
+        if self.time_start is not None and self.time_end is not None:
+            def _fmt_time(s: float) -> str:
+                m = int(s // 60)
+                sec = int(s % 60)
+                return f"{m:02d}:{sec:02d}"
+            header_parts.append(f"Timestamp: [{_fmt_time(self.time_start)} - {_fmt_time(self.time_end)}]")
+        elif self.time_start is not None:
+            m = int(self.time_start // 60)
+            sec = int(self.time_start % 60)
+            header_parts.append(f"Timestamp: {m:02d}:{sec:02d}")
+        if self.frame_index is not None:
+            header_parts.append(f"Keyframe: #{self.frame_index}")
         if self.line_start is not None and self.line_end is not None:
             header_parts.append(f"Lines: {self.line_start}-{self.line_end}")
+        if self.media_type and self.media_type != "document":
+            header_parts.append(f"Media: {self.media_type.upper()}")
+        if self.extraction_method:
+            header_parts.append(f"Method: {self.extraction_method}")
 
         header = " | ".join(header_parts)
         return f"[{header}]\n{self.content.strip()}"
@@ -205,6 +232,13 @@ class ContextItem:
             "line_end": self.line_end,
             "char_start": self.char_start,
             "char_end": self.char_end,
+            "sheet_name": self.sheet_name,
+            "slide_number": self.slide_number,
+            "time_start": self.time_start,
+            "time_end": self.time_end,
+            "frame_index": self.frame_index,
+            "media_type": self.media_type,
+            "extraction_method": self.extraction_method,
             "content": self.content,
             "content_hash": self.content_hash,
             "score": self.score,
@@ -334,6 +368,7 @@ class ContextBuilder:
         )
         total_item_tokens = token_est + framing_est
 
+        meta_dict = dict(d.get("metadata") or {})
         return ContextItem(
             chunk_id=chunk_id,
             file_id=file_id,
@@ -349,6 +384,13 @@ class ContextBuilder:
             line_end=d.get("line_end"),
             char_start=d.get("char_start"),
             char_end=d.get("char_end"),
+            sheet_name=d.get("sheet_name") or meta_dict.get("sheet_name"),
+            slide_number=d.get("slide_number") if d.get("slide_number") is not None else meta_dict.get("slide_number"),
+            time_start=d.get("time_start") if d.get("time_start") is not None else meta_dict.get("time_start"),
+            time_end=d.get("time_end") if d.get("time_end") is not None else meta_dict.get("time_end"),
+            frame_index=d.get("frame_index") if d.get("frame_index") is not None else meta_dict.get("frame_index"),
+            media_type=d.get("media_type") or meta_dict.get("media_type") or "document",
+            extraction_method=d.get("extraction_method") or meta_dict.get("extraction_method"),
             content_hash=d.get("content_hash"),
             score=d.get("score"),
             reranker_score=d.get("reranker_score"),
@@ -359,7 +401,7 @@ class ContextBuilder:
             parser_name=d.get("parser_name"),
             parser_version=d.get("parser_version"),
             chunker_version=d.get("chunker_version"),
-            metadata=dict(d.get("metadata") or {}),
+            metadata=meta_dict,
         )
 
     def build_context(

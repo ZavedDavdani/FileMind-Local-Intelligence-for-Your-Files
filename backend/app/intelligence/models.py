@@ -17,6 +17,9 @@ class ElementType(str, Enum):
     TABLE = "TABLE"
     CODE_BLOCK = "CODE_BLOCK"
     PAGE_BREAK = "PAGE_BREAK"
+    TRANSCRIPT_SEGMENT = "TRANSCRIPT_SEGMENT"
+    IMAGE_CAPTION = "IMAGE_CAPTION"
+    VISUAL_METADATA = "VISUAL_METADATA"
 
 
 @dataclass
@@ -54,7 +57,6 @@ class TableData:
         return "\n".join(lines)
 
 
-
 @dataclass
 class DocumentElement:
     """Individual structural element within a document."""
@@ -70,6 +72,13 @@ class DocumentElement:
     table_data: Optional[TableData] = None
     language: Optional[str] = None  # For CODE_BLOCK
     parent_heading_id: Optional[str] = None
+    sheet_name: Optional[str] = None
+    slide_number: Optional[int] = None
+    time_start: Optional[float] = None
+    time_end: Optional[float] = None
+    frame_index: Optional[int] = None
+    media_type: str = "document"  # 'document', 'image', 'audio', 'video', 'tabular'
+    extraction_method: Optional[str] = None  # 'native', 'ocr', 'vision_description', 'transcription', 'metadata'
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

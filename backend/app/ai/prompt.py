@@ -41,6 +41,13 @@ class CitationSource:
     line_end: Optional[int] = None
     char_start: Optional[int] = None
     char_end: Optional[int] = None
+    sheet_name: Optional[str] = None
+    slide_number: Optional[int] = None
+    time_start: Optional[float] = None
+    time_end: Optional[float] = None
+    frame_index: Optional[int] = None
+    media_type: str = "document"
+    extraction_method: Optional[str] = None
     content_hash: Optional[str] = None
     score: Optional[float] = None
     reranker_score: Optional[float] = None
@@ -61,6 +68,13 @@ class CitationSource:
             "line_end": self.line_end,
             "char_start": self.char_start,
             "char_end": self.char_end,
+            "sheet_name": self.sheet_name,
+            "slide_number": self.slide_number,
+            "time_start": self.time_start,
+            "time_end": self.time_end,
+            "frame_index": self.frame_index,
+            "media_type": self.media_type,
+            "extraction_method": self.extraction_method,
             "content_hash": self.content_hash,
             "score": self.score,
             "reranker_score": self.reranker_score,
@@ -142,6 +156,13 @@ class PromptBuilder:
                 line_end=item.line_end,
                 char_start=item.char_start,
                 char_end=item.char_end,
+                sheet_name=getattr(item, "sheet_name", None),
+                slide_number=getattr(item, "slide_number", None),
+                time_start=getattr(item, "time_start", None),
+                time_end=getattr(item, "time_end", None),
+                frame_index=getattr(item, "frame_index", None),
+                media_type=getattr(item, "media_type", "document") or "document",
+                extraction_method=getattr(item, "extraction_method", None),
                 content_hash=item.content_hash,
                 score=item.score,
                 reranker_score=item.reranker_score,
@@ -155,8 +176,32 @@ class PromptBuilder:
                 header_parts.append(f"Section: {item.section}")
             if item.page is not None:
                 header_parts.append(f"Page: {item.page}")
+            if getattr(item, "sheet_name", None):
+                header_parts.append(f"Sheet: {item.sheet_name}")
+            if getattr(item, "slide_number", None) is not None:
+                header_parts.append(f"Slide: {item.slide_number}")
+            t_start = getattr(item, "time_start", None)
+            t_end = getattr(item, "time_end", None)
+            if t_start is not None and t_end is not None:
+                def _fmt_time(s: float) -> str:
+                    m = int(s // 60)
+                    sec = int(s % 60)
+                    return f"{m:02d}:{sec:02d}"
+                header_parts.append(f"Timestamp: [{_fmt_time(t_start)} - {_fmt_time(t_end)}]")
+            elif t_start is not None:
+                m = int(t_start // 60)
+                sec = int(t_start % 60)
+                header_parts.append(f"Timestamp: {m:02d}:{sec:02d}")
+            if getattr(item, "frame_index", None) is not None:
+                header_parts.append(f"Keyframe: #{item.frame_index}")
             if item.line_start is not None and item.line_end is not None:
                 header_parts.append(f"Lines: {item.line_start}-{item.line_end}")
+            m_type = getattr(item, "media_type", None)
+            if m_type and m_type != "document":
+                header_parts.append(f"Media: {m_type.upper()}")
+            m_meth = getattr(item, "extraction_method", None)
+            if m_meth:
+                header_parts.append(f"Method: {m_meth}")
 
             meta_line = " | ".join(header_parts)
             evidence_blocks.append(f"[{citation_id}] {meta_line}\n{item.content.strip()}")

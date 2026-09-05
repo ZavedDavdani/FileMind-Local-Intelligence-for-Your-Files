@@ -72,7 +72,10 @@ class PptxParser(BaseParser):
                     element_type=ElementType.HEADING,
                     text=f"Slide {slide_idx}: {slide_title}",
                     page_number=slide_idx,
+                    slide_number=slide_idx,
                     level=1,
+                    media_type="document",
+                    extraction_method="native",
                 )
                 current_slide_heading_id = elem_id
                 doc_obj.elements.append(elem)
@@ -99,8 +102,11 @@ class PptxParser(BaseParser):
                             element_type=ElementType.TABLE,
                             text=t_data.to_markdown(),
                             page_number=slide_idx,
+                            slide_number=slide_idx,
                             table_data=t_data,
                             parent_heading_id=current_slide_heading_id,
+                            media_type="document",
+                            extraction_method="native",
                         )
                         doc_obj.elements.append(elem)
 
@@ -120,7 +126,10 @@ class PptxParser(BaseParser):
                                 element_type=ElementType.LIST_ITEM,
                                 text=text,
                                 page_number=slide_idx,
+                                slide_number=slide_idx,
                                 parent_heading_id=current_slide_heading_id,
+                                media_type="document",
+                                extraction_method="native",
                             )
                         else:
                             elem = DocumentElement(
@@ -128,7 +137,10 @@ class PptxParser(BaseParser):
                                 element_type=ElementType.PARAGRAPH,
                                 text=text,
                                 page_number=slide_idx,
+                                slide_number=slide_idx,
                                 parent_heading_id=current_slide_heading_id,
+                                media_type="document",
+                                extraction_method="native",
                             )
                         doc_obj.elements.append(elem)
 
@@ -144,7 +156,10 @@ class PptxParser(BaseParser):
                             element_type=ElementType.PARAGRAPH,
                             text=f"Speaker Notes: {notes_text}",
                             page_number=slide_idx,
+                            slide_number=slide_idx,
                             parent_heading_id=current_slide_heading_id,
+                            media_type="document",
+                            extraction_method="native",
                         )
                         doc_obj.elements.append(elem)
             except Exception:

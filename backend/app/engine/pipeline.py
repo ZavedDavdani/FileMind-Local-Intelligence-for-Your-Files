@@ -105,14 +105,8 @@ class IndexingPipeline:
         parser = self.parser_registry.get_parser_for_file(file_path, mime_type)
 
         if not parser:
-            is_image = (mime_type and mime_type.startswith("image/")) or file_path.lower().endswith(
-                (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".ico", ".tiff")
-            )
-            diag_reason = (
-                "Image indexing deferred to Phase 7 (no text parser registered)"
-                if is_image
-                else "Unsupported file format (no parser registered)"
-            )
+            ext = os.path.splitext(file_path)[1].lower()
+            diag_reason = f"Unsupported file format '{ext or mime_type}' (no parser registered)"
             logger.info("File %s skipped: %s", file_path, diag_reason)
             return IndexingPipelineResult(
                 file_id=file_id,

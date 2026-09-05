@@ -283,6 +283,47 @@ export const ChunkInspector: React.FC<ChunkInspectorProps> = ({
                         {selectedChunk.parser_name} v{selectedChunk.parser_version}
                       </div>
                     </div>
+                    {selectedChunk.sheet_name && (
+                      <div>
+                        <span style={{ fontSize: "0.75rem", color: "#6c7086" }}>Sheet:</span>
+                        <div style={{ fontSize: "0.85rem", color: "#a6e3a1" }}>{selectedChunk.sheet_name}</div>
+                      </div>
+                    )}
+                    {selectedChunk.slide_number !== undefined && selectedChunk.slide_number !== null && (
+                      <div>
+                        <span style={{ fontSize: "0.75rem", color: "#6c7086" }}>Slide:</span>
+                        <div style={{ fontSize: "0.85rem", color: "#fab387" }}>Slide {selectedChunk.slide_number}</div>
+                      </div>
+                    )}
+                    {selectedChunk.time_start !== undefined && selectedChunk.time_start !== null && (
+                      <div>
+                        <span style={{ fontSize: "0.75rem", color: "#6c7086" }}>Timestamp Range:</span>
+                        <div style={{ fontSize: "0.85rem", color: "#89dceb" }}>
+                          {Math.floor(selectedChunk.time_start / 60)}:{(selectedChunk.time_start % 60).toFixed(0).padStart(2, "0")}
+                          {selectedChunk.time_end !== undefined && selectedChunk.time_end !== null
+                            ? ` - ${Math.floor(selectedChunk.time_end / 60)}:${(selectedChunk.time_end % 60).toFixed(0).padStart(2, "0")}`
+                            : ""}
+                        </div>
+                      </div>
+                    )}
+                    {selectedChunk.frame_index !== undefined && selectedChunk.frame_index !== null && (
+                      <div>
+                        <span style={{ fontSize: "0.75rem", color: "#6c7086" }}>Keyframe:</span>
+                        <div style={{ fontSize: "0.85rem", color: "#f38ba8" }}>#{selectedChunk.frame_index}</div>
+                      </div>
+                    )}
+                    {selectedChunk.media_type && selectedChunk.media_type !== "document" && (
+                      <div>
+                        <span style={{ fontSize: "0.75rem", color: "#6c7086" }}>Media Type:</span>
+                        <div style={{ fontSize: "0.85rem", color: "#cba6f7", textTransform: "uppercase" }}>{selectedChunk.media_type}</div>
+                      </div>
+                    )}
+                    {selectedChunk.extraction_method && (
+                      <div>
+                        <span style={{ fontSize: "0.75rem", color: "#6c7086" }}>Extraction Method:</span>
+                        <div style={{ fontSize: "0.85rem", color: "#b4befe" }}>{selectedChunk.extraction_method}</div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Content Preview */}

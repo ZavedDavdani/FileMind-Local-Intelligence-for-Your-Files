@@ -19,31 +19,31 @@ from app.intelligence.models import Document, DocumentElement, ElementType
 
 def test_image_and_unsupported_files_truthful_skipped_status():
     """
-    Verifies that unsupported image files (e.g. .png, .jpg) and unsupported formats
+    Verifies that unsupported files (e.g. .bin, .exe, .iso, .zip) and unsupported formats
     are NOT falsely marked as INDEXED, but truthfully marked as SKIPPED with a
     diagnostic reason, creating 0 chunks and 0 vector records.
     """
-    tmp_dir = tempfile.mkdtemp(prefix="filemind_img_test_")
+    tmp_dir = tempfile.mkdtemp(prefix="filemind_unsupported_test_")
     db_path = os.path.join(tmp_dir, "test.db")
     db = DatabaseManager(db_path=db_path)
     with db.session() as conn:
         apply_migrations(conn)
 
-    # Create dummy image file
-    img_path = os.path.join(tmp_dir, "sample_diagram.png")
-    with open(img_path, "wb") as f:
-        f.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + b"\x00" * 50)
+    # Create dummy unsupported binary file
+    bin_path = os.path.join(tmp_dir, "sample_binary.bin")
+    with open(bin_path, "wb") as f:
+        f.write(b"\x00\x01\x02\x03\x04\x05\x06\x07" * 10)
 
     with db.session() as conn:
         repo = Repository(conn)
         folder = repo.create_folder(tmp_dir, recursive=True, integrity_mode="NORMAL")
         file_rec = repo.upsert_file(
             folder_id=folder["folder_id"],
-            path=img_path,
-            relative_path="sample_diagram.png",
-            filename="sample_diagram.png",
-            extension=".png",
-            size_bytes=os.path.getsize(img_path),
+            path=bin_path,
+            relative_path="sample_binary.bin",
+            filename="sample_binary.bin",
+            extension=".bin",
+            size_bytes=os.path.getsize(bin_path),
             modified_at="2026-08-30T12:00:00Z",
             index_status="QUEUED",
         )
@@ -66,7 +66,7 @@ def test_image_and_unsupported_files_truthful_skipped_status():
         assert updated_file is not None
         # Must be SKIPPED, NEVER INDEXED
         assert updated_file["index_status"] == "SKIPPED"
-        assert "Phase 7" in (updated_file.get("indexing_error") or "")
+        assert "Unsupported file format" in (updated_file.get("indexing_error") or "")
 
         # Verify 0 chunks were created
         cur = conn.execute("SELECT COUNT(*) FROM chunks WHERE file_id = ?;", (file_id,))

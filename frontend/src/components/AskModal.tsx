@@ -605,6 +605,18 @@ export const AskModal: React.FC<AskModalProps> = ({
                             {c.page !== null && c.page !== undefined && (
                               <span>Pg: <strong className="text-slate-300">{c.page}</strong></span>
                             )}
+                            {c.sheet_name && (
+                              <span>Sheet: <strong className="text-emerald-400">{c.sheet_name}</strong></span>
+                            )}
+                            {c.slide_number !== null && c.slide_number !== undefined && (
+                              <span>Slide: <strong className="text-amber-400">{c.slide_number}</strong></span>
+                            )}
+                            {c.time_start !== null && c.time_start !== undefined && (
+                              <span>Time: <strong className="text-cyan-400">{Math.floor(c.time_start / 60)}:{(c.time_start % 60).toFixed(0).padStart(2, "0")}{c.time_end !== null && c.time_end !== undefined ? `–${Math.floor(c.time_end / 60)}:${(c.time_end % 60).toFixed(0).padStart(2, "0")}` : ""}</strong></span>
+                            )}
+                            {c.frame_index !== null && c.frame_index !== undefined && (
+                              <span>Frame: <strong className="text-rose-400">#{c.frame_index}</strong></span>
+                            )}
                             {c.line_start !== null && c.line_end !== null && (
                               <span>Lines: <strong className="text-slate-300">{c.line_start}-{c.line_end}</strong></span>
                             )}

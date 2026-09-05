@@ -37,10 +37,24 @@ class ChunkRepository:
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         );
         """
+        MULTIMODAL_KEYS = (
+            "sheet_name",
+            "slide_number",
+            "time_start",
+            "time_end",
+            "frame_index",
+            "media_type",
+            "extraction_method",
+        )
         rows_to_insert = []
         for c in chunks:
             c_dict = c if isinstance(c, dict) else (c.to_dict() if hasattr(c, "to_dict") else c.__dict__)
-            meta_json = json.dumps(c_dict.get("metadata", {}))
+            meta = dict(c_dict.get("metadata", {}) or {})
+            for k in MULTIMODAL_KEYS:
+                val = c_dict.get(k)
+                if val is not None and k not in meta:
+                    meta[k] = val
+            meta_json = json.dumps(meta)
             rows_to_insert.append((
                 c_dict["chunk_id"],
                 file_id,
@@ -72,6 +86,21 @@ class ChunkRepository:
 
         return len(rows_to_insert)
 
+    @staticmethod
+    def _hydrate_chunk_row(d: Dict[str, Any]) -> Dict[str, Any]:
+        """Parses metadata_json and hydrates multimodal provenance fields."""
+        try:
+            meta = json.loads(d.get("metadata_json") or "{}")
+        except Exception:
+            meta = {}
+        d["metadata"] = meta
+        for k in ("sheet_name", "slide_number", "time_start", "time_end", "frame_index", "media_type", "extraction_method"):
+            if k in meta and d.get(k) is None:
+                d[k] = meta[k]
+        if "media_type" not in d or not d["media_type"]:
+            d["media_type"] = "document"
+        return d
+
     def get_chunks_by_file(self, file_id: str) -> List[Dict[str, Any]]:
         """Retrieves all chunks for a file ordered by chunk_index."""
         cursor = self.conn.execute(
@@ -80,12 +109,7 @@ class ChunkRepository:
         )
         results = []
         for row in cursor.fetchall():
-            d = dict(row)
-            try:
-                d["metadata"] = json.loads(d.get("metadata_json") or "{}")
-            except Exception:
-                d["metadata"] = {}
-            results.append(d)
+            results.append(self._hydrate_chunk_row(dict(row)))
         return results
 
     def get_chunk_by_id(self, chunk_id: str) -> Optional[Dict[str, Any]]:
@@ -94,12 +118,7 @@ class ChunkRepository:
         row = cursor.fetchone()
         if not row:
             return None
-        d = dict(row)
-        try:
-            d["metadata"] = json.loads(d.get("metadata_json") or "{}")
-        except Exception:
-            d["metadata"] = {}
-        return d
+        return self._hydrate_chunk_row(dict(row))
 
     def get_chunks_by_files(self, file_ids: List[str], chunk_size: int = 500) -> Dict[str, List[Dict[str, Any]]]:
         """Retrieves chunks grouped by file_id for a list of file_ids with parameter batching."""
@@ -115,11 +134,7 @@ class ChunkRepository:
                 batch,
             )
             for row in cursor.fetchall():
-                d = dict(row)
-                try:
-                    d["metadata"] = json.loads(d.get("metadata_json") or "{}")
-                except Exception:
-                    d["metadata"] = {}
+                d = self._hydrate_chunk_row(dict(row))
                 out.setdefault(d["file_id"], []).append(d)
         return out
 
@@ -137,11 +152,7 @@ class ChunkRepository:
                 batch,
             )
             for row in cursor.fetchall():
-                d = dict(row)
-                try:
-                    d["metadata"] = json.loads(d.get("metadata_json") or "{}")
-                except Exception:
-                    d["metadata"] = {}
+                d = self._hydrate_chunk_row(dict(row))
                 out[d["chunk_id"]] = d
         return out
 

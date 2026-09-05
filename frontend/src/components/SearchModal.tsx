@@ -349,13 +349,16 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             >
               <option value="">All Formats</option>
               <option value=".pdf">PDF (.pdf)</option>
-              <option value=".docx">Word (.docx)</option>
-              <option value=".pptx">PowerPoint (.pptx)</option>
-              <option value=".xlsx">Excel (.xlsx)</option>
-              <option value=".csv">CSV (.csv)</option>
+              <option value=".docx">Word (.docx, .doc)</option>
+              <option value=".pptx">PowerPoint (.pptx, .ppt)</option>
+              <option value=".xlsx">Excel / Spreadsheets (.xlsx, .xls, .csv, .tsv)</option>
               <option value=".md">Markdown (.md)</option>
-              <option value=".py">Python (.py)</option>
-              <option value=".json">JSON (.json)</option>
+              <option value=".txt">Text / Plaintext (.txt, .rtf, .html)</option>
+              <option value=".json">Data / Structure (.json, .xml)</option>
+              <option value=".py">Code (.py, .ts, .js, .rs)</option>
+              <option value=".png">Images (.png, .jpg, .webp, .svg)</option>
+              <option value=".mp3">Audio (.mp3, .wav, .m4a, .flac)</option>
+              <option value=".mp4">Video (.mp4, .mkv, .mov, .webm)</option>
             </select>
           </div>
         </div>
@@ -551,6 +554,34 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                         )}
                         {primaryChunk.page && (
                           <span className="text-slate-500 text-[11px]">Page {primaryChunk.page}</span>
+                        )}
+                        {primaryChunk.sheet_name && (
+                          <span className="text-emerald-400 bg-emerald-950/60 px-1 py-0.5 rounded text-[11px]">
+                            Sheet: {primaryChunk.sheet_name}
+                          </span>
+                        )}
+                        {primaryChunk.slide_number !== undefined && primaryChunk.slide_number !== null && (
+                          <span className="text-amber-400 bg-amber-950/60 px-1 py-0.5 rounded text-[11px]">
+                            Slide {primaryChunk.slide_number}
+                          </span>
+                        )}
+                        {primaryChunk.time_start !== undefined && primaryChunk.time_start !== null && (
+                          <span className="text-cyan-400 bg-cyan-950/60 px-1 py-0.5 rounded text-[11px]">
+                            {Math.floor(primaryChunk.time_start / 60)}:{(primaryChunk.time_start % 60).toFixed(0).padStart(2, "0")}
+                            {primaryChunk.time_end !== undefined && primaryChunk.time_end !== null
+                              ? `–${Math.floor(primaryChunk.time_end / 60)}:${(primaryChunk.time_end % 60).toFixed(0).padStart(2, "0")}`
+                              : ""}
+                          </span>
+                        )}
+                        {primaryChunk.frame_index !== undefined && primaryChunk.frame_index !== null && (
+                          <span className="text-rose-400 bg-rose-950/60 px-1 py-0.5 rounded text-[11px]">
+                            Frame #{primaryChunk.frame_index}
+                          </span>
+                        )}
+                        {primaryChunk.media_type && primaryChunk.media_type !== "document" && (
+                          <span className="text-purple-400 bg-purple-950/60 px-1 py-0.5 rounded text-[10px] uppercase font-bold">
+                            {primaryChunk.media_type}
+                          </span>
                         )}
                         {primaryChunk.line_start && primaryChunk.line_end && (
                           <span className="text-slate-500 text-[11px]">Lines {primaryChunk.line_start}–{primaryChunk.line_end}</span>
