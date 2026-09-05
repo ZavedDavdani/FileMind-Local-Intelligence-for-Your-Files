@@ -678,12 +678,22 @@ class StorageStatsResponse(BaseModel):
 
 
 class DiagnosticsResponse(BaseModel):
+    app_version: str
     version: str
+    system_os: str
     platform: str
+    schema_version: int = 10
     database_status: str
-    vector_store_status: str
-    worker_pool_status: str
-    watcher_status: str
+    sqlite_version: str = "3.x"
+    vec_version: str = "Loaded"
+    vector_store_status: str = "healthy"
+    worker_pool_status: str = "idle"
+    active_workers: int = 0
+    watcher_status: str = "active"
+    total_folders_watched: int = 0
+    indexed_file_count: int = 0
+    error_count: int = 0
+    recent_errors: List[str] = []
     ollama_status: str
     uptime_seconds: float
 

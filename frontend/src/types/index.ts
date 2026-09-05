@@ -639,18 +639,24 @@ export interface StorageStatsResponse {
 }
 
 export interface DiagnosticsResponse {
-  system_os: string;
   app_version: string;
+  version: string;
+  system_os: string;
+  platform: string;
   schema_version: number;
   database_status: string;
   sqlite_version: string;
   vec_version: string;
-  ollama_status: string;
+  vector_store_status: string;
+  worker_pool_status: string;
   active_workers: number;
+  watcher_status: string;
   total_folders_watched: number;
   indexed_file_count: number;
   error_count: number;
   recent_errors: string[];
+  ollama_status: string;
+  uptime_seconds: number;
 }
 
 // ---------------------------------------------------------------------------

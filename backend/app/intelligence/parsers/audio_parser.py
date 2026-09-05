@@ -78,7 +78,7 @@ def read_audio_metadata(file_path: str, ext: str) -> Dict[str, Any]:
     """Extracts duration, channels, sample rate, and format from audio file headers."""
     file_path = str(file_path)
     meta: Dict[str, Any] = {
-        "duration_seconds": 0.0,
+        "duration_seconds": None,
         "sample_rate": None,
         "channels": None,
         "format": ext.lstrip(".").upper(),
@@ -124,7 +124,7 @@ def read_audio_metadata(file_path: str, ext: str) -> Dict[str, Any]:
                         sample_idx = (head[i + 2] >> 2) & 0x03
                         bitrate_table = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
                         sample_table = [44100, 48000, 32000, 44100]
-                        bitrate = bitrate_table[bitrate_idx] * 1000 if bitrate_idx < len(bitrate_table) else 128000
+                        bitrate = bitrate_table[bitrate_idx] * 1000 if bitrate_idx < len(bitrate_table) else 0
                         samplerate = sample_table[sample_idx] if sample_idx < len(sample_table) else 44100
                         meta["sample_rate"] = samplerate
                         meta["channels"] = 2
@@ -133,11 +133,6 @@ def read_audio_metadata(file_path: str, ext: str) -> Dict[str, Any]:
                         break
         except Exception:
             pass
-
-    # 3. Fallback duration estimate from typical bitrates
-    if meta["duration_seconds"] == 0.0:
-        est_bitrate = 128000  # 128 kbps estimate
-        meta["duration_seconds"] = round((size_bytes * 8) / float(est_bitrate), 2)
 
     return meta
 
@@ -190,13 +185,17 @@ class AudioParser(BaseParser):
 
         try:
             meta = read_audio_metadata(file_path, ext)
-            duration = meta["duration_seconds"]
-            dur_formatted = _format_timestamp(duration)
+            duration = meta.get("duration_seconds")
+            if duration is not None and duration > 0:
+                dur_formatted = _format_timestamp(duration)
+                dur_str = f"{dur_formatted} ({duration:.1f} seconds)"
+            else:
+                dur_str = "Unknown"
 
             meta_lines = [
                 f"Audio Track: {filename}",
                 f"Format: {meta['format']}",
-                f"Duration: {dur_formatted} ({duration:.1f} seconds)",
+                f"Duration: {dur_str}",
             ]
             if meta.get("sample_rate"):
                 meta_lines.append(f"Sample Rate: {meta['sample_rate']} Hz")
@@ -248,7 +247,7 @@ class AudioParser(BaseParser):
                     DocumentElement(
                         element_id=f"{file_id}_elem_{elem_idx}",
                         element_type=ElementType.PARAGRAPH,
-                        text=f"Audio recording: {filename} (Duration: {dur_formatted}).",
+                        text=f"Audio recording: {filename} (Duration: {dur_str}).",
                         time_start=0.0,
                         time_end=duration,
                         media_type="audio",

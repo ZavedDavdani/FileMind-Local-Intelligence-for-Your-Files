@@ -377,6 +377,16 @@ class WatcherService:
         self.debouncer.stop()
         logger.info("WatcherService stopped")
 
+    @property
+    def status(self) -> str:
+        """Returns dynamic lifecycle state: 'active', 'stopped', 'error'."""
+        with self._lock:
+            if getattr(self, "_has_error", False):
+                return "error"
+            if self.observer and self.observer.is_alive():
+                return "active"
+            return "stopped"
+
     def sync_watches(self):
         """Synchronizes watchdog monitors with folders table in SQLite."""
         with self._lock:

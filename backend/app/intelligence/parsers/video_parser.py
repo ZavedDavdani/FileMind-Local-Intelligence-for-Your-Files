@@ -33,7 +33,7 @@ def _format_timestamp(seconds: float) -> str:
 def read_video_metadata(file_path: str, ext: str) -> Dict[str, Any]:
     """Parses video headers (MP4 mvhd/tkhd atoms, MKV headers) to extract duration and dimensions."""
     meta: Dict[str, Any] = {
-        "duration_seconds": 0.0,
+        "duration_seconds": None,
         "width": None,
         "height": None,
         "format": ext.lstrip(".").upper(),
@@ -76,10 +76,6 @@ def read_video_metadata(file_path: str, ext: str) -> Dict[str, Any]:
                         f.seek(max(0, atom_size - 8), os.SEEK_CUR)
         except Exception:
             pass
-
-    if meta["duration_seconds"] == 0.0:
-        # Default estimation based on 1.5 Mbps video stream
-        meta["duration_seconds"] = round((size_bytes * 8) / float(1500000), 2)
 
     return meta
 
@@ -131,13 +127,17 @@ class VideoParser(BaseParser):
 
         try:
             meta = read_video_metadata(file_path, ext)
-            duration = meta["duration_seconds"]
-            dur_formatted = _format_timestamp(duration)
+            duration = meta.get("duration_seconds")
+            if duration is not None and duration > 0:
+                dur_formatted = _format_timestamp(duration)
+                dur_str = f"{dur_formatted} ({duration:.1f} seconds)"
+            else:
+                dur_str = "Unknown"
 
             meta_lines = [
                 f"Video Recording: {filename}",
                 f"Container Format: {meta['format']}",
-                f"Duration: {dur_formatted} ({duration:.1f} seconds)",
+                f"Duration: {dur_str}",
             ]
             if meta.get("width") and meta.get("height"):
                 meta_lines.append(f"Resolution: {meta['width']}x{meta['height']}")
@@ -148,39 +148,13 @@ class VideoParser(BaseParser):
                     element_id=f"{file_id}_elem_1",
                     element_type=ElementType.VISUAL_METADATA,
                     text=meta_text,
-                    time_start=0.0,
-                    time_end=duration,
+                    time_start=0.0 if duration is not None else None,
+                    time_end=duration if duration is not None else None,
                     media_type="video",
                     extraction_method="metadata",
                     metadata=meta,
                 )
             )
-
-            elem_idx = 1
-
-            # Bounded keyframe interval sampling
-            num_keyframes = min(self.max_keyframes, max(1, int(duration // 30) if duration > 0 else 1))
-            interval = duration / float(num_keyframes) if duration > 0 else 0.0
-
-            for kf_i in range(num_keyframes):
-                t_kf = kf_i * interval
-                elem_idx += 1
-                stamp_str = _format_timestamp(t_kf)
-                kf_text = f"Keyframe #{kf_i + 1} at {stamp_str}: Visual scene sampling from {filename}."
-
-                doc_obj.elements.append(
-                    DocumentElement(
-                        element_id=f"{file_id}_elem_{elem_idx}",
-                        element_type=ElementType.IMAGE_CAPTION,
-                        text=kf_text,
-                        time_start=t_kf,
-                        time_end=t_kf + interval,
-                        frame_index=kf_i + 1,
-                        media_type="video",
-                        extraction_method="metadata",
-                        metadata={"keyframe_index": kf_i + 1, "timestamp_seconds": t_kf},
-                    )
-                )
 
         except Exception as exc:
             raise CorruptedDocumentError(f"Failed to process video file {filename}: {str(exc)}") from exc

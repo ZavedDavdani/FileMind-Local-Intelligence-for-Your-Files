@@ -71,6 +71,11 @@ class OllamaProvider:
                 "http://127.0.0.1:<port>."
             )
 
+    @property
+    def endpoint(self) -> str:
+        """Alias for base_url for compatibility across routers."""
+        return self.base_url
+
     def _get_client(self) -> httpx.Client:
         if self._client is not None and not self._client.is_closed:
             return self._client

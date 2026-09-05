@@ -115,9 +115,14 @@ class ImageParser(BaseParser):
         self,
         ocr_engine: Optional[BaseOCREngine] = None,
         vision_engine: Optional[BaseVisionEngine] = None,
+        enable_vision_model: bool = False,
     ):
         self.ocr_engine = ocr_engine or LocalOCREngine()
-        self.vision_engine = vision_engine or LocalVisionEngine()
+        self.enable_vision_model = enable_vision_model
+        if enable_vision_model:
+            self.vision_engine = vision_engine or LocalVisionEngine()
+        else:
+            self.vision_engine = vision_engine
 
     @property
     def parser_name(self) -> str:
@@ -160,6 +165,7 @@ class ImageParser(BaseParser):
         )
 
         try:
+            doc_obj.metadata["vision_model_enabled"] = self.enable_vision_model
             if ext == ".svg":
                 self._parse_svg(file_path, doc_obj, file_id)
             else:
@@ -275,17 +281,18 @@ class ImageParser(BaseParser):
                 )
             )
 
-        # 3. Optional Local Vision Description (if available)
-        vision_desc = self.vision_engine.describe_image(file_path) if self.vision_engine else None
-        if vision_desc:
-            elem_idx += 1
-            doc.elements.append(
-                DocumentElement(
-                    element_id=f"{file_id}_elem_{elem_idx}",
-                    element_type=ElementType.IMAGE_CAPTION,
-                    text=f"[Visual Description]\n{vision_desc}",
-                    media_type="image",
-                    extraction_method="vision_description",
-                    metadata={"has_vision_description": True},
+        # 3. Optional Local Vision Description (only if explicitly enabled)
+        if self.enable_vision_model and self.vision_engine:
+            vision_desc = self.vision_engine.describe_image(file_path)
+            if vision_desc:
+                elem_idx += 1
+                doc.elements.append(
+                    DocumentElement(
+                        element_id=f"{file_id}_elem_{elem_idx}",
+                        element_type=ElementType.IMAGE_CAPTION,
+                        text=f"[Visual Description (AI-Generated)]\n{vision_desc}",
+                        media_type="image",
+                        extraction_method="vision_description",
+                        metadata={"has_vision_description": True, "is_model_caption": True},
+                    )
                 )
-            )

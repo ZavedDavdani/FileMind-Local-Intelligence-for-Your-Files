@@ -62,33 +62,93 @@ def get_diagnostics(
     db_status = "healthy"
     vec_status = "healthy"
     worker_status = "healthy"
-    watcher_status = "active"
+    active_workers = 0
+    watcher_status = "stopped"
+    schema_ver = 10
+    sqlite_ver = "3.x"
+    vec_ver = "Loaded"
+    total_folders = 0
+    indexed_files = 0
+    error_count = 0
+    recent_errors: List[str] = []
 
     try:
+        import sqlite3
+        sqlite_ver = sqlite3.sqlite_version
         with ctx.db_manager.session() as conn:
             conn.execute("SELECT 1;").fetchone()
+            try:
+                row = conn.execute("PRAGMA user_version;").fetchone()
+                if row:
+                    schema_ver = int(row[0])
+            except Exception:
+                pass
+            try:
+                f_count = conn.execute("SELECT COUNT(*) FROM folders WHERE indexing_enabled = 1;").fetchone()
+                if f_count:
+                    total_folders = int(f_count[0])
+                idx_count = conn.execute("SELECT COUNT(*) FROM files WHERE index_status = 'INDEXED';").fetchone()
+                if idx_count:
+                    indexed_files = int(idx_count[0])
+                err_count = conn.execute("SELECT COUNT(*) FROM files WHERE index_status = 'ERROR';").fetchone()
+                if err_count:
+                    error_count = int(err_count[0])
+                err_rows = conn.execute(
+                    "SELECT path, last_error FROM files WHERE index_status = 'ERROR' AND last_error IS NOT NULL ORDER BY updated_at DESC LIMIT 5;"
+                ).fetchall()
+                recent_errors = [f"{os.path.basename(r[0])}: {r[1]}" for r in err_rows]
+            except Exception:
+                pass
     except Exception:
         db_status = "unhealthy"
 
     try:
         with ctx.db_manager.session() as conn:
-            conn.execute("SELECT vec_version();").fetchone()
+            res = conn.execute("SELECT vec_version();").fetchone()
+            if res:
+                vec_ver = f"v{res[0]}"
     except Exception:
         vec_status = "unhealthy"
+        vec_ver = "Unavailable"
 
     engine_coord = getattr(ctx, "engine_coordinator", None)
-    if engine_coord and getattr(engine_coord.worker_pool, "is_running", False):
-        worker_status = "running"
+    if engine_coord:
+        wp = getattr(engine_coord, "worker_pool", None)
+        if wp and getattr(wp, "is_running", False):
+            worker_status = "running"
+            active_workers = getattr(wp, "worker_count", 2)
+        else:
+            worker_status = "idle"
+            active_workers = 0
+
+        ws = getattr(engine_coord, "watcher_service", None)
+        if ws and hasattr(ws, "status"):
+            watcher_status = ws.status
+        elif ws and getattr(ws, "observer", None) and ws.observer.is_alive():
+            watcher_status = "active"
+        else:
+            watcher_status = "stopped"
     else:
         worker_status = "idle"
+        watcher_status = "stopped"
 
     return DiagnosticsResponse(
+        app_version=__version__,
         version=__version__,
+        system_os=sys.platform,
         platform=sys.platform,
+        schema_version=schema_ver,
         database_status=db_status,
+        sqlite_version=sqlite_ver,
+        vec_version=vec_ver,
         vector_store_status=vec_status,
         worker_pool_status=worker_status,
+        active_workers=active_workers,
         watcher_status=watcher_status,
+        total_folders_watched=total_folders,
+        indexed_file_count=indexed_files,
+        error_count=error_count,
+        recent_errors=recent_errors,
         ollama_status="configured (" + default_ollama_provider.model + ")",
         uptime_seconds=round(time.time() - _START_TIME, 2),
     )

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import urllib.request
 import json
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -17,6 +18,10 @@ from app.schemas import InstalledModelItem, ModelSelectionRequest, ModelStatusRe
 logger = logging.getLogger("FileMind.AI.ModelsRouter")
 
 router = APIRouter(prefix="/api/models", tags=["Models"])
+
+
+MODEL_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_.:\-\/]+$")
+MAX_MODEL_NAME_LEN = 128
 
 
 @router.get("/status", response_model=ModelStatusResponse)
@@ -77,8 +82,13 @@ def select_model(
     ctx: AppContext = Depends(get_app_context),
 ) -> ModelStatusResponse:
     """Switches the active generation model for local AI."""
-    if req.generation_model:
+    if req.generation_model is not None:
         clean_model = req.generation_model.strip()
+        if not clean_model or len(clean_model) > MAX_MODEL_NAME_LEN or not MODEL_NAME_PATTERN.match(clean_model):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid model name format. Model name must be 1-{MAX_MODEL_NAME_LEN} characters matching ^[a-zA-Z0-9_.:\\-\\/]+$",
+            )
         default_ollama_provider.model = clean_model
         logger.info("Switched active generation model to: %s", clean_model)
 
