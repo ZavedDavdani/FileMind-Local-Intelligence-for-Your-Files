@@ -20,6 +20,18 @@ import {
   FolderInsight,
   KnowledgeConnectionsResponse,
   RelatedFilesResponse,
+  ChatMessageItem,
+  ConversationItem,
+  ConversationDetail,
+  CreateConversationRequest,
+  SendChatMessageRequest,
+  FileComparisonResponse,
+  FileSynthesisResponse,
+  KnowledgeOverviewResponse,
+  ModelStatusResponse,
+  StorageStatsResponse,
+  DiagnosticsResponse,
+  ExportResponse,
 } from "../types";
 
 const BACKEND_BASE_URL = "http://127.0.0.1:24823";
@@ -726,4 +738,234 @@ export async function fetchKnowledgeConnections(fileId: string, signal?: AbortSi
   const data = await requestJson<unknown>(`${BACKEND_BASE_URL}/ai/connections/${fileId}`, { method: "GET", signal }, "Fetch Knowledge Connections");
   if (!isObject(data)) throw new Error("Invalid /ai/connections response shape");
   return data as KnowledgeConnectionsResponse;
+}
+
+
+// ---------------------------------------------------------------------------
+// Phase 7+: Persistent Chat & Multi-Turn APIs
+// ---------------------------------------------------------------------------
+
+export async function fetchConversations(signal?: AbortSignal): Promise<ConversationItem[]> {
+  const data = await requestJson<unknown>(
+    `${BACKEND_BASE_URL}/api/chat/conversations`,
+    { method: "GET", signal },
+    "Fetch conversations"
+  );
+  return extractArrayFromEnvelope<ConversationItem>(data, "conversations", "/api/chat/conversations");
+}
+
+export async function createConversation(
+  req: CreateConversationRequest,
+  signal?: AbortSignal
+): Promise<ConversationItem> {
+  const data = await requestJson<ConversationItem>(
+    `${BACKEND_BASE_URL}/api/chat/conversations`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+      signal,
+    },
+    "Create conversation"
+  );
+  return data;
+}
+
+export async function fetchConversation(
+  conversationId: string,
+  signal?: AbortSignal
+): Promise<ConversationDetail> {
+  const data = await requestJson<ConversationDetail>(
+    `${BACKEND_BASE_URL}/api/chat/conversations/${conversationId}`,
+    { method: "GET", signal },
+    "Fetch conversation detail"
+  );
+  return data;
+}
+
+export async function deleteConversation(
+  conversationId: string,
+  signal?: AbortSignal
+): Promise<void> {
+  await requestJson<void>(
+    `${BACKEND_BASE_URL}/api/chat/conversations/${conversationId}`,
+    { method: "DELETE", signal },
+    "Delete conversation"
+  );
+}
+
+export async function updateConversationTitle(
+  conversationId: string,
+  title: string,
+  signal?: AbortSignal
+): Promise<ConversationItem> {
+  const data = await requestJson<ConversationItem>(
+    `${BACKEND_BASE_URL}/api/chat/conversations/${conversationId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+      signal,
+    },
+    "Update conversation title"
+  );
+  return data;
+}
+
+export async function sendChatMessage(
+  conversationId: string,
+  req: SendChatMessageRequest,
+  signal?: AbortSignal
+): Promise<ChatMessageItem> {
+  const data = await requestJson<ChatMessageItem>(
+    `${BACKEND_BASE_URL}/api/chat/conversations/${conversationId}/messages`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+      signal,
+    },
+    "Send chat message"
+  );
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8+: Cross-File Intelligence & Synthesis APIs
+// ---------------------------------------------------------------------------
+
+export async function compareFiles(
+  fileIds: string[],
+  focusAreas: string[] = [],
+  signal?: AbortSignal
+): Promise<FileComparisonResponse> {
+  const data = await requestJson<FileComparisonResponse>(
+    `${BACKEND_BASE_URL}/api/knowledge/compare`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_ids: fileIds, focus_areas: focusAreas }),
+      signal,
+    },
+    "Compare files"
+  );
+  return data;
+}
+
+export async function synthesizeFiles(
+  fileIds: string[],
+  topic?: string,
+  signal?: AbortSignal
+): Promise<FileSynthesisResponse> {
+  const data = await requestJson<FileSynthesisResponse>(
+    `${BACKEND_BASE_URL}/api/knowledge/synthesize`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_ids: fileIds, topic: topic || "" }),
+      signal,
+    },
+    "Synthesize files"
+  );
+  return data;
+}
+
+export async function fetchKnowledgeOverview(
+  signal?: AbortSignal
+): Promise<KnowledgeOverviewResponse> {
+  const data = await requestJson<KnowledgeOverviewResponse>(
+    `${BACKEND_BASE_URL}/api/knowledge/overview`,
+    { method: "GET", signal },
+    "Fetch knowledge overview"
+  );
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 9+: Models & Diagnostics Settings APIs
+// ---------------------------------------------------------------------------
+
+export async function fetchModelStatus(signal?: AbortSignal): Promise<ModelStatusResponse> {
+  const data = await requestJson<ModelStatusResponse>(
+    `${BACKEND_BASE_URL}/api/models/status`,
+    { method: "GET", signal },
+    "Fetch models status"
+  );
+  return data;
+}
+
+export async function selectChatModel(
+  modelName: string,
+  signal?: AbortSignal
+): Promise<{ status: string; active_chat_model: string }> {
+  const data = await requestJson<{ status: string; active_chat_model: string }>(
+    `${BACKEND_BASE_URL}/api/models/select`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model_name: modelName }),
+      signal,
+    },
+    "Select chat model"
+  );
+  return data;
+}
+
+export async function fetchStorageStats(signal?: AbortSignal): Promise<StorageStatsResponse> {
+  const data = await requestJson<StorageStatsResponse>(
+    `${BACKEND_BASE_URL}/api/settings/storage`,
+    { method: "GET", signal },
+    "Fetch storage stats"
+  );
+  return data;
+}
+
+export async function fetchDiagnostics(signal?: AbortSignal): Promise<DiagnosticsResponse> {
+  const data = await requestJson<DiagnosticsResponse>(
+    `${BACKEND_BASE_URL}/api/settings/diagnostics`,
+    { method: "GET", signal },
+    "Fetch diagnostics"
+  );
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 10+: Evidence Export APIs
+// ---------------------------------------------------------------------------
+
+export async function exportConversation(
+  conversationId: string,
+  format: "markdown" | "json" | "text" = "markdown",
+  includeCitations = true,
+  signal?: AbortSignal
+): Promise<ExportResponse> {
+  const params = new URLSearchParams({
+    format,
+    include_citations: String(includeCitations),
+  });
+  const data = await requestJson<ExportResponse>(
+    `${BACKEND_BASE_URL}/api/export/conversation/${conversationId}?${params.toString()}`,
+    { method: "GET", signal },
+    "Export conversation"
+  );
+  return data;
+}
+
+export async function exportSearchResults(
+  query: string,
+  format: "markdown" | "json" | "csv" = "markdown",
+  folderId?: string,
+  signal?: AbortSignal
+): Promise<ExportResponse> {
+  const data = await requestJson<ExportResponse>(
+    `${BACKEND_BASE_URL}/api/export/search`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, format, folder_id: folderId }),
+      signal,
+    },
+    "Export search results"
+  );
+  return data;
 }

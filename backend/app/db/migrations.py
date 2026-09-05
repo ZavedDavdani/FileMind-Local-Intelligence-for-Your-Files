@@ -3,7 +3,7 @@
 import sqlite3
 from typing import List, Tuple
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 
 MIGRATION_V1_SQL = """
@@ -301,6 +301,36 @@ SELECT rowid, filename, relative_path, COALESCE(sha256, ''), file_id FROM files;
 """
 
 
+MIGRATION_V10_SQL = """
+-- Persistent Conversations table
+CREATE TABLE IF NOT EXISTS conversations (
+    conversation_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    scope_type TEXT NOT NULL DEFAULT 'ALL' CHECK (scope_type IN ('ALL', 'FOLDER', 'FILE')),
+    scope_id TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Chat Messages table with citations and evidence tracking
+CREATE TABLE IF NOT EXISTS chat_messages (
+    message_id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+    content TEXT NOT NULL,
+    citations TEXT NOT NULL DEFAULT '[]',
+    evidence_status TEXT,
+    generation_status TEXT,
+    model_identity TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_conv_created ON chat_messages(conversation_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
+"""
+
+
 def apply_migrations(conn: sqlite3.Connection) -> int:
     """Applies all pending database migrations in order."""
     cursor = conn.cursor()
@@ -363,5 +393,10 @@ def apply_migrations(conn: sqlite3.Connection) -> int:
         cursor.executescript(MIGRATION_V9_SQL)
         cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (9);")
         current_version = 9
+
+    if current_version < 10:
+        cursor.executescript(MIGRATION_V10_SQL)
+        cursor.execute("INSERT OR REPLACE INTO schema_migrations (version) VALUES (10);")
+        current_version = 10
 
     return current_version

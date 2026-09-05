@@ -71,7 +71,7 @@ class TestCleanEnvironmentAndDatabase:
 
             with db.session() as conn:
                 version = apply_migrations(conn)
-                assert version == 9
+                assert version == 10
 
                 # Verify WAL and FTS5 tables exist
                 cursor = conn.execute("PRAGMA journal_mode;")
@@ -87,11 +87,13 @@ class TestCleanEnvironmentAndDatabase:
                 assert "embedding_index_metadata" in tables
                 assert "document_insights" in tables
                 assert "folder_insights" in tables
+                assert "conversations" in tables
+                assert "chat_messages" in tables
 
             # Reopening existing database does not break or re-apply destructively
             with db.session() as conn:
                 v2 = apply_migrations(conn)
-                assert v2 == 9
+                assert v2 == 10
 
 
 class TestEndToEndWindowsIndexingAndRetrieval:

@@ -14,13 +14,18 @@ from app.db.connection import db_manager
 from app.engine.coordinator import coordinator
 from app.routers import (
     ai_router,
+    chat_router,
     events_router,
+    export_router,
     files_router,
     folders_router,
     fs_actions_router,
     indexing_router,
     jobs_router,
+    knowledge_router,
+    models_router,
     search_router,
+    settings_router,
 )
 from app.schemas import HealthResponse
 
@@ -168,6 +173,11 @@ app.include_router(jobs_router)
 app.include_router(fs_actions_router)
 app.include_router(search_router)
 app.include_router(ai_router)
+app.include_router(chat_router)
+app.include_router(knowledge_router)
+app.include_router(models_router)
+app.include_router(settings_router)
+app.include_router(export_router)
 
 
 def start():

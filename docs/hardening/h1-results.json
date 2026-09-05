@@ -1,7 +1,7 @@
 {
   "hardening_task": "H1_WINDOWS_JOB_OBJECT_LIFECYCLE",
   "status": "PASS",
-  "timestamp": "2026-09-05T08:20:25Z",
+  "timestamp": "2026-09-05T08:43:49Z",
   "platform": "win32",
   "job_object_configured": true,
   "limit_flags": "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE (0x00002000)",
@@ -9,20 +9,20 @@
   "scenarios": {
     "scenario_a_graceful_close": {
       "status": "PASS",
-      "parent_pid": 1664,
-      "child_pid": 10796,
+      "parent_pid": 6308,
+      "child_pid": 23520,
       "in_job_object": true,
-      "child_termination_latency_ms": 17.95,
+      "child_termination_latency_ms": 10.61,
       "child_terminated": true
     },
     "scenario_b_forced_parent_kill": {
       "status": "PASS",
-      "parent_pid": 10808,
-      "child_pid": 17488,
+      "parent_pid": 9728,
+      "child_pid": 17412,
       "in_job_object": true,
       "forced_kill_parent": true,
       "job_object_child_kill_verified": true,
-      "child_termination_latency_ms": 72.25,
+      "child_termination_latency_ms": 21.02,
       "child_terminated": true
     },
     "scenario_c_relaunch_health": {

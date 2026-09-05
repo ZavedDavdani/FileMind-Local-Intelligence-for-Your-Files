@@ -511,3 +511,155 @@ export interface KnowledgeConnectionsResponse {
   source_file: { file_id: string; filename: string; path: string; relative_path?: string | null; content_hash?: string | null };
   connections: KnowledgeConnection[];
 }
+
+
+// ---------------------------------------------------------------------------
+// Phase 7+: Persistent Chat & Multi-Turn Types
+// ---------------------------------------------------------------------------
+
+export type ChatScope = "ALL" | "FOLDER" | "FILE";
+
+export interface ChatMessageItem {
+  message_id: string;
+  conversation_id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  citations: CitationItem[];
+  generation_status?: string | null;
+  evidence_status?: string | null;
+  model_name?: string | null;
+  created_at: string;
+}
+
+export interface ConversationItem {
+  conversation_id: string;
+  title: string;
+  scope_type: ChatScope;
+  scope_id?: string | null;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationDetail {
+  conversation_id: string;
+  title: string;
+  scope_type: ChatScope;
+  scope_id?: string | null;
+  messages: ChatMessageItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateConversationRequest {
+  title?: string;
+  scope_type?: ChatScope;
+  scope_id?: string | null;
+}
+
+export interface SendChatMessageRequest {
+  content: string;
+  scope_type?: ChatScope;
+  scope_id?: string | null;
+  quality?: "fast" | "quality" | string;
+  mode?: "hybrid" | "bm25" | "dense" | string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8+: Cross-File Intelligence & Synthesis Types
+// ---------------------------------------------------------------------------
+
+export interface ComparisonPoint {
+  aspect: string;
+  file_details: Record<string, string>;
+  summary: string;
+}
+
+export interface FileComparisonResponse {
+  file_ids: string[];
+  files: Array<{ file_id: string; filename: string; path: string }>;
+  comparison_points: ComparisonPoint[];
+  executive_summary: string;
+  citations: CitationItem[];
+  generation_status: string;
+}
+
+export interface FileSynthesisResponse {
+  file_ids: string[];
+  files: Array<{ file_id: string; filename: string; path: string }>;
+  topic: string;
+  synthesized_summary: string;
+  common_themes: string[];
+  key_insights: string[];
+  citations: CitationItem[];
+  generation_status: string;
+}
+
+export interface TopicCluster {
+  topic: string;
+  file_count: number;
+  files: Array<{ file_id: string; filename: string; preview: string }>;
+}
+
+export interface KnowledgeOverviewResponse {
+  total_indexed_files: number;
+  total_chunks: number;
+  estimated_tokens: number;
+  dominant_topics: string[];
+  clusters: TopicCluster[];
+  recent_insights: Array<{
+    file_id: string;
+    filename: string;
+    summary_preview: string;
+    updated_at: string;
+  }>;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 9+: Models & Diagnostics Settings Types
+// ---------------------------------------------------------------------------
+
+export interface ModelStatusResponse {
+  available_models: string[];
+  active_chat_model: string;
+  active_embedding_model: string;
+  active_reranker_model: string;
+  is_ollama_online: boolean;
+  endpoint: string;
+  system_recommendations: Record<string, string>;
+}
+
+export interface StorageStatsResponse {
+  database_size_bytes: number;
+  database_size_mb: number;
+  fts_size_bytes: number;
+  vec_size_bytes: number;
+  total_storage_mb: number;
+  db_path: string;
+}
+
+export interface DiagnosticsResponse {
+  system_os: string;
+  app_version: string;
+  schema_version: number;
+  database_status: string;
+  sqlite_version: string;
+  vec_version: string;
+  ollama_status: string;
+  active_workers: number;
+  total_folders_watched: number;
+  indexed_file_count: number;
+  error_count: number;
+  recent_errors: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Phase 10+: Export Types
+// ---------------------------------------------------------------------------
+
+export interface ExportResponse {
+  format: string;
+  filename: string;
+  mime_type: string;
+  content: string;
+}

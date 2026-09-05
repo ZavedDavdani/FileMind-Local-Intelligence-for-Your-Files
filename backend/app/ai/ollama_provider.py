@@ -295,3 +295,6 @@ def check_ollama_readiness(
             "endpoint": url,
             "error": str(exc),
         }
+
+
+default_ollama_provider = OllamaProvider()

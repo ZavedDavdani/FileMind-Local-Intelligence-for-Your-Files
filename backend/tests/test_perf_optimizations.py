@@ -327,9 +327,9 @@ def test_migration_v8_to_v9_backfill(tmp_path):
     )
     conn.commit()
 
-    # Now apply migrations to upgrade to V9
+    # Now apply migrations to upgrade to V10
     version_after = apply_migrations(conn)
-    assert version_after == SCHEMA_VERSION == 9
+    assert version_after == SCHEMA_VERSION == 10
 
     # Verify files_fts exists and contains the pre-existing file
     repo = FileRepository(conn)

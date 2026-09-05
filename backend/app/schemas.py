@@ -578,3 +578,154 @@ class KnowledgeConnectionSchema(BaseModel):
 class KnowledgeConnectionsResponse(BaseModel):
     source_file: ConnectionFileSchema
     connections: List[KnowledgeConnectionSchema] = Field(default_factory=list)
+
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Persistent Chat & Conversation Schemas
+# ---------------------------------------------------------------------------
+
+class ConversationScopeType(str, Enum):
+    ALL = "ALL"
+    FOLDER = "FOLDER"
+    FILE = "FILE"
+
+
+class ConversationCreate(BaseModel):
+    title: Optional[str] = Field("New Conversation", description="Title of the conversation")
+    scope_type: ConversationScopeType = Field(ConversationScopeType.ALL, description="Scope of knowledge retrieval")
+    scope_id: Optional[str] = Field(None, description="folder_id or file_id when scoped")
+
+
+class ConversationUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, description="Updated conversation title")
+
+
+class ChatMessageResponse(BaseModel):
+    message_id: str
+    conversation_id: str
+    role: str
+    content: str
+    citations: List[CitationItem] = Field(default_factory=list)
+    evidence_status: Optional[str] = None
+    generation_status: Optional[str] = None
+    model_identity: Optional[Dict[str, Any]] = None
+    created_at: str
+
+
+class ConversationResponse(BaseModel):
+    conversation_id: str
+    title: str
+    scope_type: str
+    scope_id: Optional[str] = None
+    created_at: str
+    updated_at: str
+    message_count: int = 0
+    last_message: Optional[str] = None
+
+
+class ConversationDetailResponse(BaseModel):
+    conversation: ConversationResponse
+    messages: List[ChatMessageResponse] = Field(default_factory=list)
+
+
+class SendChatMessageRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=4000, description="User question or prompt")
+    mode: Optional[str] = Field("hybrid", description="Retrieval mode: hybrid, bm25, dense")
+    quality: Optional[str] = Field("fast", description="Generation quality mode: fast or quality")
+    top_k: Optional[int] = Field(5, ge=1, le=20, description="Max evidence chunks to retrieve")
+
+
+# ---------------------------------------------------------------------------
+# Phase 10: Model Management Schemas
+# ---------------------------------------------------------------------------
+
+class InstalledModelItem(BaseModel):
+    name: str
+    size_bytes: Optional[int] = None
+    digest: Optional[str] = None
+    modified_at: Optional[str] = None
+    is_recommended: bool = False
+    parameter_size: Optional[str] = None
+
+
+class ModelStatusResponse(BaseModel):
+    is_ollama_online: boolean if False else bool = True
+    active_generation_model: str = "qwen3:4b"
+    active_embedding_model: str = "all-minilm"
+    available_models: List[InstalledModelItem] = Field(default_factory=list)
+    endpoint: str = "http://127.0.0.1:11434"
+    status_message: str = "Ready"
+
+
+class ModelSelectionRequest(BaseModel):
+    generation_model: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Phase 11 & 12: Settings, Storage, and Diagnostics Schemas
+# ---------------------------------------------------------------------------
+
+class StorageStatsResponse(BaseModel):
+    app_data_path: str
+    db_size_bytes: int
+    total_files_indexed: int
+    total_chunks: int
+    wal_size_bytes: int = 0
+    document_insights_count: int = 0
+    folder_insights_count: int = 0
+    conversations_count: int = 0
+
+
+class DiagnosticsResponse(BaseModel):
+    version: str
+    platform: str
+    database_status: str
+    vector_store_status: str
+    worker_pool_status: str
+    watcher_status: str
+    ollama_status: str
+    uptime_seconds: float
+
+
+# ---------------------------------------------------------------------------
+# Phase 15: Export & Synthesis Schemas
+# ---------------------------------------------------------------------------
+
+class ExportFormat(str, Enum):
+    MARKDOWN = "markdown"
+    JSON = "json"
+    TEXT = "text"
+
+
+class ExportConversationRequest(BaseModel):
+    format: ExportFormat = ExportFormat.MARKDOWN
+    include_citations: bool = True
+    include_timestamps: bool = True
+
+
+class ExportSearchRequest(BaseModel):
+    query: str
+    format: ExportFormat = ExportFormat.MARKDOWN
+    results: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ExportResponse(BaseModel):
+    format: str
+    filename: str
+    content_type: str
+    content: str
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Cross-File Intelligence Schemas
+# ---------------------------------------------------------------------------
+
+class CompareFilesRequest(BaseModel):
+    file_ids: List[str] = Field(..., min_length=2, max_length=5, description="File IDs to compare")
+    aspects: Optional[List[str]] = Field(default_factory=list, description="Specific topics or aspects to compare")
+
+
+class MultiFileSummaryRequest(BaseModel):
+    file_ids: List[str] = Field(..., min_length=1, max_length=10, description="File IDs to synthesize")
+    focus_query: Optional[str] = None
