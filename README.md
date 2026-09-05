@@ -27,18 +27,18 @@ Unlike cloud-based tools that require uploading your private documents to extern
 ## Key Features
 
 - **100% Local-First Privacy**: Zero cloud uploads, zero telemetry, and zero external API dependencies for core indexing, vector search, and reranking.
-- **Multi-Stage Hybrid Search (Ctrl + K)**: Combines SQLite FTS5 BM25 lexical search and `sqlite-vec` dense embeddings via Reciprocal Rank Fusion (RRF), with optional cross-encoder neural reranking.
-- **Grounded Multi-Turn Chat (Ctrl + J)**: Ask natural language questions across your documents. Answers are strictly constrained to retrieved evidence and include interactive provenance citations.
+- **Multi-Stage Hybrid Search (Ctrl + K)**: Combines SQLite FTS5 BM25 lexical search and `sqlite-vec` dense embeddings via Reciprocal Rank Fusion (RRF), with optional cross-encoder neural reranking and mutation-invalidated query caching.
+- **Grounded Multi-Turn Chat (Ctrl + J)**: Ask natural language questions across your documents. Answers are strictly constrained to retrieved evidence, include multi-turn conversational memory, and feature interactive provenance citations.
 - **Granular Chat Scopes**:
   - **All Files**: Query across your entire indexed document library.
   - **Folder Scope**: Restrict conversations strictly to a specific project or directory.
   - **File Scope**: Conduct deep single-document question answering and analysis.
 - **Cross-File Intelligence & Synthesis**:
-  - **Document Comparison**: Compare 2 to 5 documents side-by-side across key dimensions.
-  - **Multi-File Synthesis**: Synthesize themes, decisions, and insights across up to 10 files.
-  - **Corpus Overview**: View dominant topics, semantic document clusters, and recent insights.
-- **Interactive Citations & Evidence Inspector**: Every AI answer links directly to the exact file, page number, spreadsheet tab, slide number, or line span.
-- **Real-Time Filesystem Watching**: Automatically detects new, modified, renamed, or deleted files in tracked folders without requiring manual re-indexing.
+  - **Document Comparison**: Compare 2 to 5 documents side-by-side across key dimensions with grounded matrix scoring.
+  - **Multi-File Synthesis**: Synthesize themes, decisions, and insights across up to 10 files using batch retrieval.
+  - **Corpus Overview**: View dominant topics, semantic document clusters, and recent insights across all indexed folders.
+- **Interactive Citations & Evidence Inspector**: Every AI answer links directly to the exact file, page number, spreadsheet tab, slide number, section heading, line span, or audio/video timestamp.
+- **Real-Time Filesystem Watching**: Automatically detects new, modified, renamed, or deleted files in tracked folders with debounced background indexing.
 - **Evidence & Transcript Export**: Export chat sessions and research findings in formatted Markdown (with footnote citations), structured JSON, or plain text.
 - **Local Model Management**: Compatible with local Ollama models (`llama3.2`, `mistral`, `gemma2`, `phi3`, etc.) with automatic offline degradation.
 
@@ -58,11 +58,11 @@ flowchart TD
 
     %% Ingestion Pipeline
     User(["User"]):::userNode
-    User -->|Selects folders & files| FS["Local File System<br/><small>Documents • Folders • Files • Media</small>"]:::rectNode
+    User -->|Selects folders & files| FS["Local File System<br/><small>Documents • Spreadsheets • Media • Code</small>"]:::rectNode
     FS --> Discovery["File Discovery & Watcher<br/><small>Scan • Create • Modify • Rename • Delete</small>"]:::rectNode
     Discovery --> FormatDet["Multi-Format Detection<br/><small>Magic Bytes • Extension • MIME Inspection</small>"]:::rectNode
-    FormatDet --> ParserReg["Parser Registry<br/><small>PDF • DOCX • PPTX • XLSX • CSV • Markdown • Code • Images • Audio</small>"]:::rectNode
-    ParserReg --> ContentExt["Content Extraction<br/><small>Text • Tables • Metadata • Visual Content</small>"]:::rectNode
+    FormatDet --> ParserReg["Parser Registry<br/><small>PDF • Office • Spreadsheets • Code • Images • Audio • Video</small>"]:::rectNode
+    ParserReg --> ContentExt["Content Extraction<br/><small>Text • Tables • Metadata • OCR • Audio Transcripts</small>"]:::rectNode
     ContentExt --> Provenance["Provenance Tracking<br/><small>File • Page • Section • Line • Sheet • Slide • Timestamp</small>"]:::rectNode
     Provenance --> Normalization["Content Normalization<br/><small>Unified Document Representation</small>"]:::rectNode
     Normalization --> Chunking["Hierarchical Chunking<br/><small>Structure-Aware • Bounded • Context Preserving</small>"]:::rectNode
@@ -86,12 +86,12 @@ flowchart TD
     OfflineState --> UIOutput
 
     LocalAI --> GroundedAns["Grounded Answer<br/><small>Evidence-Constrained Generation</small>"]:::rectNode
-    GroundedAns --> Citations["Interactive Citations<br/><small>Source File • Page • Sheet • Slide • Section • Line</small>"]:::rectNode
+    GroundedAns --> Citations["Interactive Citations<br/><small>Source File • Page • Sheet • Slide • Section • Line • Timestamp</small>"]:::rectNode
     Citations --> UIOutput(["User Output<br/><small>Search Result • Grounded Answer • Verified Evidence</small>"]):::userNode
 
     %% Chat Scope Branch
     UserQuery --> ChatBranch["Chat Workspace"]:::branchTitle
-    ChatBranch --> ConvHist["Conversation History<br/><small>Persistent Threads</small>"]:::rectNode
+    ChatBranch --> ConvHist["Conversation History<br/><small>Persistent Multi-Turn Threads</small>"]:::rectNode
     ConvHist --> ScopeDecision{"Chat Scope?"}:::decisionNode
     ScopeDecision -->|ALL| ScopeAll["Entire Indexed Corpus"]:::rectNode
     ScopeDecision -->|FOLDER| ScopeFolder["Selected Folder Only"]:::rectNode
@@ -108,33 +108,35 @@ For detailed architectural specifications, see [docs/architecture.md](docs/archi
 
 ## Supported File Formats
 
-FileMind includes built-in structure-aware extractors for:
+FileMind includes built-in, structure-aware extractors across documents, spreadsheets, source code, images, audio, and video:
 
-| Category | Extensions | Features Extracted |
+| Category | Extensions | Extracted Features & Intelligence |
 | :--- | :--- | :--- |
-| **PDF Documents** | `.pdf` | Multi-page text streams, tables, visual headings (`H1 > H2`), page coordinates |
-| **Word Documents** | `.docx` | Headings, styled paragraphs, tables, embedded metadata |
-| **Presentations** | `.pptx` | Slide titles, slide numbers, body text, notes |
-| **Spreadsheets** | `.xlsx`, `.csv` | Sheet names, tabular rows/columns, cell values |
-| **Markdown & Text** | `.md`, `.txt`, `.rtf` | Structured markdown headings, code blocks, lists, lines |
-| **Source Code** | `.py`, `.ts`, `.tsx`, `.js`, `.rs`, `.go`, `.c`, `.cpp`, `.h`, `.json`, `.xml`, `.html` | Indentation-aware blocks, functions, declarations, comments |
-| **Images** | `.png`, `.jpg`, `.jpeg`, `.webp` | EXIF metadata, visual content descriptions, image dimensions |
-| **Audio** | `.mp3`, `.wav`, `.m4a`, `.flac` | Media metadata, duration, audio track attributes |
+| **PDF Documents** | `.pdf` | Multi-page text streams, visual headings (`H1 > H2`), table detection, page numbers, and bounding coordinates |
+| **Word Documents** | `.docx`, `.doc` | Modern DOCX headings, styled paragraphs, tables, document metadata; legacy DOC binary stream extraction with memory bounds |
+| **Presentations** | `.pptx`, `.ppt` | Slide titles, slide numbers, body hierarchy, speaker notes; legacy PPT binary stream extraction |
+| **Spreadsheets** | `.xlsx`, `.xls`, `.csv`, `.tsv` | Multi-sheet inspection, structured tabular rows and columns, headers, cell values, and CSV/TSV delimiters |
+| **Structured Data & Web** | `.json`, `.xml`, `.html`, `.htm`, `.rtf` | JSON key-value trees, safe XML parsing (XXE protected), semantic HTML DOM extraction, RTF control-word stripping & unicode decoding |
+| **Markdown & Plain Text** | `.md`, `.markdown`, `.txt`, `.log` | Heading hierarchies, code fences, blockquotes, lists, and line span provenance |
+| **Source Code & Config** | `.py`, `.ts`, `.tsx`, `.js`, `.jsx`, `.rs`, `.go`, `.c`, `.cpp`, `.h`, `.hpp`, `.java`, `.sql`, `.sh`, `.bat`, `.ps1`, `.css`, `.yaml`, `.yml`, `.toml`, `.ini`, `.cfg` | Indentation-aware syntax preservation, function and class definitions, comments, and configuration key-values |
+| **Images** | `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.tiff`, `.tif`, `.ico`, `.svg` | Dimensions, color modes, EXIF metadata, defused SVG XML parsing, local OCR text extraction, optional local vision model descriptions |
+| **Audio Media** | `.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`, `.aac`, `.wma` | Header inspection, duration, sample rate, channels, and local Whisper / Faster-Whisper timestamped transcript segments |
+| **Video Media** | `.mp4`, `.mkv`, `.mov`, `.avi`, `.webm`, `.wmv` | MP4/MKV container metadata, duration, video resolution, and audio track transcription segments with time-range provenance |
 
 ---
 
 ## Local AI Setup & Requirements
 
-### 1. Built-in Local AI (No Setup Required)
-FileMind comes out-of-the-box with embedded local AI engines for search and reranking:
-- **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2` via CPU-optimized FastEmbed ONNX Runtime (384 dimensions).
-- **Reranker**: `ms-marco-MiniLM-L-6-v2` cross-encoder for deep candidate reordering in Quality Mode.
+### 1. Built-in Local AI (Zero Configuration Required)
+FileMind comes out-of-the-box with embedded local AI engines for search, vector indexing, and neural reranking:
+- **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2` via CPU-optimized FastEmbed ONNX Runtime (384 dimensions, vectorized L2 normalization).
+- **Reranker**: `ms-marco-MiniLM-L-6-v2` cross-encoder for deep candidate reordering in Quality Mode with bounded context windowing.
 
 ### 2. Generative LLM for Chat (Ollama)
-For grounded natural language chat and multi-document synthesis, FileMind connects to a local [Ollama](https://ollama.com) instance:
+For grounded natural language chat, multi-document synthesis, and file comparison, FileMind connects to a local [Ollama](https://ollama.com) instance:
 
 1. **Install Ollama**: Download from [ollama.com](https://ollama.com).
-2. **Pull a Recommended Model**:
+2. **Pull a Model**:
    ```powershell
    ollama pull llama3.2
    ```
@@ -150,9 +152,33 @@ For grounded natural language chat and multi-document synthesis, FileMind connec
 
 1. Download the latest installer from the Releases page.
 2. Launch `FileMind.exe`.
-3. In the **Files & Folders** tab, click **+ Add Folder** and select any local folder (e.g., `Documents` or project directory).
-4. FileMind automatically indexes your files.
-5. Use **Ctrl + K** to search, or switch to the **Chat Workspace** to start asking questions!
+3. In the **Files & Folders** tab, click **+ Add Folder** and select any local folder (e.g., `Documents` or a project directory).
+4. FileMind automatically indexes your files in the background.
+5. Use **Ctrl + K** to search, or switch to the **Chat Workspace** (**Ctrl + J**) to start asking questions!
+
+---
+
+## Workspaces & User Interface
+
+### 1. Search (Ctrl + K)
+- **Instant Multi-Stage Hybrid Search**: Fast lexical BM25 matching combined with dense vector semantic search.
+- **Quality Mode Toggle**: Run neural cross-encoder reranking on top candidates for precision research queries.
+- **Evidence Inspector**: View source text, confidence score, file path, and exact coordinates.
+
+### 2. Chat Workspace (Ctrl + J)
+- **Persistent Threads**: Multi-turn conversations saved locally with deterministic message ordering.
+- **Granular Scoping**: Scope conversations to **All Files**, a **Folder**, or a single **File**.
+- **Evidence Citations**: Interactive citation badges navigate directly to the exact file, page, slide, sheet, or timestamp.
+
+### 3. Knowledge Workspace
+- **Document Comparison**: Compare 2 to 5 documents side-by-side across key dimensions with grounded matrix scoring.
+- **Multi-File Synthesis**: Synthesize themes, decisions, and action items across up to 10 files using batch chunk queries.
+- **Corpus Overview**: Discover dominant topics, semantic clusters, and recent insights across all indexed folders.
+
+### 4. Settings & Diagnostics
+- **Indexing Controls**: Configure file extensions, exclusion patterns, max file size limits, and OCR/Vision toggles.
+- **Search Tuning**: Customize top-k candidate limits, RRF weights, and reranker parameters.
+- **System Health**: View live database status, storage usage, memory usage, background watcher status, and Ollama connection health.
 
 ---
 
@@ -194,11 +220,14 @@ npm run tauri dev
 
 ## Testing & Verification
 
-FileMind includes a comprehensive automated test suite across backend AI pipelines, filesystem watchers, database migrations, and desktop wrappers.
+FileMind includes a comprehensive automated test suite across backend AI pipelines, filesystem watchers, database migrations, and desktop wrappers:
 
 ```powershell
-# Run the complete backend test suite (660+ tests)
-pytest backend/tests -v
+# Run the complete backend test suite (700 tests)
+pytest backend/tests -q
+
+# Run targeted remediation verification suite (30 tests)
+pytest backend/tests/test_remediation_chunk1.py backend/tests/test_remediation_chunk2.py backend/tests/test_remediation_chunk3.py backend/tests/test_remediation_chunk4.py backend/tests/test_remediation_chunk5.py -v
 
 # Run frontend typecheck and production build
 cd frontend
@@ -215,6 +244,7 @@ cargo check
 
 - **Strict Loopback Binding**: The local backend API listens exclusively on `127.0.0.1:24823`. Remote connections are rejected.
 - **Process Isolation**: The Python backend is supervised via Windows Job Objects (`KILL_ON_JOB_CLOSE`), ensuring child processes terminate cleanly when the window is closed.
+- **Defused XML & Safe Parsing**: XML, SVG, and office formats use entity-expansion protected defused parsers to prevent XXE and billion-laughs vulnerabilities.
 - **Path Containment**: File operations and search queries are strictly bounded to registered folders, preventing directory traversal.
 - **Prompt Injection Defense**: Retrieved evidence is isolated within untrusted content blocks during LLM prompt assembly.
 
